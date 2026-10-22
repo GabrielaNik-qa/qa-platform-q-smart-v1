@@ -4,7 +4,7 @@ const crypto = require('crypto'), nodemailer = require('nodemailer'), ExcelJS = 
 const { DEFAULT_SC, build } = require('./scorecard');
 const { ensureBootstrap, uname, ADMIN_TEAM } = require('./bootstrap');
 
-const FILE = path.join(__dirname, 'data.json');            // <- this file IS the database
+const FILE = path.join(__dirname, 'data.json'), SEED = path.join(__dirname, 'seed-data.json');            // <- this file IS the database
 const DEFAULT_PASSWORD = 'password';                       // every user created in the app starts with this and must change it at first login
 const ROLES = ['admin', 'qa', 'lead', 'trainer', 'agent'];
 const STAFF = ['admin', 'qa', 'lead', 'trainer'];          // everyone who is not an agent
@@ -17,6 +17,7 @@ const iso = () => new Date().toISOString();
 // ------------------------------------------------------------------ database
 function save(db) { fs.writeFileSync(FILE, JSON.stringify(db, null, 2)); }
 function load() {
+  if (!fs.existsSync(FILE) && fs.existsSync(SEED)) fs.copyFileSync(SEED, FILE);      // a new folder or worktree starts with the saved seed data
   const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : { users: [], evaluations: [] };
   let dirty = false;
   if (!Array.isArray(db.scorecards) || !db.scorecards.length) db.scorecards = [DEFAULT_SC];
