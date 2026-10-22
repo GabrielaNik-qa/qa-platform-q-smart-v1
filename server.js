@@ -84,8 +84,14 @@ const pwBad = p => {
 // first letter of the first name + "." + last name, lowercase, no accents or spaces
 const plain = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const makeUsername = (first, last) => plain(first).slice(0, 1) + '.' + plain(last);
+// first and last name come as two fields; the full name is always "First Last" (older callers may still send only a full name)
+const nameParts = b => {
+  let f = str(b.firstName, 40), l = str(b.lastName, 40);
+  if (!f && !l) { const p = str(b.name, 80).split(/\s+/); f = p[0] || ''; l = p.slice(1).join(' '); }
+  return { firstName: f, lastName: l, name: (f + ' ' + l).trim() };
+};
 const validEmail = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
-const pub = u => ({ username: u.username, name: u.name, email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {} });
+const pub = u => ({ username: u.username, name: u.name, firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {} });
 // skills and languages can only be picked from the catalog (Admin > Skills); unknown names are dropped, spelling is normalised
 const pick = (v, catalog) => { const out = []; (Array.isArray(v) ? v : String(v || '').split(',')).forEach(x => { const m = (catalog || []).find(c => c.toLowerCase() === String(x).trim().toLowerCase()); if (m && !out.includes(m)) out.push(m); }); return out; };
 const rosterPub = u => ({ username: u.username, name: u.name, role: u.role, team: u.team || '', title: u.title || '', desc: u.desc || '', languages: u.languages || [], skills: u.skills || [], start: u.start || '', active: u.active !== false });
@@ -140,11 +146,12 @@ app.get('/api/me', authed, (req, res) => {
 });
 app.put('/api/profile', need(), (req, res) => {
   const db = load(), u = userBy(db, req.session.user.username), b = req.body || {};
-  const name = str(b.name, 80), email = str(b.email, 120).toLowerCase();
-  if (!name) return bad(res, 'Enter your name');
+  const np = nameParts(b), email = str(b.email, 120).toLowerCase();
+  if (!np.firstName) return bad(res, 'Enter your first name');
+  if (!np.lastName) return bad(res, 'Enter your last name');
   if (email && !validEmail(email)) return bad(res, 'Enter a valid email address');
   if (email && db.users.some(x => x !== u && (x.email || '').toLowerCase() === email)) return bad(res, 'That email is already used by another account');
-  u.name = name; u.email = email;
+  Object.assign(u, np); u.email = email;
   if (b.desc !== undefined) u.desc = str(b.desc, 600);
   if (b.languages !== undefined) u.languages = list(b.languages);
   if (b.skills !== undefined) u.skills = list(b.skills);
@@ -198,7 +205,7 @@ app.post('/api/registrations/:id/approve', need('admin'), (req, res) => {
   const role = ROLES.includes(b.role) ? b.role : 'agent';
   const team = role === 'agent' ? b.team : ADMIN_TEAM;
   if (!db.teams.some(t => t.id === team && (role !== 'agent' ? true : t.id !== ADMIN_TEAM))) return bad(res, 'Choose the team of this agent first');
-  db.users.push({ username: r.username, name: r.name, email: r.email, role, team, title: '', desc: '', languages: [], skills: [], phone: '', start: '', active: true, hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), mustChange: true });
+  db.users.push({ username: r.username, name: r.name, firstName: r.firstName || nameParts(r).firstName, lastName: r.lastName || nameParts(r).lastName, email: r.email, role, team, title: '', desc: '', languages: [], skills: [], phone: '', start: '', active: true, hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), mustChange: true });
   if (role !== 'agent' && role !== 'admin' && db.workspaces[0]) db.workspaces[0].staff.push(r.username);
   r.status = 'approved'; r.by = req.session.user.username; r.decided = iso();
   db.notifications = db.notifications.filter(n => !(n.type === 'reg' && n.reg === r.id));
@@ -263,7 +270,7 @@ app.delete('/api/teams/:id', need('admin'), (req, res) => {
 // ------------------------------------------------------------------ users (admin)
 app.get('/api/users', need('admin'), (req, res) => { const db = load(); res.json(db.users.map(({ hash, reset, ...u }) => ({ ...u, workspaces: u.role === 'agent' ? db.workspaces.filter(w => w.teams.includes(u.team)).map(w => w.id) : db.workspaces.filter(w => (w.staff || []).includes(u.username)).map(w => w.id) }))); });
 const userBody = (b, db, cur) => {
-  const name = str(b.name, 80); if (!name) throw new Error('Enter the name');
+  const np = nameParts(b); if (!np.firstName) throw new Error('Enter the first name'); if (!np.lastName) throw new Error('Enter the last name');
   const email = str(b.email, 120).toLowerCase();
   if (email && !validEmail(email)) throw new Error('Enter a valid email address');
   if (email && db.users.some(u => u !== cur && (u.email || '').toLowerCase() === email)) throw new Error('That email is already used by another account');
@@ -272,7 +279,7 @@ const userBody = (b, db, cur) => {
   if (role !== 'agent') team = ADMIN_TEAM;                                   // admins, QA, team leads and trainers always sit in the Administration team
   else if (!db.teams.some(t => t.id === team && t.id !== ADMIN_TEAM)) throw new Error('Choose a team. Every agent must belong to a team.');
   const start = /^\d{4}-\d{2}-\d{2}$/.test(b.start || '') ? b.start : '';
-  return { name, email, role, team, title: str(b.title, 80), desc: str(b.desc, 600), languages: pick(b.languages, db.languages), skills: pick(b.skills, db.skills), phone: str(b.phone, 40), start, active: b.active === undefined ? (cur ? cur.active !== false : true) : !!b.active };
+  return { ...np, email, role, team, title: str(b.title, 80), desc: str(b.desc, 600), languages: pick(b.languages, db.languages), skills: pick(b.skills, db.skills), phone: str(b.phone, 40), start, active: b.active === undefined ? (cur ? cur.active !== false : true) : !!b.active };
 };
 const setStaffWs = (db, username, role, ids) => {                          // staff belong to workspaces explicitly, agents through their team
   db.workspaces.forEach(w => { w.staff = (w.staff || []).filter(x => x !== username); });
@@ -284,7 +291,7 @@ const leadsTeam = (db, username) => db.teams.find(t => t.lead === username);
 app.post('/api/users', need('admin'), (req, res) => {
   const db = load(), b = req.body || {};
   try {
-    let username = str(b.username, 30).toLowerCase() || uname(str(b.name, 80));
+    let username = str(b.username, 30).toLowerCase() || uname(nameParts(b).name);
     if (!/^[a-z0-9._-]{3,30}$/.test(username)) throw new Error('Username: 3-30 characters, letters, numbers, dots, dashes or underscores');
     if (db.users.some(u => u.username === username)) { if (b.username) throw new Error('That username already exists'); let n = 2; while (db.users.some(u => u.username === username + n)) n++; username += n; }
     const u = { username, ...userBody(b, db), hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), mustChange: true, teamHistory: [] };
