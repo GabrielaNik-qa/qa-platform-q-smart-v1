@@ -4,7 +4,7 @@ const crypto = require('crypto'), nodemailer = require('nodemailer'), ExcelJS = 
 const { DEFAULT_SC, build } = require('./scorecard');
 const { ensureBootstrap, uname, ADMIN_TEAM } = require('./bootstrap');
 
-const FILE = path.join(__dirname, 'data.json'), SEED = path.join(__dirname, 'seed-data.json');            // <- this file IS the database
+const FILE = path.join(__dirname, 'data.json');            // <- this file IS the database
 const DEFAULT_PASSWORD = 'password';                       // every user created in the app starts with this and must change it at first login
 const ROLES = ['admin', 'qa', 'lead', 'trainer', 'agent'];
 const STAFF = ['admin', 'qa', 'lead', 'trainer'];          // everyone who is not an agent
@@ -17,7 +17,7 @@ const iso = () => new Date().toISOString();
 // ------------------------------------------------------------------ database
 function save(db) { fs.writeFileSync(FILE, JSON.stringify(db, null, 2)); }
 function load() {
-  if (!fs.existsSync(FILE) && fs.existsSync(SEED)) fs.copyFileSync(SEED, FILE);      // a new folder or worktree starts with the saved seed data
+  if (!fs.existsSync(FILE)) require('./seed').restore();      // a new folder starts with the data saved in seed.js
   const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : { users: [], evaluations: [] };
   let dirty = false;
   if (!Array.isArray(db.scorecards) || !db.scorecards.length) db.scorecards = [DEFAULT_SC];
@@ -109,7 +109,7 @@ const need = (...roles) => (req, res, next) => {
   next();
 };
 AUDIT.routes(app, need);
-// resets only the made-up demo data (same as running "node seed.js"); things people created themselves are kept
+// puts back the data saved in seed.js (same as running "node seed.js"); the current data is kept in data.backup.json
 app.post('/api/demo/reset', need('admin'), (req, res) => {
   try { require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'seed.js')], { cwd: __dirname, stdio: 'ignore' }); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: 'The reset failed - run "node seed.js" in the terminal to see why' }); }
