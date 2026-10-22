@@ -81,6 +81,9 @@ const pwBad = p => {
   if (!/[^A-Za-z0-9]/.test(p)) return 'Include at least one special character';
   return '';
 };
+// first letter of the first name + "." + last name, lowercase, no accents or spaces
+const plain = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const makeUsername = (first, last) => plain(first).slice(0, 1) + '.' + plain(last);
 const validEmail = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
 const pub = u => ({ username: u.username, name: u.name, email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {} });
 // skills and languages can only be picked from the catalog (Admin > Skills); unknown names are dropped, spelling is normalised
@@ -153,12 +156,14 @@ app.post('/api/password', need(), (req, res) => {
   const db = load(), u = userBy(db, req.session.user.username);
   if (!u || !bcrypt.compareSync(String(current || ''), u.hash)) return bad(res, 'Your current password is wrong');
   const pe = pwBad(next); if (pe) return bad(res, pe);
+  if (bcrypt.compareSync(String(next), u.hash)) return bad(res, 'The new password cannot be the same as your current password');
   u.hash = bcrypt.hashSync(String(next), 10); u.mustChange = false; save(db); res.json({ ok: 1 });
 });
 app.post('/api/password/first', authed, (req, res) => {   // the pop-up every new user sees at their first login
   if (!req.session.user.mustChange) return bad(res, 'Your password was already changed');
   const next = (req.body || {}).next, pe = pwBad(next); if (pe) return bad(res, pe);
   const db = load(), u = userBy(db, req.session.user.username);
+  if (bcrypt.compareSync(String(next), u.hash)) return bad(res, 'Please choose a different password than the temporary one');
   u.hash = bcrypt.hashSync(String(next), 10); u.mustChange = false; save(db);
   req.session.user = pub(u); res.json(req.session.user);
 });
@@ -167,15 +172,17 @@ app.post('/api/password/first', authed, (req, res) => {   // the pop-up every ne
 app.post('/api/register', (req, res) => {
   if (limited('reg:' + req.ip, 6, 36e5)) return res.status(429).json({ error: 'Too many registrations from this connection. Try again later.' });
   const b = req.body || {}, db = load();
-  const name = str(b.name, 80), email = str(b.email, 120).toLowerCase(), username = str(b.username, 30).toLowerCase();
-  if (!name) return bad(res, 'Enter your full name');
+  const first = str(b.firstName, 40), last = str(b.lastName, 40), email = str(b.email, 120).toLowerCase();
+  if (!first) return bad(res, 'Enter your first name');
+  if (!last) return bad(res, 'Enter your last name');
   if (!validEmail(email)) return bad(res, 'Enter a valid email address');
-  if (!/^[a-z0-9._-]{3,30}$/.test(username)) return bad(res, 'Username: 3-30 characters, letters, numbers, dots, dashes or underscores');
-  const pe = pwBad(b.password); if (pe) return bad(res, pe);
-  const taken = db.users.some(u => u.username === username || (u.email || '').toLowerCase() === email) ||
-    db.registrations.some(r => r.status === 'pending' && (r.username === username || r.email === email));
-  if (taken) return res.status(409).json({ error: 'That username or email is already registered' });
-  const reg = { id: 'g' + hex(5), username, name, email, hash: bcrypt.hashSync(String(b.password), 10), at: iso(), status: 'pending' };
+  const name = first + ' ' + last, username = makeUsername(first, last);   // e.g. Gabriela Pencheva -> g.pencheva
+  if (!/^[a-z0-9._-]{3,30}$/.test(username)) return bad(res, 'Your first and last name must contain letters or numbers so a username can be made');
+  if (db.users.some(u => u.username.toLowerCase() === username) || db.registrations.some(r => r.status === 'pending' && r.username === username))
+    return res.status(409).json({ error: 'The username ' + username + ' already exists. Please contact the administrator.' });
+  if (db.users.some(u => (u.email || '').toLowerCase() === email) || db.registrations.some(r => r.status === 'pending' && r.email === email))
+    return res.status(409).json({ error: 'That email address is already registered' });
+  const reg = { id: 'g' + hex(5), username, name, firstName: first, lastName: last, email, hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), at: iso(), status: 'pending' };
   db.registrations.push(reg);
   db.users.filter(u => u.role === 'admin').forEach(a => notify(db, a.username, 'reg', `${name} (@${username}) has requested access to the platform`, { reg: reg.id }));
   save(db); res.json({ ok: 1 });
@@ -191,13 +198,13 @@ app.post('/api/registrations/:id/approve', need('admin'), (req, res) => {
   const role = ROLES.includes(b.role) ? b.role : 'agent';
   const team = role === 'agent' ? b.team : ADMIN_TEAM;
   if (!db.teams.some(t => t.id === team && (role !== 'agent' ? true : t.id !== ADMIN_TEAM))) return bad(res, 'Choose the team of this agent first');
-  db.users.push({ username: r.username, name: r.name, email: r.email, role, team, title: '', desc: '', languages: [], skills: [], phone: '', start: '', active: true, hash: r.hash, mustChange: false });
+  db.users.push({ username: r.username, name: r.name, email: r.email, role, team, title: '', desc: '', languages: [], skills: [], phone: '', start: '', active: true, hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), mustChange: true });
   if (role !== 'agent' && role !== 'admin' && db.workspaces[0]) db.workspaces[0].staff.push(r.username);
   r.status = 'approved'; r.by = req.session.user.username; r.decided = iso();
   db.notifications = db.notifications.filter(n => !(n.type === 'reg' && n.reg === r.id));
   save(db); res.json({ ok: 1 });
   mail(r.email, 'Your registration has been approved',
-    `Hi ${r.name},\n\nGood news - your registration has been approved. You can now log in:\n${BASE}\n\nUsername: ${r.username}\n`);
+    `Hi ${r.name},\n\nGood news - your registration has been approved. You can now log in:\n${BASE}\n\nUsername: ${r.username}\nInitial password: ${DEFAULT_PASSWORD}\n\nYou will be asked to choose a new password the first time you log in.\n`);
 });
 app.post('/api/registrations/:id/decline', need('admin'), (req, res) => {
   const db = load(), r = db.registrations.find(x => x.id === req.params.id && x.status === 'pending');
@@ -573,6 +580,7 @@ app.post('/api/reset', (req, res) => {
     crypto.timingSafeEqual(Buffer.from(sha(token)), Buffer.from(u.reset.h));
   if (!ok) return bad(res, 'This reset link is invalid or has expired');
   const pe = pwBad(password); if (pe) return bad(res, pe);
+  if (bcrypt.compareSync(String(password), u.hash)) return bad(res, 'For security, the new password cannot be the same as your current password');
   u.hash = bcrypt.hashSync(String(password), 10); u.mustChange = false; delete u.reset; save(db); res.json({ ok: 1 });
 });
 

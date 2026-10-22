@@ -53,3 +53,4 @@ input[type=password]::-webkit-credentials-auto-fill-button{visibility:hidden;dis
 .dotk{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
 .wk{display:flex;gap:6px;align-items:flex-end;height:110px;padding-top:6px}.wk>div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;min-width:0}.wk i{display:block;width:100%;max-width:34px;border-radius:6px 6px 2px 2px}.wk small{font-size:10px;color:var(--mu)}
 mark{background:color-mix(in srgb,var(--ok) 30%,transparent);color:inherit;border-radius:3px;padding:0 2px}
+.sb{z-index:40}   /* the collapsed-menu pop-out lives inside the sidebar: keep the whole sidebar above the dashboard widgets */
