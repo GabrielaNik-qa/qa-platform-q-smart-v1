@@ -1,0 +1,6 @@
+# Never upload these to GitHub: they hold people's data, passwords (hashed) and secrets
+data.json
+audit.json
+recordings/
+node_modules/
+.env

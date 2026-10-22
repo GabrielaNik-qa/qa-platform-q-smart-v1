@@ -1,0 +1,186 @@
+// ===================== Scorecards, Users, system settings, account actions =====================
+// ---------- scorecards
+const newSE = () => ({ id: null, workspace: WSP[0] ? WSP[0].id : '', name: '', desc: '', cats: [{ n: '', k: false, it: [{ t: '', p: 0, k: false }] }] });
+const SCT = () => SE.cats.reduce((a, c) => a + c.it.reduce((x, i) => x + (+i.p || 0), 0), 0);
+const TOTH = () => { const t = SCT(); return `<b class=mono style="color:${t === 100 ? 'var(--ok)' : 'var(--bad)'}">Total: ${t} / 100 pts</b>`; };
+const upT = () => { $('#sct').innerHTML = TOTH(); SE.cats.forEach((c, ci) => { const x = $('#cs' + ci); if (x) x.textContent = c.it.reduce((a, i) => a + (+i.p || 0), 0) + ' pts'; }); };
+const addC = () => { SE.cats.push({ n: '', k: false, it: [{ t: '', p: 0, k: false }] }); render(); };
+const addI = ci => { SE.cats[ci].it.push({ t: '', p: 0, k: false }); render(); };
+const rmC = ci => { if (SE.cats.length > 1) SE.cats.splice(ci, 1); render(); };
+const rmI = (ci, ii) => { const it = SE.cats[ci].it; if (it.length > 1) it.splice(ii, 1); else it[0] = { t: '', p: 0, k: false }; render(); };
+const editSC = id => { const s = SCS.find(x => x.id === id); SE = JSON.parse(JSON.stringify({ id: s.id, name: s.name, desc: s.desc || '', cats: s.cats })); render(); };
+async function saveSC() {
+  const t = SCT(); if (t !== 100) return toast('Total points must equal 100 (currently ' + t + ')', true);
+  const r = await api(SE.id ? '/api/scorecards/' + SE.id : '/api/scorecards', { name: SE.name, desc: SE.desc, cats: SE.cats, workspace: SE.workspace }, SE.id ? 'PUT' : 'POST');
+  if (!r.ok) { if (r.status === 401) return; return toast(await errOf(r, 'Could not save the scorecard'), true); }
+  SE = null; await load(); render(); toast('Scorecard saved');
+}
+const delSC = id => ask('Delete this scorecard?', 'Reviews already made with it keep their scores. This cannot be undone.', async () => {
+  const r = await api('/api/scorecards/' + id, null, 'DELETE'); if (!r.ok) return toast(await errOf(r, 'Could not delete the scorecard'), true);
+  await load(); render(); toast('Scorecard deleted');
+}, { yes: 'Yes, delete', no: 'Cancel', danger: true });
+const SCL = () => head('Scorecards', 'Create and manage the scorecards used in QA Entry', ME.role === 'admin' ? `<button class=btn onclick="SE=newSE();render()">+ New scorecard</button>` : '')
+  + `<div class="g g2">${SCS.map(s => { const n = s.cats.reduce((a, c) => a + c.it.length, 0), t = s.cats.reduce((a, c) => a + c.it.reduce((x, i) => x + i.p, 0), 0);
+    return card(esc(s.name), `<p class=mu style="margin:0 0 10px">${esc(s.desc || '')}</p><small>${s.cats.length} categories · ${n} items · ${t} pts</small><div style="margin:12px 0">${s.cats.map(c => `<div class=row style="font-size:13px;padding:3px 0"><span>${esc(c.n)}${c.k ? '<span class=crit>Critical category</span>' : ''}${c.it.some(i => i.k) ? '<span class=crit>Critical items</span>' : ''}</span><b class=mono>${c.it.reduce((x, i) => x + i.p, 0)} pts</b></div>`).join('')}</div>${ME.role === 'admin' ? `<div style="display:flex;gap:8px"><button class="ib ibx" onclick="editSC('${esc(s.id)}')">${IC.pen} Edit</button><button class="ib ibx" onclick="delSC('${esc(s.id)}')">${IC.bin} Delete</button></div>` : ''}`); }).join('')}</div>`;
+const SED = () => head(SE.id ? 'Edit scorecard' : 'New scorecard', 'Add categories and items. The points of all items must add up to 100.', `<div style="display:flex;gap:8px"><button class=ib onclick="SE=null;render()">Cancel</button><button class=btn onclick="saveSC()">Save scorecard</button></div>`)
+  + card('Details', `<div class=eg2><label>Name<input value="${esc(SE.name)}" oninput="SE.name=this.value"></label><label>Description <span class=mu>(optional)</span><input value="${esc(SE.desc)}" oninput="SE.desc=this.value"></label></div><div class=tips style="margin-top:12px"><b>Critical rules</b><ul><li><b>Critical item</b>: if it is answered <b>No</b>, the whole category scores 0 points.</li><li><b>Critical category</b>: if any item in it is answered <b>No</b>, the whole review scores 0%.</li><li><b>N/A</b> (not applicable) never lowers the score.</li></ul></div>`)
+  + SE.cats.map((c, ci) => card('', `<div class=row style="gap:10px;margin-bottom:12px;flex-wrap:wrap"><input style="flex:1;min-width:200px;font-weight:600" placeholder="Category name" value="${esc(c.n)}" oninput="SE.cats[${ci}].n=this.value"><label class=rad style="white-space:nowrap" title="If any item in this category is answered No, the whole review scores 0%"><input type=checkbox ${c.k ? 'checked' : ''} onchange="SE.cats[${ci}].k=this.checked"> Critical category</label><b class=mono id=cs${ci} style="white-space:nowrap">${c.it.reduce((a, i) => a + (+i.p || 0), 0)} pts</b><button class=ic onclick="rmC(${ci})" title="Delete category">${IC.bin}</button></div>`
+    + c.it.map((i, ii) => `<div class=row style="gap:10px;margin-bottom:8px;flex-wrap:wrap"><input style="flex:1;min-width:220px" placeholder="Evaluation criterion" value="${esc(i.t)}" oninput="SE.cats[${ci}].it[${ii}].t=this.value"><input type=number min=0 max=100 style="width:84px" value="${i.p}" oninput="SE.cats[${ci}].it[${ii}].p=+this.value;upT()"><small>pts</small><label class=rad style="white-space:nowrap" title="If this item is answered No, its whole category scores 0 points"><input type=checkbox ${i.k ? 'checked' : ''} onchange="SE.cats[${ci}].it[${ii}].k=this.checked"> Critical</label><button class=ic onclick="rmI(${ci},${ii})" title="Delete item">${IC.bin}</button></div>`).join('')
+    + `<button class="ib ibx" onclick="addI(${ci})">+ Add item</button>`)).join('')
+  + `<div class=row style="flex-wrap:wrap;gap:8px"><span style="display:flex;gap:8px;flex-wrap:wrap"><button class="ib ibx" onclick="addC()">+ Add category</button><button class="ib ibx" onclick="addFromLib()">Add category from library</button></span><div id=sct>${TOTH()}</div></div>`;
+
+PG.sco = () => SE ? SED() : SCL();
+
+// ---------- helpers shared by Teams / Users / Skills / Workspaces
+const uname = n => { const p = String(n).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z\s'-]/g, '').trim().split(/\s+/); return ((p[0] || 'u')[0] + '.' + (p.slice(1).join('') || 'user')).replace(/[^a-z.]/g, ''); };
+const emailOf = n => uname(n) + '@test.com';          // Gabriela Nikolova -> g.nikolova@test.com
+const workTeams = () => TEAMS.filter(t => !t.system);
+const teamOpts = blank => [...(blank ? [['', blank]] : []), ...workTeams().map(t => [t.id, t.name])];
+const chips = l => (l || []).map(x => `<span class=tg>${esc(x)}</span>`).join(' ') || '<small class=mu>—</small>';
+const leadName = id => { const t = TEAMS.find(x => x.id === id), u = t && ROSTER.find(r => r.username === t.lead); return u ? u.name : '—'; };
+const wsOf = teamId => WSP.filter(w => w.teams.includes(teamId)).map(w => w.name).join(', ') || '—';
+const mkTog = k => `<div style="display:flex;gap:8px;flex-wrap:wrap">${vwBtn(k)}</div>`;
+
+// ---------- teams
+const TEAM_FIELDS = isNew => [
+  { k: 'name', l: 'Team name', req: 1 }, { k: 'desc', l: 'Description', t: 'textarea', rows: 2 },
+  { k: 'lead', l: 'Team lead', req: 1, t: 'select', hint: 'Every team needs a team lead.', o: () => [['', 'Choose a team lead…'], ...ROSTER.filter(r => r.active && ['lead', 'admin', 'qa', 'trainer'].includes(r.role)).map(r => [r.username, r.name + ' (' + ROLE[r.role] + ')'])] },
+  ...(isNew ? [{ k: 'workspace', l: 'Workspace', t: 'select', o: () => WSP.map(w => [w.id, w.name]) }] : []),
+  { k: 'languages', l: 'Languages', t: 'picker', kind: 'languages' }, { k: 'skills', l: 'Skills', t: 'picker', kind: 'skills' },
+  { k: 'region', l: 'Region / market' }, { k: 'hours', l: 'Working hours', ph: '08:00-17:00' }, { k: 'channels', l: 'Channels', t: 'chips', ph: 'Phone, Chat, Email' },
+  { k: 'notes', l: 'Notes', t: 'textarea', rows: 2 }, { k: 'color', l: 'Colour', t: 'color' }
+];
+const newTeam = () => openForm({ title: 'New team', fields: TEAM_FIELDS(true), d: { name: '', desc: '', lead: '', workspace: WSP[0] ? WSP[0].id : '', languages: [], skills: [], region: '', hours: '', channels: [], notes: '', color: '#2563eb' }, yes: 'Create team', save: async d => { const r = await api('/api/teams', d); if (!r.ok) return errOf(r, 'Could not create the team'); await load(); toast('Team created'); } });
+const editTeam = id => { const t = TEAMS.find(x => x.id === id); openForm({ title: 'Edit team', fields: TEAM_FIELDS(false), d: t, save: async d => { const r = await api('/api/teams/' + id, d, 'PUT'); if (!r.ok) return errOf(r, 'Could not save the team'); await load(); toast('Team saved'); } }); };
+const delTeam = id => ask('Delete this team?', 'The team must be empty. Reviews already made keep their history and the team name.', async () => { const r = await api('/api/teams/' + id, null, 'DELETE'); if (!r.ok) return toast(await errOf(r, 'Could not delete the team'), true); await load(); render(); toast('Team deleted'); }, { yes: 'Yes, delete', no: 'Cancel', danger: true });
+// moving an agent: old reviews stay on record, both teams' statistics change automatically
+const moveUser = (un, team) => { const u = ROSTER.find(x => x.username === un); if (!u || u.team === team) return render();
+  ask('Move ' + u.name + '?', `${u.name} moves from ${tn(u.team)} to ${tn(team)}. Their earlier reviews stay on record, and the statistics of both teams are recalculated with the new members.`, async () => {
+    const r = await api('/api/users/' + encodeURIComponent(un), { team }, 'PUT'); if (!r.ok) toast(await errOf(r, 'Could not move the user'), true); else toast(u.name + ' moved to ' + tn(team)); await load(); render();
+  }, { yes: 'Yes, move', no: 'Cancel', onNo: render }); };
+const teamActions = t => `<div style="display:flex;gap:8px"><button class="ib ibx" onclick="editTeam('${t.id}')">${IC.pen} Edit</button>${t.system ? '' : `<button class="ib ibx" onclick="delTeam('${t.id}')">${IC.bin} Delete</button>`}</div>`;
+PG.teams = function () {
+  const head2 = head('Teams', 'Every team has a team lead and a workspace. Administration holds all admins, QA, team leads and trainers.', `<div style="display:flex;gap:8px;flex-wrap:wrap">${vwBtn('teams')}<button class=btn onclick="newTeam()">+ New team</button></div>`);
+  if (vw('teams') === 'table') return head2 + card('', tbl(['Team', 'Team lead', 'Agents', 'People', 'Languages', 'Skills', 'Workspace', 'Pass target', ''], TEAMS.map(t => [`<span style="color:${t.color}">●</span> <b>${esc(t.name)}</b>${t.system ? ' ' + pill('built in', 'ac') : ''}<br><small class=mu>${esc(t.desc || '')}</small>`, esc(leadName(t.id)), ROSTER.filter(r => r.active && r.team === t.id && r.role === 'agent').length, ROSTER.filter(r => r.active && r.team === t.id).length, chips(t.languages), chips(t.skills), esc(wsOf(t.id)), PT(t.id) + '%', teamActions(t)])));
+  return head2 + `<div class="g g2">${TEAMS.map(t => { const mem = ROSTER.filter(r => r.active && r.team === t.id);
+    return card(`<span style="color:${t.color}">●</span> ${esc(t.name)} ${t.system ? pill('built in', 'ac') : ''}`, `<p class=mu style="margin:0 0 10px">${esc(t.desc || '')}</p><div class=row style="flex-wrap:wrap;gap:6px;font-size:13px"><span>Team lead: <b>${esc(leadName(t.id))}</b></span><span>${mem.filter(m => m.role === 'agent').length} agents · pass target ${PT(t.id)}%</span></div>`
+      + `<div style="margin:10px 0;font-size:13px"><b>Workspace</b> ${esc(wsOf(t.id))}<br><b>Languages</b> ${chips(t.languages)}<br><b>Skills</b> ${chips(t.skills)}<br><b>Region</b> ${esc(t.region || '—')} · <b>Hours</b> ${esc(t.hours || '—')} · <b>Channels</b> ${chips(t.channels)}${t.notes ? `<br><small class=mu>${esc(t.notes)}</small>` : ''}</div>`
+      + `<b style="font-size:13px">Members</b>${mem.map(m => `<div class="row li" style="font-size:13px"><span>${esc(m.name)} <small class=mu>${ROLE[m.role]}</small></span>${m.role === 'agent' ? `<select style="width:auto;padding:4px" onchange="moveUser('${esc(m.username)}',this.value)" title="Move to another team">${teamOpts().map(([a, b]) => `<option value="${a}" ${a === t.id ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>` : ''}</div>`).join('') || '<p class=mu style="margin:6px 0">No members yet</p>'}`
+      + `<div style="margin-top:12px">${teamActions(t)}</div>`); }).join('')}</div>`;
+};
+
+// ---------- users (admin): add, rename, move, deactivate, delete
+let UF = { q: '', team: '', role: '', st: 'active', sk: '', lg: '' };
+const fmName = v => { const d = FM.d; if (FM.isNew) { if (!d._u) { d.username = uname(v); const u = $('#fu'); if (u) u.value = d.username; } if (!d._e) { d.email = emailOf(v); const e = $('#fe'); if (e) e.value = d.email; } } };
+const USER_FIELDS = isNew => [
+  { k: 'name', l: 'Full name', req: 1, on: isNew ? 'fmName' : '' },
+  ...(isNew ? [{ k: 'username', l: 'Username', id: 'fu', hint: 'Suggested from the name. Letters, numbers, dots.', on: 'FM.d._u=1;void' }] : []),
+  { k: 'email', l: 'Email', t: 'email', id: 'fe', on: isNew ? 'FM.d._e=1;void' : '' },
+  { k: 'role', l: 'Role', t: 'select', o: Object.entries(ROLE), re: 1, hint: 'Admins, QA specialists, team leads and trainers are placed in the Administration team automatically.' },
+  { k: 'team', l: 'Team', req: 1, t: 'select', show: d => d.role === 'agent', o: () => teamOpts('Choose a team…'), hint: 'Every agent belongs to a team. Moving someone keeps their old reviews and updates both teams.' },
+  { k: 'workspaces', l: 'Workspaces', t: 'multi', show: d => !['agent', 'admin'].includes(d.role), o: () => WSP.map(w => [w.id, w.name]), hint: 'Which workspaces this person works in. Admins see all of them.' },
+  { k: 'title', l: 'Job title' }, { k: 'phone', l: 'Phone' }, { k: 'start', l: 'Start date', t: 'date' },
+  { k: 'languages', l: 'Languages', t: 'picker', kind: 'languages' }, { k: 'skills', l: 'Skills', t: 'picker', kind: 'skills' }, { k: 'desc', l: 'Description', t: 'textarea', rows: 2 },
+  ...(isNew ? [] : [{ k: 'active', l: 'Active account', t: 'checkbox', hint: 'Inactive people cannot log in and disappear from the pick lists; their history stays.' }])
+];
+const addUser = () => { openForm({ title: 'Add a user', fields: USER_FIELDS(true), d: { name: '', username: '', email: '', role: 'agent', team: workTeams()[0] ? workTeams()[0].id : '', workspaces: WSP[0] ? [WSP[0].id] : [], title: '', phone: '', start: '', languages: [], skills: [], desc: '' }, yes: 'Create user',
+  extra: () => '<p class=mu style="margin:0">The new user gets the temporary password <b class=mono>password</b> and must choose a new one at the first login.</p>',
+  save: async d => { const r = await api('/api/users', d); if (!r.ok) return errOf(r, 'Could not create the user'); await load(); toast('User created. Temporary password: password'); } }); FM.isNew = true; };
+const editUser = un => { const u = USR.find(x => x.username === un); openForm({ title: 'Edit ' + u.name, fields: USER_FIELDS(false), d: u,
+  extra: d => `<p class=mu style="margin:0"><b>Username</b> <span class=mono>${esc(u.username)}</span> (fixed)</p>${(u.teamHistory || []).length ? `<div class=tips><b>Team history</b><ul>${u.teamHistory.slice(-6).reverse().map(h => `<li>${fdt(h.at)}: ${esc(tn(h.from))} → ${esc(tn(h.to))} <small>(${esc(h.by)})</small></li>`).join('')}</ul></div>` : ''}`,
+  save: async d => { const r = await api('/api/users/' + encodeURIComponent(un), d, 'PUT'); if (!r.ok) return errOf(r, 'Could not save the user'); await load(); toast('User saved'); } }); };
+const toggleUser = un => { const u = USR.find(x => x.username === un), off = u.active !== false;
+  ask(off ? 'Deactivate ' + u.name + '?' : 'Activate ' + u.name + '?', off ? 'They can no longer log in and will disappear from the pick lists. Their reviews and history stay.' : 'They can log in again.', async () => {
+    const r = await api('/api/users/' + encodeURIComponent(un), { active: !off }, 'PUT'); toast(r.ok ? (off ? 'Deactivated' : 'Activated') : await errOf(r, 'Could not change the account'), !r.ok); await load(); render();
+  }, { yes: off ? 'Yes, deactivate' : 'Yes, activate', no: 'Cancel' }); };
+const delUser = un => { const u = USR.find(x => x.username === un);
+  ask('Delete ' + u.name + '?', 'The account is removed for good. Their reviews stay on record with their name. If you only want to stop their access, deactivate instead.', async () => {
+    const r = await api('/api/users/' + encodeURIComponent(un), null, 'DELETE'); toast(r.ok ? 'User deleted' : await errOf(r, 'Could not delete the user'), !r.ok); await load(); render();
+  }, { yes: 'Yes, delete', no: 'Cancel', danger: true }); };
+const resetPw = u => ask('Reset this password?', `The password of ${u} will be set back to "password" and they must choose a new one at their next login.`, async () => {
+  const r = await api('/api/users/' + encodeURIComponent(u) + '/reset', {}); toast(r.ok ? 'Password reset to "password"' : await errOf(r, 'Could not reset the password'), !r.ok); await load(); render();
+}, { yes: 'Yes, reset it', no: 'Cancel' });
+async function regApprove(id) {
+  const role = $('#rr' + id).value, team = $('#rt' + id).value;
+  const r = await api(`/api/registrations/${id}/approve`, { role, team }); if (!r.ok) return toast(await errOf(r, 'Could not approve'), true);
+  await load(); render(); toast('Registration approved. The person was emailed.');
+}
+const regDecline = id => ask('Decline this registration?', 'The person will receive an email saying the registration was declined.', async () => {
+  const r = await api(`/api/registrations/${id}/decline`, {}); if (!r.ok) return toast(await errOf(r, 'Could not decline'), true);
+  await load(); render(); toast('Registration declined. The person was emailed.');
+}, { yes: 'Yes, decline', no: 'Cancel', danger: true });
+const userList = () => { const q = UF.q.toLowerCase(); return USR.filter(u => (!UF.team || u.team === UF.team) && (!UF.role || u.role === UF.role) && (UF.st === '' || (UF.st === 'active' ? u.active !== false : u.active === false)) && (!UF.sk || (u.skills || []).includes(UF.sk)) && (!UF.lg || (u.languages || []).includes(UF.lg)) && (!q || (u.name + ' ' + u.username + ' ' + (u.email || '')).toLowerCase().includes(q))); };
+const userAct = u => `<span style="white-space:nowrap"><button class=ic onclick="editUser('${esc(u.username)}')" title="Edit">${IC.pen}</button><button class=ic onclick="resetPw('${esc(u.username)}')" title="Reset password to &quot;password&quot;">${IC.gear}</button><button class=ic onclick="toggleUser('${esc(u.username)}')" title="${u.active === false ? 'Activate' : 'Deactivate'}">${u.active === false ? IC.play : IC.x}</button><button class=ic onclick="delUser('${esc(u.username)}')" title="Delete">${IC.bin}</button></span>`;
+const stPill = u => u.active === false ? pill('Inactive', 'bad') : u.mustChange ? pill('Must change password', 'wn') : pill('Active', 'ok');
+const UT = l => vw('users') === 'boxes'
+  ? `<div class=bxg>${l.map(u => `<div class=bx><div class=row><span style="display:flex;gap:10px;align-items:center"><span class=av style="margin:0">${esc(ini(u.name))}</span><span><b>${esc(u.name)}</b><br><small class=mu>${esc(u.title || ROLE[u.role])}</small></span></span>${stPill(u)}</div><small class=mu>${esc(u.email || u.username)}</small><div>${pill(ROLE[u.role] || u.role, 'ac')} <span class=tg style="color:${tcol(u.team)}">${esc(tn(u.team))}</span></div><small class=mu>Team lead: ${esc(leadName(u.team))}</small><div>${chips(u.languages)}</div><div>${chips(u.skills)}</div>${userAct(u)}</div>`).join('') || '<p class=mu>No users match</p>'}</div>`
+  : card(`${l.length} user${l.length === 1 ? '' : 's'}`, tbl(['Name', 'Username', 'Email', 'Role', 'Team', 'Team lead', 'Languages', 'Skills', 'Status', ''], l.map(u => [`<a href="javascript:void(0)" style="color:var(--ac);font-weight:600" onclick="editUser('${esc(u.username)}')"><span class=av>${esc(ini(u.name))}</span>${esc(u.name)}</a>${u.title ? `<br><small class=mu>${esc(u.title)}</small>` : ''}`, `<span class=mono>${esc(u.username)}</span>`, esc(u.email) || '<small>—</small>', pill(ROLE[u.role] || u.role, 'ac'), `<span class=tg style="color:${tcol(u.team)}">${esc(tn(u.team))}</span>`, esc(leadName(u.team)), chips(u.languages), chips(u.skills), stPill(u), userAct(u)])));
+PG.users = function () {
+  if (ME.role !== 'admin') return head('Users', 'People and access') + card('', '<p class=mu>Only admins can see this page.</p>');
+  return head('Users', 'Add, rename, move and remove people. Everybody belongs to a team.', `<div style="display:flex;gap:8px;flex-wrap:wrap">${vwBtn('users')}<button class=btn onclick="addUser()">+ Add user</button></div>`)
+    + (REG.length ? card(`Pending registrations <span class=bg>${REG.length}</span>`, REG.map(r => `<div class="row li" style="flex-wrap:wrap;gap:10px"><div><b>${esc(r.name)}</b> <small>@${esc(r.username)} · ${esc(r.email)} · ${fdt(r.at)}</small></div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select id=rr${r.id}>${Object.entries(ROLE).map(([k, v]) => `<option value=${k} ${k === 'agent' ? 'selected' : ''}>${v}</option>`).join('')}</select><select id=rt${r.id}>${teamOpts('— team (agents) —').map(([a, b]) => `<option value="${a}">${esc(b)}</option>`).join('')}</select><button class=btn onclick="regApprove('${r.id}')">Approve</button><button class=ib onclick="regDecline('${r.id}')">Decline</button></div></div>`).join('')) : '')
+    + card('', `<div class=row style="gap:10px;flex-wrap:wrap"><input style="flex:1;min-width:200px" placeholder="Search name, username or email…" value="${esc(UF.q)}" oninput="UF.q=this.value;ul()"><select onchange="UF.team=this.value;render()"><option value="">All teams</option>${TEAMS.map(t => `<option value="${t.id}" ${UF.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select><select onchange="UF.role=this.value;render()"><option value="">All roles</option>${Object.entries(ROLE).map(([k, v]) => `<option value=${k} ${UF.role === k ? 'selected' : ''}>${v}</option>`).join('')}</select><select onchange="UF.sk=this.value;render()"><option value="">All skills</option>${SKL.skills.map(s => `<option ${UF.sk === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select><select onchange="UF.lg=this.value;render()"><option value="">All languages</option>${SKL.languages.map(s => `<option ${UF.lg === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select><select onchange="UF.st=this.value;render()"><option value="active" ${UF.st === 'active' ? 'selected' : ''}>Active</option><option value="inactive" ${UF.st === 'inactive' ? 'selected' : ''}>Inactive</option><option value="" ${UF.st === '' ? 'selected' : ''}>All</option></select></div>`)
+    + `<div id=ut>${UT(userList())}</div>`;
+};
+const ul = () => { const e = $('#ut'); if (e) e.innerHTML = UT(userList()); };
+
+// ---------- skills and languages catalog (people can only pick from these)
+const skForm = (kind, name) => openForm({ title: (name ? 'Rename ' : 'New ') + kind, d: { name: name || '' }, fields: [{ k: 'name', l: kind === 'language' ? 'Language' : 'Skill', req: 1 }], yes: name ? 'Rename' : 'Add',
+  save: async d => { const r = name ? await api('/api/skills', { kind, name, to: d.name }, 'PUT') : await api('/api/skills', { kind, name: d.name }); if (!r.ok) return errOf(r, 'Could not save'); await load(); toast(name ? 'Renamed everywhere' : 'Added'); } });
+const skDel = (kind, name) => { const n = (SKL.counts[kind === 'language' ? 'languages' : 'skills'] || {})[name] || 0; ask('Delete "' + name + '"?', n ? `${n} ${n === 1 ? 'person has' : 'people have'} it. It will be removed from them too.` : 'Nobody has it yet.', async () => { await api('/api/skills?kind=' + kind + '&name=' + encodeURIComponent(name), null, 'DELETE'); await load(); render(); toast('Deleted'); }, { yes: 'Yes, delete', no: 'Cancel', danger: true }); };
+const skWin = (kind, title, list) => { const k = kind === 'language' ? 'languages' : 'skills', cnt = SKL.counts[k] || {};
+  return card(`${title} <span class=bg>${list.length}</span>`, `<div class=row style="margin-bottom:10px"><small class=mu>${kind === 'language' ? 'Languages people speak' : 'What people are good at'}</small><button class="btn ibx" onclick="skForm('${kind}')">${IC.plus} Add ${kind}</button></div>` + (vw('skills') === 'boxes'
+    ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${list.map(x => `<span class=tg style="padding:6px 12px;font-size:13px">${esc(x)} <small class=mu>${cnt[x] || 0}</small> <a href="javascript:void(0)" onclick="skForm('${kind}','${esc(x).replace(/&#39;/g, '')}')" title="Rename">✎</a> <a href="javascript:void(0)" onclick="skDel('${kind}','${esc(x).replace(/&#39;/g, '')}')" title="Delete">×</a></span>`).join('')}</div>`
+    : list.map(x => `<div class="row li"><span>${esc(x)}</span><span><small class=mu>${cnt[x] || 0} people</small> <button class=ic onclick="skForm('${kind}','${esc(x).replace(/&#39;/g, '')}')">${IC.pen}</button><button class=ic onclick="skDel('${kind}','${esc(x).replace(/&#39;/g, '')}')">${IC.bin}</button></span></div>`).join(''))); };
+PG.skills = () => head('Skills', 'The lists people pick their skills and languages from', vwBtn('skills')) + `<div class="g g2">${skWin('skill', 'Skills', SKL.skills)}${skWin('language', 'Languages', SKL.languages)}</div>`;
+
+// ---------- workspaces: each workspace holds its own teams, scorecards and staff. Admins see all of them.
+const WS_F = [{ k: 'name', l: 'Workspace name', req: 1 }, { k: 'desc', l: 'Description', t: 'textarea', rows: 2 }, { k: 'color', l: 'Colour', t: 'color' },
+  { k: 'teams', l: 'Teams in this workspace', t: 'multi', o: () => workTeams().map(t => [t.id, t.name]) }, { k: 'scorecards', l: 'Scorecards used here', t: 'multi', o: () => SCS.map(s => [s.id, s.name]) },
+  { k: 'staff', l: 'QA specialists, team leads and trainers working here', t: 'multi', o: () => ROSTER.filter(r => r.active && !['agent', 'admin'].includes(r.role)).map(r => [r.username, r.name + ' (' + ROLE[r.role] + ')']) }];
+const wsForm = (w, id) => openForm({ title: id ? 'Edit workspace' : 'New workspace', d: w, fields: WS_F, yes: id ? 'Save' : 'Create', save: async d => { const r = await api(id ? '/api/workspaces/' + id : '/api/workspaces', d, id ? 'PUT' : 'POST'); if (!r.ok) return errOf(r, 'Could not save the workspace'); await load(); toast('Workspace saved'); } });
+const delWs = id => ask('Delete this workspace?', 'Teams and scorecards stay, but people who only worked in it lose access until they are added to another workspace.', async () => { const r = await api('/api/workspaces/' + id, null, 'DELETE'); if (!r.ok) return toast(await errOf(r, 'Could not delete'), true); await load(); render(); }, { yes: 'Yes, delete', no: 'Cancel', danger: true });
+const wsAct = w => `<div style="display:flex;gap:8px"><button class="ib ibx" onclick="wsForm(JSON.parse(JSON.stringify(WSP.find(x=>x.id==='${w.id}'))),'${w.id}')">${IC.pen} Edit</button><button class="ib ibx" onclick="delWs('${w.id}')">${IC.bin}</button></div>`;
+PG.wsp = function () {
+  const ag = w => ROSTER.filter(r => r.active && r.role === 'agent' && w.teams.includes(r.team)).length;
+  return head('Workspaces', 'Keep teams, scorecards and people in separate spaces. Only admins see everything.', `<div style="display:flex;gap:8px;flex-wrap:wrap">${vwBtn('wsp')}<button class=btn onclick="wsForm({name:'',desc:'',color:'#2563eb',teams:[],scorecards:[],staff:[]})">+ New workspace</button></div>`)
+    + howTo('workspaces', '<p>A workspace is a small world of its own: <b>teams</b>, the <b>scorecards</b> they are scored with, and the <b>QA specialists, team leads and trainers</b> who work there. People only see the reviews, teams and scorecards of their workspace; <b>admins see all workspaces</b>. Agents belong to the workspace of their team. Start with one workspace and add more when teams stop sharing scorecards.</p>')
+    + (vw('wsp') === 'table' ? card('', tbl(['Workspace', 'Teams', 'Agents', 'Scorecards', 'Staff', ''], WSP.map(w => [`<span style="color:${w.color}">●</span> <b>${esc(w.name)}</b><br><small class=mu>${esc(w.desc || '')}</small>`, chips(w.teams.map(tn)), ag(w), chips(w.scorecards.map(id => (SCS.find(s => s.id === id) || {}).name).filter(Boolean)), chips(w.staff.map(an)), wsAct(w)])))
+      : `<div class=bxg>${WSP.map(w => `<div class=bx><b><span style="color:${w.color}">●</span> ${esc(w.name)}</b><small class=mu>${esc(w.desc || '')}</small><div><small class=mu>Teams</small> ${chips(w.teams.map(tn))}</div><div><small class=mu>Scorecards</small> ${chips(w.scorecards.map(id => (SCS.find(s => s.id === id) || {}).name).filter(Boolean))}</div><small>${ag(w)} agents · ${w.staff.length} staff</small>${wsAct(w)}</div>`).join('')}</div>`);
+};
+
+// ---------- system settings (pass rate thresholds) + account
+async function saveSys() {
+  const teams = {}; TEAMS.forEach(t => { teams[t.id] = $('#spt' + t.id).value.trim(); });
+  const r = await api('/api/settings', { pass: $('#spg').value, teams }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save the settings'), true);
+  SET = await r.json(); SYS = false; render(); toast('System settings saved');
+}
+async function saveProfile() {
+  const r = await api('/api/profile', { name: $('#apn').value, email: $('#ape').value, languages: ACD.languages, skills: ACD.skills, desc: $('#apd').value }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save your profile'), true);
+  ME = await r.json(); render(); toast('Profile saved');
+}
+async function chPw() {
+  const p = $('#pn1').value, c = $('#pn2').value;
+  if (!pwOk(p)) return toast('The new password does not meet the requirements', true);
+  if (p !== c) return toast('The new passwords do not match', true);
+  const r = await api('/api/password', { current: $('#pn0').value, next: p }); if (!r.ok) return toast(await errOf(r, 'Could not change the password'), true);
+  toast('Password changed'); render();
+}
+async function firstPw() {
+  const p = $('#pn1').value, c = $('#pn2').value, e = $('#fpe');
+  const msg = !pwOk(p) ? 'The new password does not meet the requirements' : p !== c ? 'The two passwords do not match' : '';
+  if (msg) { e.innerHTML = `<small style="color:var(--bad)">${msg}</small>`; return; }
+  const r = await api('/api/password/first', { next: p }); if (!r.ok) { e.innerHTML = `<small style="color:var(--bad)">${esc(await errOf(r, 'Could not change the password'))}</small>`; return; }
+  ME = await r.json(); await load(); render(); toast('Password changed. Welcome!');
+}
+
+
+// ---------- audit log: who changed what and when (admins only)
+let AUF = { q: '', u: '', ok: '' };
+PG.audit = function () {
+  const q = AUF.q.toLowerCase(), l = AUD.filter(x => (!AUF.u || x.u === AUF.u) && (AUF.ok === '' || String(x.ok) === AUF.ok) && (!q || (x.a + ' ' + x.d + ' ' + x.u + ' ' + x.n).toLowerCase().includes(q)));
+  const users = [...new Set(AUD.map(x => x.u).filter(Boolean))].sort();
+  return head('Audit log', 'Every change and sign-in, newest first (last 1000 entries). Passwords are never recorded.', `<button class=ib onclick="load().then(render)">Refresh</button>`)
+    + `<div class=row style="justify-content:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:14px"><input placeholder="Search action or detail" value="${esc(AUF.q)}" oninput="AUF.q=this.value;clearTimeout(window.__a);window.__a=setTimeout(render,250)" style="min-width:240px"><select onchange="AUF.u=this.value;render()"><option value="">All users</option>${users.map(u => `<option value="${esc(u)}" ${AUF.u === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}</select><select onchange="AUF.ok=this.value;render()"><option value="">All results</option><option value="true" ${AUF.ok === 'true' ? 'selected' : ''}>Succeeded</option><option value="false" ${AUF.ok === 'false' ? 'selected' : ''}>Failed sign-ins</option></select></div>`
+    + card(`${l.length} entr${l.length === 1 ? 'y' : 'ies'}`, l.length ? tbl(['When', 'Who', 'Role', 'Action', 'Details'], l.slice(0, 300).map(x => [fdt(x.t), `<b>${esc(x.n || x.u || '—')}</b>${x.n ? ` <small class=mu>@${esc(x.u)}</small>` : ''}`, ROLE[x.r] || '—', x.ok ? esc(x.a) : `<span style="color:var(--bad)">${esc(x.a)}</span>`, `<small>${esc(x.d)}</small>`])) : '<p class=mu>Nothing recorded yet.</p>');
+};
