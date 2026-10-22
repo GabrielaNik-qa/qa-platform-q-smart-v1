@@ -4,3 +4,4 @@ audit.json
 recordings/
 node_modules/
 .env
+data.backup.json
