@@ -51,7 +51,7 @@ PG.entry = function () {
       + `<label>${L('Lead Link')}<input placeholder="https://…" value="${esc(ENT.lk)}" oninput="ENT.lk=this.value"></label>`
       + `<label>${L('Recording Link')}<input placeholder="https://…" value="${esc(ENT.rl)}" oninput="ENT.rl=this.value"></label>`
       + `<label>${L('Campaign')}<input id=ecp placeholder="Enter campaign name" value="${esc(ENT.cp)}" oninput="ENT.cp=this.value"></label>`
-      + (ed ? '<div></div>' : `<label>${L('Recording file')}<input id=ef type=file accept="audio/*"></label>`) + `</div>`)
+      + `<label>${L(ed && ENT.rec && !ENT.recDel ? 'Replace recording file' : 'Recording file')}<input id=ef type=file accept="audio/*">${ed && ENT.rec ? (ENT.recDel ? `<small class=mu>The recording will be removed when you save. <a href="javascript:void(0)" style="color:var(--ac)" onclick="ENT.recDel=false;render()">Undo</a></small>` : `<small class=mu style="display:flex;gap:8px;align-items:center">${IC.play} Current file: ${esc(ENT.rec)} <a href="javascript:void(0)" style="color:var(--bad)" onclick="ENT.recDel=true;render()">Remove</a></small>`) : ''}</label>` + `</div>`)
     + ENT.cats.map((c, ci) => card('', `<div class=row><h3 style="margin:0">${esc(c.n)}${c.k ? '<span class=crit title="If any item in this category is answered No, the whole review scores 0%">Critical category</span>' : ''}</h3><b class=mono id=sh${ci} ${S.cs[ci].z ? 'style="color:var(--bad)"' : ''}>${S.cs[ci].e} / ${S.cs[ci].m}</b></div>` + c.it.map((i, ii) => `<div class=ir id=r${ci}_${ii}><div class=row style="gap:16px;align-items:center"><span>${esc(i.t)}${i.k ? '<span class=crit title="If answered No, this category scores 0 points">Critical</span>' : ''}</span><div style="display:flex;align-items:center;gap:12px;flex:none"><small class=mono>${i.p} pts</small><div class=yn>${[['y', 'Yes'], ['n', 'No'], ['na', 'N/A']].map(([v, l]) => `<button class="${v} ${i.a === v ? 'on' : ''}" data-v=${v} onclick="setA(${ci},${ii},'${v}')">${l}</button>`).join('')}</div></div></div><select class="rcs ${i.a === 'n' ? '' : 'hide'}" onchange="ENT.cats[${ci}].it[${ii}].rc=this.value"><option value="">Root cause: why was this answered No? (optional)</option>${RCS.filter(x => x.active !== false || x.name === i.rc).map(x => `<option ${i.rc === x.name ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select><textarea rows=1 placeholder="Add a comment for this item (optional)…" oninput="ENT.cats[${ci}].it[${ii}].cm=this.value">${esc(i.cm)}</textarea></div>`).join(''))).join('')
     + card('', `<label>General Comments <span class=mu>(optional)</span><textarea rows=4 placeholder="Enter any additional comments or observations…" oninput="ENT.cm=this.value">${esc(ENT.cm)}</textarea></label>`)
     + `</div><div class=rp><div id=pv>${PV()}</div></div></div>`;
@@ -60,7 +60,7 @@ PG.entry = function () {
 function edE(rid) {
   const e = EV.find(x => x.rid === rid); if (!e) return false;
   MD = null; EDITID = rid;
-  ENT = { scid: e.scid || '', scn: e.scn || '', team: e.tm || teamOf(e.agent), agent: e.agent, id: String(e.id), dt: iso(e.d), lk: e.lk || '', rl: e.rl || '', cp: e.cp || '', cm: e.cm || '', fl: e.fl || '',
+  ENT = { scid: e.scid || '', scn: e.scn || '', team: e.tm || teamOf(e.agent), agent: e.agent, id: String(e.id), dt: iso(e.d), lk: e.lk || '', rl: e.rl || '', cp: e.cp || '', cm: e.cm || '', fl: e.fl || '', rec: e.rec || '', recDel: false,
     cats: e.cs.map(c => ({ n: c.n, k: !!c.k, it: c.it.map(i => ({ t: i.t, p: i.p, k: !!i.k, a: i.a, cm: i.cm || '', rc: i.rc || '' })) })) };
   ENT0 = JSON.stringify(ENT);
   if (location.hash === '#entry') render(); else location.hash = 'entry';
@@ -85,6 +85,7 @@ async function saveE() {
   const r = EDITID ? await api('/api/evaluations/' + EDITID, body, 'PUT') : await api('/api/evaluations', body);
   if (!r.ok) { if (r.status === 401) return; return toast(await errOf(r, r.status === 403 ? 'Your role cannot add evaluations' : 'Could not save the review'), true); }
   const ev = await r.json();
+  if (!fl && EDITID && E.recDel) await api('/api/evaluations/' + ev.rid + '/recording', null, 'DELETE');
   if (fl) { const u = await fetch('/api/evaluations/' + ev.rid + '/recording', { method: 'POST', headers: { 'Content-Type': fl.type }, body: fl }); if (!u.ok) toast('The review was saved, but the recording was not accepted (use mp3, wav, m4a, ogg or webm).', true); }
   beep(); await load();
   if (EDITID) { ENT = null; EDITID = ''; location.hash = 'calls'; render(); toast('Changes saved'); return; }
