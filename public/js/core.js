@@ -150,6 +150,8 @@ async function load() {
   const want = [['ev', '/api/evaluations'], ['sc', '/api/scorecards'], ['nf', '/api/notifications'], ['set', '/api/settings'], ['tm', '/api/teams'], ['ro', '/api/roster']];
   if (adm) want.push(['us', '/api/users'], ['rg', '/api/registrations']);
   if (route === 'tasks') { want.push(['tk', '/api/tasks']); if (ed) want.push(['tp', '/api/task-templates']); }
+  if (route === 'agents') want.push(['se', '/api/sessions'], ['tk', '/api/tasks'], ['sm', '/api/simulations']);
+  if (route === 'sim') want.push(['sm', '/api/simulations']);
   if (['coach', 'o2o', 'acad'].includes(route) || (route === 'dash' && ME && ME.role === 'agent')) want.push(['se', '/api/sessions']);
   if (route === 'audit' && adm) want.push(['au', '/api/audit']);
   if (route === 'tasks' || route === 'coach' || route === 'dash') want.push(['tk', '/api/tasks']);
@@ -178,6 +180,7 @@ async function load() {
   if (R.tk) TASKS = JSON.parse(R.tk);
   if (R.tp) TPLS = JSON.parse(R.tp);
   if (R.se) SESS = JSON.parse(R.se);
+  if (R.sm) SIMS = JSON.parse(R.sm);
   if (R.au) AUD = JSON.parse(R.au);
   if (R.ca) CALS = JSON.parse(R.ca);
   if (R.kb) KB = JSON.parse(R.kb);

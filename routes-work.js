@@ -127,6 +127,18 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     db.sessions = db.sessions.filter(x => x !== s); save(db); res.json({ ok: 1 });
   });
 
+  // ---------------------------------------------------------------- call simulator results (shown on the Agents page, tab Simulations)
+  app.get('/api/simulations', need(), (req, res) => {
+    const db = load(), u = req.session.user;
+    res.json(db.simulations.filter(x => u.role !== 'agent' || x.agent === u.username));
+  });
+  app.post('/api/simulations', need(), (req, res) => {
+    const db = load(), me = req.session.user, b = req.body || {};
+    const agent = me.role === 'agent' ? me.username : (userBy(db, b.agent) ? b.agent : me.username);
+    const x = { id: 'm' + hex(5), agent, scenario: str(b.scenario, 100) || 'Practice call', persona: str(b.persona, 60), score: Math.max(0, Math.min(100, Math.round(Number(b.score) || 0))), minutes: Math.max(1, Math.min(240, Math.round(Number(b.minutes) || 1))), result: str(b.result, 30), tips: list(b.tips, 6, 160), date: iso() };
+    db.simulations.unshift(x); save(db); res.json(x);
+  });
+
   // ---------------------------------------------------------------- calibration sessions (QA, team leads and trainers compare impressions and decide together)
   const decisions = v => (Array.isArray(v) ? v : []).slice(0, 30).map(d => ({ t: str(d.t, 250), owner: str(d.owner, 40), due: DAY.test(d.due || '') ? d.due : '', done: !!d.done })).filter(d => d.t);
   app.get('/api/calibrations', need(...EDIT), (req, res) => res.json(load().calibrations));
