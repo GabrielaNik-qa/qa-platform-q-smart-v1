@@ -590,7 +590,14 @@ app.post('/api/evaluations/:rid/recording', need('admin', 'qa'), express.raw({ t
   fs.mkdirSync(REC, { recursive: true });
   const name = ev.rid + '-' + Date.now() + '.' + ext;
   fs.writeFileSync(path.join(REC, name), req.body);
+  if (ev.rec) fs.rm(path.join(REC, path.basename(ev.rec)), () => {});      // the old file is replaced
   ev.rec = name; save(db); res.json({ rec: name });
+});
+app.delete('/api/evaluations/:rid/recording', need('admin', 'qa'), (req, res) => {
+  const db = load(), ev = findEv(db, req.params.rid);
+  if (!ev) return res.status(404).json({ error: 'evaluation not found' });
+  if (ev.rec) fs.rm(path.join(REC, path.basename(ev.rec)), () => {});
+  ev.rec = ''; save(db); res.json({ ok: 1 });
 });
 app.get('/api/recordings/:file', need(), (req, res) => {
   const f = path.basename(req.params.file), ev = load().evaluations.find(e => e.rec === f);

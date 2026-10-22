@@ -46,9 +46,17 @@ function sbDbl(e) { if (!ME || e.target.closest('a,button,.usr,select,input')) r
 // ---------------------------------------------------------------- menu: a few main groups with drop-downs (a pop-out list when the sidebar is collapsed)
 let OG = null, FLY = null, FLYY = 100;
 const gOpen = g => !COL && (OG === null ? groupOf(route) === g.id : OG === g.id);
+// clicking a group's icon opens its first page; when the sidebar is closed its pop-out menu stays open too
+let PENDFLY = null;
+function gGo(id, ev) {
+  ev.stopPropagation(); const g = groupsFor().find(x => x.id === id); if (!g || !g.items.length) return;
+  const y = ev.currentTarget.closest('.gh').getBoundingClientRect().top, first = g.items[0][0];
+  if (COL) { if (route === first) { FLY = FLY === id ? null : id; FLYY = y; render(); } else { PENDFLY = { id, y }; location.hash = first; } return; }
+  OG = id; if (route === first) render(); else location.hash = first;
+}
 function tgG(id, ev) { if (COL) { FLY = FLY === id ? null : id; FLYY = ev.currentTarget.getBoundingClientRect().top; } else OG = (gOpen({ id }) ? '' : id); render(); }
 const NAVH = () => groupsFor().map(g => { const act = groupOf(route) === g.id, open = gOpen(g);
-  return `<div class="grp ${open ? 'open' : ''} ${act ? 'act' : ''}"><button class=gh onclick="tgG('${g.id}',event)" title="${g.name}"><i>${IC[g.icon]}</i><span>${g.name}</span><em>›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}</div>`; }).join('');
+  return `<div class="grp ${open ? 'open' : ''} ${act ? 'act' : ''}"><button class=gh onclick="${COL ? `gGo('${g.id}',event)` : `tgG('${g.id}',event)`}" title="${g.name}"><i onclick="gGo('${g.id}',event)" title="Open ${g.items[0][1]}">${IC[g.icon]}</i><span>${g.name}</span><em>›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}</div>`; }).join('');
 document.addEventListener('click', e => { if (FLY && !e.target.closest('.fly,.gh')) { FLY = null; render(); } });
 const FOOT = () => `<div class=ft><div class=thm>${[['light', 'Light', IC.sun], ['dark', 'Dark', IC.moon], ['system', 'System', IC.mon]].map(([k, l, s]) => `<button class="${THM === k ? 'on' : ''}" data-m="${k}" onclick="th('${k}')" title="${l} mode"><span class=ti>${s}</span></button>`).join('')}</div><div class=usr><div class=av2 onclick="openAcct('profile')" title="My account">${esc(ini(ME.name))}</div><div class=un onclick="openAcct('profile')" title="My account"><b>${esc(ME.name)}</b><small>${ROLE[ME.role] || ME.role}</small></div><button onclick="tsnd()" title="${SND ? 'Sound on' : 'Sound off'}">${SND ? IC.vol : IC.mute}</button>${ME.role === 'admin' ? `<button onclick="SYS=true;render()" title="System settings">${IC.gear}</button>` : ''}<button onclick="out()" title="Log out">${IC.out}</button></div></div>`;
 
@@ -78,7 +86,7 @@ async function onHash() {
   if (!canRoute(n)) { location.hash = 'dash'; return; }
   if (n !== 'entry') { ENT = null; EDITID = ''; }
   if (n !== 'kb') KBE = null;
-  OG = null; FLY = null; TKV = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; WE = null; AQV = ''; PKN = null;
+  OG = null; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; WE = null; AQV = ''; PKN = null;
   if (n === 'calls' && !KQ) { Q = ''; FSC = null; PN = 1; }   // opening Call Reviews from the menu starts with an empty search
   KQ = false; MD = null; NO = false; AC = null; SYS = false; RSV = null; PLY = null; SE = n === 'sco' ? SE : null;
   route = n; await load(); render(); window.scrollTo(0, 0);
