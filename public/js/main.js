@@ -41,7 +41,7 @@ function applySb() {
   document.documentElement.classList.toggle('co', COL); const s = $('#sb'); if (s) s.classList.toggle('co', COL);
   const b = $('#sbt'); if (b && !b.innerHTML) b.innerHTML = IC.chev;
 }
-function toggleSb() { COL = !COL; LS.set('qa_col', COL); applySb(); }
+function toggleSb() { COL = !COL; LS.set('qa_col', COL); FLY = null; OG = null; UMN = false; applySb(); if (ME) render(); }
 function sbDbl(e) { if (!ME || e.target.closest('a,button,.usr,select,input')) return; toggleSb(); }
 // ---------------------------------------------------------------- menu: a few main groups with drop-downs (a pop-out list when the sidebar is collapsed)
 let OG = null, FLY = null, FLYY = 100;
@@ -49,7 +49,7 @@ const gOpen = g => !COL && (OG === null ? groupOf(route) === g.id : OG === g.id)
 // clicking a group's icon opens its first page; when the sidebar is closed its pop-out menu stays open too
 let PENDFLY = null;
 function gGo(id, ev) {
-  ev.stopPropagation(); const g = groupsFor().find(x => x.id === id); if (!g || !g.items.length) return;
+  ev.stopPropagation(); UMN = false; const g = groupsFor().find(x => x.id === id); if (!g || !g.items.length) return;
   const y = ev.currentTarget.closest('.gh').getBoundingClientRect().top, first = g.items[0][0];
   if (COL) { if (route === first) { FLY = FLY === id ? null : id; FLYY = y; render(); } else { PENDFLY = { id, y }; location.hash = first; } return; }
   OG = id; if (route === first) render(); else location.hash = first;
@@ -57,8 +57,15 @@ function gGo(id, ev) {
 function tgG(id, ev) { if (COL) { FLY = FLY === id ? null : id; FLYY = ev.currentTarget.getBoundingClientRect().top; } else OG = (gOpen({ id }) ? '' : id); render(); }
 const NAVH = () => groupsFor().map(g => { const act = groupOf(route) === g.id, open = gOpen(g);
   return `<div class="grp ${open ? 'open' : ''} ${act ? 'act' : ''}"><button class=gh onclick="${COL ? `gGo('${g.id}',event)` : `tgG('${g.id}',event)`}" title="${g.name}"><i onclick="gGo('${g.id}',event)" title="Open ${g.items[0][1]}">${IC[g.icon]}</i><span>${g.name}</span><em>›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}</div>`; }).join('');
-document.addEventListener('click', e => { if (FLY && !e.target.closest('.fly,.gh')) { FLY = null; render(); } });
-const FOOT = () => `<div class=ft><div class=thm>${[['light', 'Light', IC.sun], ['dark', 'Dark', IC.moon], ['system', 'System', IC.mon]].map(([k, l, s]) => `<button class="${THM === k ? 'on' : ''}" data-m="${k}" onclick="th('${k}')" title="${l} mode"><span class=ti>${s}</span></button>`).join('')}</div><div class=usr><div class=av2 onclick="openAcct('profile')" title="My account">${esc(ini(ME.name))}</div><div class=un onclick="openAcct('profile')" title="My account"><b>${esc(ME.name)}</b><small>${ROLE[ME.role] || ME.role}</small></div><button onclick="tsnd()" title="${SND ? 'Sound on' : 'Sound off'}">${SND ? IC.vol : IC.mute}</button>${ME.role === 'admin' ? `<button onclick="SYS=true;render()" title="System settings">${IC.gear}</button>` : ''}<button onclick="out()" title="Log out">${IC.out}</button></div></div>`;
+document.addEventListener('click', e => { if ((FLY || UMN) && !e.target.closest('.fly,.gh,.av2')) { FLY = null; UMN = false; render(); } });
+let UMN = false;                                           // the small "me" menu of the compact sidebar
+const THL = [['light', 'Light', IC.sun], ['dark', 'Dark', IC.moon], ['system', 'System', IC.mon]];
+const thmBtns = () => `<div class=thm>${THL.map(([k, l, s]) => `<button class="${THM === k ? 'on' : ''}" data-m="${k}" onclick="th('${k}')" title="${l} mode"><span class=ti>${s}</span></button>`).join('')}</div>`;
+const cycleTh = () => th({ light: 'dark', dark: 'system', system: 'light' }[THM] || 'light');
+function umTog(ev) { ev.stopPropagation(); UMN = !UMN; FLY = null; FLYY = ev.currentTarget.getBoundingClientRect().bottom; render(); }
+const FOOT = () => COL
+  ? `<div class="ft ftc"><button class="thc1" data-m="${THM}" onclick="cycleTh()" title="${(THL.find(x => x[0] === THM) || THL[2])[1]} mode — click to change"><span class=ti>${(THL.find(x => x[0] === THM) || THL[2])[2]}</span></button><div class=av2 onclick="umTog(event)" title="${esc(ME.name)} — menu">${esc(ini(ME.name))}</div>${UMN ? `<div class="fly umn" style="--fyb:${Math.max(12, innerHeight - FLYY)}px"><b>${esc(ME.name)}</b><small class=umr>${ROLE[ME.role] || ME.role}</small>${thmBtns()}<a href="javascript:void(0)" onclick="UMN=false;openAcct('profile')">${IC.pen} My account</a><a href="javascript:void(0)" onclick="UMN=false;tsnd()">${SND ? IC.vol + ' Sound on' : IC.mute + ' Sound off'}</a>${ME.role === 'admin' ? `<a href="javascript:void(0)" onclick="UMN=false;SYS=true;render()">${IC.gear} System settings</a>` : ''}<a href="javascript:void(0)" onclick="UMN=false;out()">${IC.out} Log out</a></div>` : ''}</div>`
+  : `<div class=ft><div class=thm>${[['light', 'Light', IC.sun], ['dark', 'Dark', IC.moon], ['system', 'System', IC.mon]].map(([k, l, s]) => `<button class="${THM === k ? 'on' : ''}" data-m="${k}" onclick="th('${k}')" title="${l} mode"><span class=ti>${s}</span></button>`).join('')}</div><div class=usr><div class=av2 onclick="openAcct('profile')" title="My account">${esc(ini(ME.name))}</div><div class=un onclick="openAcct('profile')" title="My account"><b>${esc(ME.name)}</b><small>${ROLE[ME.role] || ME.role}</small></div><button onclick="tsnd()" title="${SND ? 'Sound on' : 'Sound off'}">${SND ? IC.vol : IC.mute}</button>${ME.role === 'admin' ? `<button onclick="SYS=true;render()" title="System settings">${IC.gear}</button>` : ''}<button onclick="out()" title="Log out">${IC.out}</button></div></div>`;
 
 // ---------------------------------------------------------------- render
 function render() {
