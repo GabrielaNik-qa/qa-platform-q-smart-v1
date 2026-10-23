@@ -15,9 +15,10 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, scopeOf }
   app.post('/api/autoqa/run', need(...EDIT), async (req, res) => {                // (re)rate every conversation with the current categories
     const db = load(), mode = (req.body || {}).mode === 'ai' ? 'ai' : 'rules', cats = db.autoCats.filter(x => x.enabled !== false);
     try {
-      let n = 0;
-      for (const c of db.conversations) { if (mode === 'ai' && n >= 40) break; c.auto = mode === 'ai' ? await ai.scoreConversation(c.text, cats) : scoreConv(c.text, cats); n++; }
-      save(db); res.json({ ok: 1, count: n, mode });
+      const got = new Map();
+      for (const c of db.conversations) { if (mode === 'ai' && got.size >= 40) break; got.set(c.id, mode === 'ai' ? await ai.scoreConversation(c.text, cats) : scoreConv(c.text, cats)); }
+      const now = load(); now.conversations.forEach(c => { if (got.has(c.id)) c.auto = got.get(c.id); });   // AI rating takes a while: save onto fresh data so nobody's changes are lost
+      save(now); res.json({ ok: 1, count: got.size, mode });
     } catch (e) { bad(res, e.message); }
   });
   app.put('/api/autoqa/conversations/:id/edit', need(...EDIT), (req, res) => {    // a reviewer corrects one Auto QA score ("modified")

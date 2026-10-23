@@ -31,6 +31,7 @@ let route = location.hash.slice(1) || 'dash';
 // dashboard filters (T = team id, '' = all teams)
 let P = 'all', T = '', DF = ds(-30), DT = ds(0);
 // call reviews filters (FT = team id, FA = agent username, '' = all)
+let FC = '';                                     // review type filter of Call Reviews ('' = all types)
 let Q = '', FT = '', FA = '', FP = 'month', F1 = ds(-30), F2 = ds(0), FS = '', FSC = null, FF = '', SK = 'd', SD = -1, PS = 10, PN = 1, KQ = false;
 // overlays: review popup, notifications, account, system settings, resolve dispute, confirm, player, generic form
 let MD = null, NO = false, NU = 0, AC = null, SYS = false, RSV = null, CFM = null, PLY = null, DRF = '', FM = null;
@@ -42,7 +43,9 @@ let ENT = null, ENT0 = '', EDITID = '', SE = null;
 let SKL = { skills: [], languages: [], counts: { skills: {}, languages: {} } }, WSP = [], RCS = [], CATLIB = [], ACAT = [], AQC = [], AQI = { ai: false };
 let AUD = [], TASKS = [], TPLS = [], SESS = [], CALS = [], KB = { folders: [], articles: [], reads: {}, newsletters: [], attempts: [] }, QZ = [], QATT = [], PROG = [], AIS = { enabled: false };
 // misc preferences
-let TI = 0, COL = LS.get('qa_col', false), SND = LS.get('qa_sound', 'on') === 'on', SNDS = LS.get('qa_snd_style', 'beep'), VOL = LS.get('qa_vol', 50);
+// COLP = the sidebar setting you chose; COL = what is shown (on screens 1100px wide or less the sidebar is always compact)
+let COLP = LS.get('qa_col', false), COL = COLP || innerWidth <= 1100;
+let TI = 0, SND = LS.get('qa_sound', 'on') === 'on', SNDS = LS.get('qa_snd_style', 'beep'), VOL = LS.get('qa_vol', 50);
 let THM = LS.get('qa_theme', 'system');
 let CH = [['c', "Hi, I'm interested, but honestly your price is too high."]];
 const RP = ["I need to think about it.", "Your competitor is cheaper.", "Okay, what happens next?"];
@@ -72,6 +75,10 @@ const IC = {
   search: svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'),
   dl: svg('<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>'),
   play: svg('<path d="M7 4l13 8-13 8z"/>'),
+  ch_call: svg('<path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L8.1 9.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.4c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z"/>', 14),
+  ch_chat: svg('<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>', 14),
+  ch_email: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>', 14),
+  ch_other: svg('<circle cx="12" cy="12" r="9"/><path d="M8 12h.01M12 12h.01M16 12h.01"/>', 14),
   bell: svg('<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/>', 18),
   clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
   sun: svg('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>', 18),
@@ -106,7 +113,9 @@ const IC = {
   cap: svg('<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5M22 9v6"/>'), brain: svg('<path d="M9 4a3 3 0 00-3 3 3 3 0 00-2 5 3 3 0 002 5 3 3 0 003 3h1V4zM15 4a3 3 0 013 3 3 3 0 012 5 3 3 0 01-2 5 3 3 0 01-3 3h-1V4z"/>'),
   chart: svg('<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>'), heart: svg('<path d="M12 20s-7-4.5-9-9a4.5 4.5 0 018-3.5A4.5 4.5 0 0121 11c-2 4.5-9 9-9 9z"/>'),
   lock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>'), globe: svg('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/>'),
-  puzzle: svg('<path d="M4 4h6v2a2 2 0 004 0V4h6v6h-2a2 2 0 000 4h2v6h-6v-2a2 2 0 00-4 0v2H4v-6h2a2 2 0 000-4H4z"/>')
+  puzzle: svg('<path d="M4 4h6v2a2 2 0 004 0V4h6v6h-2a2 2 0 000 4h2v6h-6v-2a2 2 0 00-4 0v2H4v-6h2a2 2 0 000-4H4z"/>'),
+  g_reports: svg('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 17v-3M12 17v-6M16 17v-2"/>', 22), g_plan: svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h3v3H8z"/>', 22),
+  g_perf: svg('<path d="M12 2l3 6.5 7 1-5 4.8 1.2 7L12 18l-6.2 3.3 1.2-7-5-4.8 7-1z"/>', 22), g_comply: svg('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 8v5M12 16h.01"/>', 22)
 };
 // the Q-smart mark: an orange ring with a yellow tail
 const mark = (id, s) => `<svg width="${s}" height="${s}" viewBox="0 0 34 34" aria-hidden="true"><circle cx="15.5" cy="15.5" r="10.5" fill="none" style="stroke:var(--brand)" stroke-width="4.6"/><path d="M22 22l7.5 7.5" stroke="#FFD447" stroke-width="4.6" stroke-linecap="round"/></svg>`;
@@ -218,16 +227,26 @@ async function load() {
   const want = [['ev', '/api/evaluations'], ['sc', '/api/scorecards'], ['nf', '/api/notifications'], ['set', '/api/settings'], ['tm', '/api/teams'], ['ro', '/api/roster']];
   if (adm) want.push(['us', '/api/users'], ['rg', '/api/registrations']);
   if (route === 'tasks') { want.push(['tk', '/api/tasks']); if (ed) want.push(['tp', '/api/task-templates']); }
+  if (route === 'agents') want.push(['se', '/api/sessions'], ['tk', '/api/tasks'], ['sm', '/api/simulations']);
+  if (route === 'sim') want.push(['sm', '/api/simulations']);
   if (['coach', 'o2o', 'acad'].includes(route) || (route === 'dash' && ME && ME.role === 'agent')) want.push(['se', '/api/sessions']);
   if (route === 'audit' && adm) want.push(['au', '/api/audit']);
   if (route === 'tasks' || route === 'coach' || route === 'dash') want.push(['tk', '/api/tasks']);
-  if (route === 'cal') want.push(['ca', '/api/calibrations']);
+  if (route === 'cal' || (route === 'calendar' && ed)) want.push(['ca', '/api/calibrations']);
+  // the new sections: their lists, plus what the Agents page and the dashboard show from them
+  const CL = { rbuild: ['reports', 'surveys', 'complaints'], rsaved: ['reports', 'surveys', 'complaints'], goals: ['goals', 'surveys', 'kudos'], pips: ['pips'], kudos: ['kudos'], compliance: ['risks'], risks: ['risks'], complaints: ['complaints'], csat: ['surveys'], calendar: ['pips'], agents: ['goals', 'pips', 'kudos', 'surveys', 'complaints'], dash: ['goals', 'kudos', 'surveys', 'complaints'] };
+  (CL[route] || []).forEach(c => { if (ME && (!['reports', 'risks', 'complaints'].includes(c) || ed)) want.push(['c_' + c, '/api/c/' + c]); });
+  if (['rbuild', 'rsaved', 'goals', 'calendar', 'kudos', 'dash'].includes(route)) want.push(['tk', '/api/tasks']);
+  if (route === 'calendar') want.push(['se', '/api/sessions']);
+  if (route === 'rexp' && ed) want.push(['xp', '/api/exports']);
+  if (route === 'backup' && adm) want.push(['bk', '/api/backups']);
+  if (route === 'integ') want.push(['ai', '/api/ai/status']);
   if (['kb', 'news', 'acad', 'coach', 'quiz'].includes(route)) want.push(['kb', '/api/kb']);
   if (route === 'dash' && ME && ME.role === 'agent') want.push(['kb', '/api/kb'], ['qz', '/api/quizzes']);
   if (['quiz', 'acad'].includes(route)) want.push(['qz', '/api/quizzes']);
   if (['kb', 'acad', 'coach'].includes(route) && ed) want.push(['pg', '/api/kb/progress']);
   if (['kb', 'quiz'].includes(route)) want.push(['ai', '/api/ai/status']);
-  want.push(['sk', '/api/skills'], ['rc', '/api/root-causes']);
+  want.push(['sk', '/api/skills'], ['rc', '/api/root-causes'], ['qf', '/api/qflags']);
   if (['users', 'teams', 'wsp', 'sco', 'skills', 'dash'].includes(route)) want.push(['ws', '/api/workspaces']);
   if (['sco', 'scat'].includes(route)) want.push(['cl', '/api/categories']);
   if (['autoqa', 'aqcats', 'aqlist', 'aqgaps', 'dash'].includes(route)) want.push(['ac', '/api/auto-cats']);
@@ -246,6 +265,11 @@ async function load() {
   if (R.tk) TASKS = JSON.parse(R.tk);
   if (R.tp) TPLS = JSON.parse(R.tp);
   if (R.se) SESS = JSON.parse(R.se);
+  if (R.sm) SIMS = JSON.parse(R.sm);
+  if (R.qf) QF = JSON.parse(R.qf);
+  Object.keys(R).filter(k => k.startsWith('c_') && R[k]).forEach(k => { CO[k.slice(2)] = JSON.parse(R[k]); });
+  if (R.xp) XPS = JSON.parse(R.xp);
+  if (R.bk) BKS = JSON.parse(R.bk);
   if (R.au) AUD = JSON.parse(R.au);
   if (R.ca) CALS = JSON.parse(R.ca);
   if (R.kb) KB = JSON.parse(R.kb);
@@ -333,3 +357,24 @@ function pwUpd() {
   const p = a.value, one = x => `<li class="${x[1] ? 'ok' : ''}">${x[1] ? '✓' : '○'} ${x[0]}</li>`;
   l.innerHTML = PWR.map(r => one([r[0], r[1](p)])).join('') + (b ? one(['Both passwords match', !!b.value && b.value === p]) : '');
 }
+
+// ---------------------------------------------------------------- review types: a review can be about a call, a chat, an email or another conversation
+// (old reviews have no type: they are calls). Every scorecard says which types it is used for (chs; old scorecards: calls).
+const CHS = ['call', 'chat', 'email', 'other'];
+const CHN = { call: 'Call', chat: 'Chat', email: 'Email', other: 'Other' }, CHP = { call: 'Calls', chat: 'Chats', email: 'Emails', other: 'Other' };
+const CHC = { call: 'var(--ac)', chat: '#8b5cf6', email: '#f59e0b', other: '#14b8a6' };
+const chOf = e => (e && e.ch) || 'call';
+const scChs = s => (s && s.chs && s.chs.length) ? s.chs : ['call'];
+const chTag = (ch, short) => `<span class=cht style="--c:${CHC[ch]}" title="${CHN[ch]}">${IC['ch_' + ch]}${short ? '' : ' ' + CHN[ch]}</span>`;
+// "All types / Calls / Chats / Emails / Other" buttons with how many reviews and their average; only types that have reviews are shown
+const chChips = (list, cur, fn) => { const c = k => list.filter(e => !k || chOf(e) === k); const used = CHS.filter(k => c(k).length);
+  return used.length < 2 && !cur ? '' : `<div class=chchips>${['', ...used].map(k => { const l = c(k), a = avg(l.map(e => e.sc)); return `<button class="chchip ${cur === k ? 'on' : ''}" style="--c:${k ? CHC[k] : 'var(--ac)'}" onclick="${fn}('${k}')">${k ? IC['ch_' + k] : ''}${k ? CHP[k] : 'All types'} <b>(${l.length})</b>${l.length ? `<b class=chav>${a.toFixed(0)}%</b>` : ''}</button>`; }).join('')}</div>`; };
+const chSel = (cur, on) => `<select onchange="${on}"><option value="">All types</option>${CHS.map(k => `<option value=${k} ${cur === k ? 'selected' : ''}>${CHP[k]}</option>`).join('')}</select>`;
+
+// ---------------------------------------------------------------- the new sections keep their records in simple lists (CO.goals, CO.pips, CO.kudos ...)
+const CO = {};
+let XPS = [], BKS = [];
+// save one record; returns an error text or nothing (so it can be used as the save of a form)
+async function coSave(c, x) { const { id, ...b } = x; const r = await api('/api/c/' + c + (id ? '/' + id : ''), b, id ? 'PUT' : 'POST'); if (!r.ok) return errOf(r, 'Could not save'); await load(); render(); toast('Saved'); }
+async function coPatch(c, id, b, msg) { const r = await api('/api/c/' + c + '/' + id, b, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true); await load(); render(); if (msg) toast(msg); }
+const coDel = (c, id, what) => ask('Delete this ' + what + '?', 'It is removed for everybody. This cannot be undone.', async () => { const r = await api('/api/c/' + c + '/' + id, null, 'DELETE'); if (!r.ok) return toast(await errOf(r, 'Could not delete'), true); await load(); render(); toast('Deleted'); }, { yes: 'Yes, delete', no: 'Cancel', danger: true });

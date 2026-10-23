@@ -25,7 +25,7 @@ function load() {
   const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : { users: [], evaluations: [] };
   let dirty = false;
   if (!Array.isArray(db.scorecards) || !db.scorecards.length) db.scorecards = [DEFAULT_SC];
-  for (const k of ['notifications', 'registrations', 'tasks', 'taskTpl', 'sessions', 'calibrations', 'kbFolders', 'kbArticles', 'newsletters', 'quizzes', 'attempts'])
+  for (const k of ['notifications', 'registrations', 'tasks', 'taskTpl', 'sessions', 'calibrations', 'kbFolders', 'kbArticles', 'newsletters', 'quizzes', 'attempts', 'simulations', 'qflags'])
     if (!Array.isArray(db[k])) db[k] = [];
   if (!db.kbReads) db.kbReads = {};
   if (!db.settings) db.settings = { pass: 85, teams: {} };
@@ -49,6 +49,11 @@ function load() {
   return db;
 }
 const link = v => /^https?:\/\//i.test(String(v || '')) ? String(v).slice(0, 300) : '';
+// a review is about one kind of conversation; old reviews without a type are calls
+const CHANNELS = ['call', 'chat', 'email', 'other'], CHN = { call: 'call', chat: 'chat', email: 'email', other: 'conversation' };
+const chOf = v => CHANNELS.includes(v) ? v : 'call';
+// the extra fields of chats, emails and other conversations (a call keeps its recording link and file)
+const chFields = (b, ch) => ch === 'call' ? { cl: '', tx: '', subj: '', chn: '' } : { cl: link(b.cl), tx: str(b.tx, 20000), subj: ch === 'email' ? str(b.subj, 200) : '', chn: ch === 'other' ? str(b.chn, 40) : '' };
 const bad = (res, msg) => res.status(400).json({ error: msg });
 const str = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
 const list = (v, n = 20, m = 40) => (Array.isArray(v) ? v : String(v || '').split(',')).map(x => str(x, m)).filter(Boolean).slice(0, n);
@@ -58,14 +63,17 @@ const BASE = process.env.PUBLIC_URL || 'http://localhost:' + (process.env.PORT |
 const mailer = process.env.SMTP_HOST ? nodemailer.createTransport({
   host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT) || 587, secure: Number(process.env.SMTP_PORT) === 465,
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } }) : null;
-async function mail(to, subject, text) {
+async function mail(to, subject, text, key, vars = {}, html) {
   if (!to) return;
+  const t = key && ((load().settings || {}).mailtpl || {})[key], fill = s => String(s).replace(/\{(\w+)\}/g, (m, k) => vars[k] != null ? vars[k] : m);
+  if (t && (t.subject || t.body)) { if (t.subject) subject = fill(t.subject); if (t.body) text = fill(t.body); }
   try {
-    if (mailer) { await mailer.sendMail({ from: process.env.MAIL_FROM || process.env.SMTP_USER, to, subject, text }); console.log('Email sent to ' + to + ': ' + subject); }
+    if (mailer) { await mailer.sendMail({ from: process.env.MAIL_FROM || process.env.SMTP_USER, to, subject, text, ...(html ? { html } : {}) }); console.log('Email sent to ' + to + ': ' + subject); }
     else console.log('[no SMTP configured] Email to ' + to + ' - ' + subject + '\n' + text + '\n');
   } catch (e) { console.error('Mail failed:', e.message); }
 }
 function notify(db, to, type, text, extra = {}) {
+  const u = db.users.find(x => x.username === to); if (u && (((db.settings || {}).notifOff || {})[type] || []).includes(u.role)) return;
   db.notifications.unshift({ id: 'n' + hex(5), to, type, text, at: iso(), read: false, ...extra });
   if (db.notifications.length > 5000) db.notifications.length = 5000;
 }
@@ -75,7 +83,9 @@ const hits = {};
 function limited(key, max, ms) {
   const now = Date.now(); hits[key] = (hits[key] || []).filter(t => now - t < ms);
   if (hits[key].length >= max) return true;
-  hits[key].push(now); return false;
+  hits[key].push(now);
+  if (Object.keys(hits).length > 5000) for (const k in hits) if (!hits[k].some(t => now - t < 36e5)) delete hits[k];   // forget old visitors so the list cannot grow forever
+  return false;
 }
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 const pwBad = p => {
@@ -98,7 +108,7 @@ const cleanPrefs = p => {
   if (LANGS.includes(p.lang)) out.lang = p.lang;                  // the language of the app (My account > Language); nothing saved = English
   return out;
 };
-const pub = u => ({ username: u.username, name: u.name, email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {}, prefs: cleanPrefs(u.prefs) });
+const pub = u => ({ username: u.username, name: u.name, email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {}, prefs: cleanPrefs(u.prefs), views: u.views || {} });
 // skills and languages can only be picked from the catalog (Admin > Skills); unknown names are dropped, spelling is normalised
 const pick = (v, catalog) => { const out = []; (Array.isArray(v) ? v : String(v || '').split(',')).forEach(x => { const m = (catalog || []).find(c => c.toLowerCase() === String(x).trim().toLowerCase()); if (m && !out.includes(m)) out.push(m); }); return out; };
 const rosterPub = u => ({ username: u.username, name: u.name, role: u.role, team: u.team || '', title: u.title || '', desc: u.desc || '', languages: u.languages || [], skills: u.skills || [], start: u.start || '', active: u.active !== false });
@@ -106,8 +116,9 @@ const rosterPub = u => ({ username: u.username, name: u.name, role: u.role, team
 // ------------------------------------------------------------------ app + sessions
 const app = express();
 app.set('trust proxy', 1);   // so the real visitor IP is seen behind a tunnel
-app.use((req, res, next) => {   // basic browser protections: no MIME guessing, no framing by other sites, no full URLs leaked to other sites
-  res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('X-Frame-Options', 'SAMEORIGIN'); res.setHeader('Referrer-Policy', 'same-origin'); next();
+app.disable('x-powered-by');
+app.use((req, res, next) => {   // basic browser protections: no framing by other sites (clickjacking), no guessing of file types
+  res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'same-origin' }); next();
 });
 app.use(express.json({ limit: '25mb' }));
 app.use(session({
@@ -117,22 +128,37 @@ app.use(session({
 }));
 const AUDIT = require('./audit');
 app.use(AUDIT.middleware);
-const authed = (req, res, next) => req.session.user ? next() : res.status(401).json({ error: 'login required' });
+// the account as it is saved right now (re-read only when data.json changed), so a deactivated user or a changed role takes effect at once, not at the next login
+let UC = { key: null, users: null };
+function liveUser(username) {
+  let key = ''; try { const s = fs.statSync(FILE); key = s.mtimeMs + ':' + s.size; } catch (e) {}
+  if (key !== UC.key || !UC.users) UC = { key, users: new Map(load().users.map(u => [u.username, u])) };
+  return UC.users.get(username);
+}
+function refreshSession(req, res) {   // false = the account is gone or deactivated (the sign-in is ended and 401 is sent)
+  const cur = liveUser(req.session.user.username);
+  if (!cur || cur.active === false) { req.session.destroy(() => res.status(401).json({ error: 'login required' })); return false; }
+  const s = req.session.user;
+  if (s.role !== cur.role || s.team !== (cur.team || '') || s.name !== cur.name || s.mustChange !== !!cur.mustChange) req.session.user = pub(cur);
+  return true;
+}
+const authed = (req, res, next) => !req.session.user ? res.status(401).json({ error: 'login required' }) : refreshSession(req, res) && next();
 // must be logged in (and have finished the first-login password change) and, optionally, have one of the roles
 const need = (...roles) => (req, res, next) => {
+  if (!req.session.user) return res.status(401).json({ error: 'login required' });
+  if (!refreshSession(req, res)) return;
   const u = req.session.user;
-  if (!u) return res.status(401).json({ error: 'login required' });
   if (u.mustChange) return res.status(403).json({ error: 'You must set a new password first', mustChange: true });
   if (roles.length && !roles.includes(u.role)) return res.status(403).json({ error: 'not allowed' });
   next();
 };
 AUDIT.routes(app, need);
-// resets only the made-up demo data (same as running "node seed.js"); things people created themselves are kept
+// puts back the data saved in seed.js (same as running "node seed.js"); the current data is kept in data.backup.json
 app.post('/api/demo/reset', need('admin'), (req, res) => {
   try { require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'seed.js')], { cwd: __dirname, stdio: 'ignore' }); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: 'The reset failed - run "node seed.js" in the terminal to see why' }); }
 });
-const ctx = { app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, scopeOf: (db, u) => scopeOf(db, u) };
+const ctx = { FILE, DIR: __dirname, app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, scopeOf: (db, u) => scopeOf(db, u) };
 
 // ------------------------------------------------------------------ login / account
 app.post('/api/login', (req, res) => {
@@ -140,7 +166,8 @@ app.post('/api/login', (req, res) => {
   const { username, password } = req.body || {};
   const id = String(username || '').trim().toLowerCase(), db = load();
   const u = db.users.find(x => x.username === id || (x.email || '').toLowerCase() === id);   // username OR email
-  if (u && u.active !== false && bcrypt.compareSync(String(password || ''), u.hash)) { req.session.user = pub(u); return res.json(req.session.user); }
+  if (u && u.active !== false && bcrypt.compareSync(String(password || ''), u.hash))   // a fresh session id at every sign-in (an id planted before the sign-in is useless)
+    return req.session.regenerate(err => { if (err) return res.status(500).json({ error: 'Could not sign in, try again' }); req.session.user = pub(u); res.json(req.session.user); });
   if (u && u.active === false && bcrypt.compareSync(String(password || ''), u.hash)) return res.status(403).json({ error: 'This account is deactivated. Please contact the administrator.' });
   const r = db.registrations.find(x => (x.username === id || x.email === id) && x.status !== 'approved' && bcrypt.compareSync(String(password || ''), x.hash));
   if (r) return res.status(403).json({ error: r.status === 'pending'
@@ -233,7 +260,7 @@ app.post('/api/registrations/:id/approve', need('admin'), (req, res) => {
   db.notifications = db.notifications.filter(n => !(n.type === 'reg' && n.reg === r.id));
   save(db); res.json({ ok: 1 });
   mail(r.email, 'Your registration has been approved',
-    `Hi ${r.name},\n\nGood news - your registration has been approved. You can now log in:\n${BASE}\n\nUsername: ${r.username}\n`);
+    `Hi ${r.name},\n\nGood news - your registration has been approved. You can now log in:\n${BASE}\n\nUsername: ${r.username}\n`, 'approved', { name: r.name, link: BASE, username: r.username });
 });
 app.post('/api/registrations/:id/decline', need('admin'), (req, res) => {
   const db = load(), r = db.registrations.find(x => x.id === req.params.id && x.status === 'pending');
@@ -318,7 +345,7 @@ app.post('/api/users', need('admin'), (req, res) => {
     if (db.users.some(u => u.username === username)) { if (b.username) throw new Error('That username already exists'); let n = 2; while (db.users.some(u => u.username === username + n)) n++; username += n; }
     const u = { username, ...userBody(b, db), hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), mustChange: true, teamHistory: [] };
     db.users.push(u); setStaffWs(db, username, u.role, b.workspaces); save(db); res.json({ ok: 1, username });
-    mail(u.email, 'Your account has been created', `Hi ${u.name},\n\nAn account was created for you.\n\nAddress: ${BASE}\nUsername: ${username}\nTemporary password: ${DEFAULT_PASSWORD}\n\nYou will be asked to choose a new password the first time you log in.\n`);
+    mail(u.email, 'Your account has been created', `Hi ${u.name},\n\nAn account was created for you.\n\nAddress: ${BASE}\nUsername: ${username}\nTemporary password: ${DEFAULT_PASSWORD}\n\nYou will be asked to choose a new password the first time you log in.\n`, 'account', { name: u.name, link: BASE, username, password: DEFAULT_PASSWORD });
   } catch (e) { bad(res, e.message); }
 });
 app.put('/api/users/:username', need('admin'), (req, res) => {
@@ -367,7 +394,21 @@ app.put('/api/layouts/:role', need('admin'), (req, res) => {                    
   if ((req.body || {}).reset) delete db.settings.layouts[page][req.params.role]; else db.settings.layouts[page][req.params.role] = items;
   save(db); res.json(db.settings);
 });
-const cleanLayout = a => Array.isArray(a) && a.length <= 40 ? a.map(x => ({ id: str(x.id, 30), size: [3, 4, 6, 12].includes(Number(x.size)) ? Number(x.size) : 6, on: x.on !== false })).filter(x => x.id) : null;
+// a widget on a page: k = its own key (the same widget can be added twice), id = the kind of widget, size, an own title and own filters (team, period)
+const SIZES = [3, 4, 6, 12, 15, 20, 30, 40, 60];
+const cleanLayout = a => Array.isArray(a) && a.length <= 40 ? a.map(x => ({ k: str(x.k, 40) || undefined, id: str(x.id, 30), size: SIZES.includes(Number(x.size)) ? Number(x.size) : 30, on: x.on !== false, title: str(x.title, 60) || undefined, f: x.f && typeof x.f === 'object' ? { t: str(x.f.t, 40), p: str(x.f.p, 10) } : undefined })).filter(x => x.id) : null;
+// named dashboard views: personal ones (everybody) and shared ones (admins and QA) that are shown to chosen roles or to everyone
+const cleanViews = (a, shared) => Array.isArray(a) && a.length <= 20 ? a.map(v => ({ id: str(v.id, 20) || 'v' + hex(4), name: str(v.name, 40) || 'My view', items: cleanLayout(v.items) || [], ...(shared ? { roles: list(v.roles, 6, 10).filter(r => r === 'all' || ROLES.includes(r)), by: str(v.by, 60) } : {}) })) : null;
+app.put('/api/views', need(), (req, res) => {
+  const db = load(), u = userBy(db, req.session.user.username), page = str((req.body || {}).page, 20), views = cleanViews((req.body || {}).views);
+  if (!page || !views) return bad(res, 'Bad views');
+  u.views = u.views || {}; u.views[page] = views; save(db); req.session.user = pub(u); res.json(req.session.user);
+});
+app.put('/api/shared-views', need('admin', 'qa'), (req, res) => {
+  const db = load(), page = str((req.body || {}).page, 20), views = cleanViews((req.body || {}).views, true);
+  if (!page || !views) return bad(res, 'Bad views');
+  db.settings.views = db.settings.views || {}; db.settings.views[page] = views; save(db); res.json({ ...db.settings, oldTeams: db.oldTeams });
+});
 
 // ------------------------------------------------------------------ system settings (pass rate thresholds)
 app.get('/api/settings', need(), (req, res) => { const db = load(); res.json({ ...db.settings, oldTeams: db.oldTeams }); });
@@ -419,7 +460,8 @@ const findEv = (db, rid) => db.evaluations.find(e => e.rid === rid);
 const evOf = (db, u, rid) => { const ev = findEv(db, rid); return ev && canSee(u, ev) && inScope(db, u, ev) ? ev : null; };
 const agentInScope = (db, u, au) => { const s = scopeOf(db, u); return !s || s.teams.has(au.team); };
 
-app.get('/api/evaluations', need(), (req, res) => { const db = load(), u = req.session.user; res.json(db.evaluations.filter(e => canSee(u, e) && inScope(db, u, e))); });
+// recMissing = the review points to an audio file that is not in the recordings folder (the player would show 0 seconds)
+app.get('/api/evaluations', need(), (req, res) => { const db = load(), u = req.session.user; res.json(db.evaluations.filter(e => canSee(u, e) && inScope(db, u, e)).map(e => e.rec && !fs.existsSync(path.join(REC, path.basename(e.rec))) ? { ...e, recMissing: true } : e)); });
 
 app.post('/api/evaluations', need('admin', 'qa'), (req, res) => {
   const b = req.body || {}, db = load(), scope = scopeOf(db, req.session.user);
@@ -429,15 +471,16 @@ app.post('/api/evaluations', need('admin', 'qa'), (req, res) => {
   if (!au || !agentInScope(db, req.session.user, au)) return bad(res, 'Choose an agent');
   const id = leadId(b.id);
   if (!id || id.length > 60) return bad(res, 'Enter the lead ID (up to 60 characters)');
-  if (!DAY.test(b.dt || '')) return bad(res, 'Choose the call date');
+  if (!DAY.test(b.dt || '')) return bad(res, 'Choose the date');
+  const ch = chOf(b.ch);
   let r; try { r = build(sc, b.a); } catch (err) { return bad(res, 'The answers do not match the scorecard'); }
   const ev = {
     rid: 'r' + hex(6), id, agent: au.username, agn: au.name, tid: au.team, d: evDate(b.dt), sc: r.sc, cs: r.cs, scid: sc.id, scn: sc.name, st: 'ok',
     fl: FLAGS.includes(b.fl) ? b.fl : '', cp: str(b.cp, 80), cm: str(b.cm, 1000),
-    lk: link(b.lk), rl: link(b.rl), rv: req.session.user.name, by: req.session.user.username, seen: null
+    lk: link(b.lk), rl: ch === 'call' ? link(b.rl) : '', ch, ...chFields(b, ch), rv: req.session.user.name, by: req.session.user.username, seen: null
   };
   db.evaluations.unshift(ev);
-  notify(db, au.username, 'review', `You received a new call review for Lead #${id} (score ${r.sc}%)`, { rid: ev.rid, lead: id });
+  notify(db, au.username, 'review', `You received a new ${CHN[ch]} review for Lead #${id} (score ${r.sc}%)`, { rid: ev.rid, lead: id });
   save(db); res.json(ev);
 });
 
@@ -448,7 +491,7 @@ app.put('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
   if (b.a !== undefined) {
     if (!ev.cs.some(c => c.it.length)) return bad(res, 'This older record has no item answers, so its scores cannot be edited');
     try {
-      const r = build({ cats: ev.cs.map(c => ({ n: c.n, k: c.k, it: c.it.map(i => ({ t: i.t, p: i.p, k: i.k })) })) }, b.a);
+      const r = build({ cats: ev.cs.map(c => ({ n: c.n, k: c.k, it: c.it.map(i => ({ t: i.t, p: i.p, k: i.k, cp: i.cp })) })) }, b.a);
       ev.cs = r.cs; ev.sc = r.sc;
     } catch (err) { return bad(res, 'The answers do not match the scorecard'); }
   }
@@ -459,7 +502,7 @@ app.put('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
     ev.agent = au.username; ev.agn = au.name; ev.tid = au.team;
   }
   if (b.dt !== undefined) {
-    if (!DAY.test(b.dt)) return bad(res, 'Choose the call date');
+    if (!DAY.test(b.dt)) return bad(res, 'Choose the date');
     if (lday(new Date(ev.d)) !== b.dt) ev.d = evDate(b.dt);
   }
   if (b.fl !== undefined) ev.fl = FLAGS.includes(b.fl) ? b.fl : '';
@@ -467,6 +510,7 @@ app.put('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
   if (b.cm !== undefined) ev.cm = str(b.cm, 1000);
   if (b.lk !== undefined) ev.lk = link(b.lk);
   if (b.rl !== undefined) ev.rl = link(b.rl);
+  if (b.ch !== undefined) { ev.ch = chOf(b.ch); Object.assign(ev, chFields(b, ev.ch)); if (ev.ch !== 'call') ev.rl = ''; }
   if (ev.sc !== oldSc) notify(db, ev.agent, 'review', `Your review for Lead #${ev.id} was updated (score ${ev.sc}%)`, { rid: ev.rid, lead: ev.id });
   save(db); res.json(ev);
 });
@@ -495,7 +539,7 @@ app.post('/api/evaluations/:rid/remind', need('admin', 'qa'), (req, res) => {   
   if (!u || u.active === false) return bad(res, 'This agent no longer has an active account, so there is nobody to remind');
   if (ev.rm && Date.now() - new Date(ev.rm) < 6e5) return bad(res, 'A reminder was already sent a moment ago');
   notify(db, u.username, 'remind', `Reminder: please open your call review for Lead #${ev.id}`, { rid: ev.rid, lead: ev.id });
-  mail(u.email, 'Reminder: you have a call review waiting', `Hi ${u.name},\n\nPlease open your call review for Lead #${ev.id}:\n${BASE}\n`);
+  mail(u.email, 'Reminder: you have a call review waiting', `Hi ${u.name},\n\nPlease open your call review for Lead #${ev.id}:\n${BASE}\n`, 'reminder', { name: u.name, link: BASE, lead: ev.id });
   ev.rm = iso(); save(db); res.json({ ok: 1 });
 });
 
@@ -550,12 +594,13 @@ const cleanSC = b => {
       const t = str(i.t, 300), p = Number(i.p);
       if (!t) throw new Error('Every item needs a description');
       if (!Number.isInteger(p) || p < 0 || p > 100) throw new Error('Points must be whole numbers from 0 to 100');
-      total += p; return { t, p, k: !!i.k };
+      total += p; return { t, p, k: !!i.k, cp: !!i.cp };
     });
     return { n, k: !!c.k, it };
   });
   if (total !== 100) throw new Error('Total points must equal 100 (currently ' + total + ')');
-  return { name, desc: str(b.desc, 200), cats };
+  const chs = (Array.isArray(b.chs) ? b.chs : []).filter(c => CHANNELS.includes(c));     // the kinds of conversation this scorecard is used for
+  return { name, desc: str(b.desc, 200), chs: chs.length ? [...new Set(chs)] : ['call'], cats };
 };
 app.get('/api/scorecards', need(), (req, res) => { const db = load(), s = scopeOf(db, req.session.user); res.json(db.scorecards.filter(c => !s || s.sc.has(c.id))); });
 app.post('/api/scorecards', need('admin'), (req, res) => {
@@ -577,6 +622,7 @@ app.delete('/api/scorecards/:id', need('admin'), (req, res) => {
 app.post('/api/export/call-reviews', need(), async (req, res) => {
   const rows = (req.body || {}).rows, pf = Number((req.body || {}).pf), pt = Number((req.body || {}).pt), name = str((req.body || {}).name, 30) || 'Call Reviews';
   if (!Array.isArray(rows) || !rows.length || rows.length > 20000) return res.status(400).json({ error: 'bad rows' });
+  if (!(req.body || {}).again) { const db = load(), u = req.session.user; db.exports = Array.isArray(db.exports) ? db.exports : []; db.exports.unshift({ id: 'x' + hex(5), name, n: rows.length - 1, pf, pt, by: u.username, byName: u.name, at: iso(), rows: rows.length <= 5001 ? rows : null }); db.exports = db.exports.slice(0, 200); save(db); }   // the Export centre keeps a copy
   const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(name.replace(/[\\/?*[\]:]/g, ' '));
   rows.forEach((r, i) => ws.addRow(r.map((v, j) => (i && j === 1) ? new Date(v + 'T12:00:00') : v)));
   ws.eachRow((row, n) => row.eachCell((c, j) => {
@@ -601,7 +647,7 @@ app.post('/api/forgot', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     u.reset = { h: sha(token), exp: now + 36e5 }; save(db);          // link is valid for 1 hour
     const url = `${BASE}/?reset=${token}&u=${encodeURIComponent(u.username)}`;
-    await mail(u.email, 'Reset your password', `Hi ${u.name},\n\nChoose a new password here (valid for 1 hour):\n${url}\n\nIf you did not ask for this, ignore this email.`);
+    await mail(u.email, 'Reset your password', `Hi ${u.name},\n\nChoose a new password here (valid for 1 hour):\n${url}\n\nIf you did not ask for this, ignore this email.`, 'reset', { name: u.name, link: url });
   } else console.log('Reset requested, but no account with an email address matched "' + id + '"');
   res.json({ ok: 1 });   // same answer whether or not the account exists
 });
@@ -615,33 +661,53 @@ app.post('/api/reset', (req, res) => {
   u.hash = bcrypt.hashSync(String(password), 10); u.mustChange = false; delete u.reset; save(db); res.json({ ok: 1 });
 });
 
-// ------------------------------------------------------------------ call recordings (audio files live in the "recordings" folder)
-const REC = process.env.REC_DIR ? path.resolve(process.env.REC_DIR) : path.join(__dirname, 'recordings');
+// ------------------------------------------------------------------ call recordings
+// The audio files live in ONE folder outside the project (Documents\Q-smart recordings), so every copy of the project plays the same files.
+// Set RECORDINGS_DIR to use another folder (REC_DIR is used by the tests). Files from an old "recordings" folder inside the project are copied there once.
+const REC = path.resolve(process.env.REC_DIR || process.env.RECORDINGS_DIR || path.join(require('os').homedir(), 'Documents', 'Q-smart recordings'));
+try { fs.mkdirSync(REC, { recursive: true }); const old = path.join(__dirname, 'recordings'); if (!process.env.REC_DIR && fs.existsSync(old)) fs.readdirSync(old).forEach(f => { const t = path.join(REC, f); if (!fs.existsSync(t)) fs.copyFileSync(path.join(old, f), t); }); } catch (e) { console.log('Recordings folder problem:', e.message); }
 const EXT = { 'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/wave': 'wav',
   'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/ogg': 'ogg', 'audio/webm': 'webm' };
+const EXTS = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'webm'];
 app.post('/api/evaluations/:rid/recording', need('admin', 'qa'), express.raw({ type: () => true, limit: '100mb' }), (req, res) => {
   const db = load(), ev = evOf(db, req.session.user, req.params.rid);
-  const ext = EXT[String(req.headers['content-type']).split(';')[0]];
+  const q = String(req.query.ext || '').toLowerCase(), ext = EXT[String(req.headers['content-type']).split(';')[0]] || (EXTS.includes(q) ? q : '');   // some browsers send no audio type: the file name decides
   if (!ev) return res.status(404).json({ error: 'evaluation not found' });
   if (!ext) return res.status(415).json({ error: 'unsupported audio type' });
   if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'empty file' });
   fs.mkdirSync(REC, { recursive: true });
   const name = ev.rid + '-' + Date.now() + '.' + ext;
   fs.writeFileSync(path.join(REC, name), req.body);
+  if (ev.rec) fs.rm(path.join(REC, path.basename(ev.rec)), () => {});      // the old file is replaced
   ev.rec = name; save(db); res.json({ rec: name });
+});
+app.delete('/api/evaluations/:rid/recording', need('admin', 'qa'), (req, res) => {
+  const db = load(), ev = findEv(db, req.params.rid);
+  if (!ev) return res.status(404).json({ error: 'evaluation not found' });
+  if (ev.rec) fs.rm(path.join(REC, path.basename(ev.rec)), () => {});
+  ev.rec = ''; save(db); res.json({ ok: 1 });
 });
 app.get('/api/recordings/:file', need(), (req, res) => {
   const db = load(), f = path.basename(req.params.file), ev = db.evaluations.find(e => e.rec === f);
   if (!ev || !canSee(req.session.user, ev) || !inScope(db, req.session.user, ev)) return res.status(404).json({ error: 'not found' });
-  res.sendFile(path.join(REC, f));
+  if (!fs.existsSync(path.join(REC, f))) return res.status(404).json({ error: 'The recording file is missing' });
+  res.sendFile(path.join(REC, f), { dotfiles: 'allow' });   // the folder path may contain a "." folder (e.g. .claude); the file name itself was checked above
 });
 
 // ------------------------------------------------------------------ the other modules
-require('./routes-work')(ctx);        // tasks, coaching sessions, calibrations
+require('./routes-work')(ctx);
+require('./routes-more')(ctx);        // reports, planning, performance, compliance & CX, backups, admin settings        // tasks, coaching sessions, calibrations
 require('./routes-learning')(ctx);    // knowledge base, quizzes, newsletter, import, ZIP export
 require('./routes-setup')(ctx);       // skills, workspaces, categories, root causes, Auto QA categories
 require('./routes-autoqa')(ctx);      // Auto QA conversations and scoring
 
 app.use(express.static(path.join(__dirname, 'public')));
+// any error that reaches this point: a short message for the browser (the details, with the folder paths of this computer, only go to the terminal)
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || 500;
+  if (status >= 500) console.error(req.method + ' ' + req.path + ':', err);
+  if (res.headersSent) return next(err);
+  res.status(status).json({ error: status === 404 ? 'not found' : status === 413 ? 'This is too large' : status < 500 ? 'The request could not be read' : 'Something went wrong on the server' });
+});
 const PORT = process.env.PORT || 3000;
 const srv = app.listen(PORT, () => console.log('Running on http://localhost:' + srv.address().port));   // PORT=0 picks any free port (used by the tests)
