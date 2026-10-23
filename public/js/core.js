@@ -93,7 +93,9 @@ const IC = {
   g_home: svg('<path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-7H9v7H5a2 2 0 01-2-2z"/>', 22), g_quality: svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>', 22),
   g_sc: svg('<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 13l2 2 4-4"/>', 22), g_analytics: svg('<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>', 22),
   g_coaching: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', 22), g_learning: svg('<path d="M12 6c-2-1.5-5-2-9-2v14c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2zM12 6v14"/>', 22),
-  g_tools: svg('<path d="M21 7l-5 5-3-3 5-5a5 5 0 00-6 7L3 19l2 2 8-8a5 5 0 008-6z"/>', 22), g_admin: svg('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>', 22)
+  g_tools: svg('<path d="M21 7l-5 5-3-3 5-5a5 5 0 00-6 7L3 19l2 2 8-8a5 5 0 008-6z"/>', 22), g_admin: svg('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>', 22),
+  g_reports: svg('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 17v-3M12 17v-6M16 17v-2"/>', 22), g_plan: svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h3v3H8z"/>', 22),
+  g_perf: svg('<path d="M12 2l3 6.5 7 1-5 4.8 1.2 7L12 18l-6.2 3.3 1.2-7-5-4.8 7-1z"/>', 22), g_comply: svg('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 8v5M12 16h.01"/>', 22)
 };
 const mark = (id, s) => `<svg width="${s}" height="${s}" viewBox="0 0 34 34" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3ecfa6"/><stop offset="1" stop-color="#2f8fe6"/></linearGradient></defs><circle cx="16" cy="16" r="11" fill="none" stroke="url(#${id})" stroke-width="4"/><path d="M22 22l8 8" stroke="url(#${id})" stroke-width="4" stroke-linecap="round"/></svg>`;
 
@@ -163,7 +165,15 @@ async function load() {
   if (['coach', 'o2o', 'acad'].includes(route) || (route === 'dash' && ME && ME.role === 'agent')) want.push(['se', '/api/sessions']);
   if (route === 'audit' && adm) want.push(['au', '/api/audit']);
   if (route === 'tasks' || route === 'coach' || route === 'dash') want.push(['tk', '/api/tasks']);
-  if (route === 'cal') want.push(['ca', '/api/calibrations']);
+  if (route === 'cal' || (route === 'calendar' && ed)) want.push(['ca', '/api/calibrations']);
+  // the new sections: their lists, plus what the Agents page and the dashboard show from them
+  const CL = { rbuild: ['reports', 'surveys', 'complaints'], rsaved: ['reports', 'surveys', 'complaints'], goals: ['goals', 'surveys', 'kudos'], pips: ['pips'], kudos: ['kudos'], compliance: ['risks'], risks: ['risks'], complaints: ['complaints'], csat: ['surveys'], calendar: ['pips'], agents: ['goals', 'pips', 'kudos', 'surveys', 'complaints'], dash: ['goals', 'kudos', 'surveys', 'complaints'] };
+  (CL[route] || []).forEach(c => { if (ME && (!['reports', 'risks', 'complaints'].includes(c) || ed)) want.push(['c_' + c, '/api/c/' + c]); });
+  if (['rbuild', 'rsaved', 'goals', 'calendar', 'kudos', 'dash'].includes(route)) want.push(['tk', '/api/tasks']);
+  if (route === 'calendar') want.push(['se', '/api/sessions']);
+  if (route === 'rexp' && ed) want.push(['xp', '/api/exports']);
+  if (route === 'backup' && adm) want.push(['bk', '/api/backups']);
+  if (route === 'integ') want.push(['ai', '/api/ai/status']);
   if (['kb', 'news', 'acad', 'coach', 'quiz'].includes(route)) want.push(['kb', '/api/kb']);
   if (route === 'dash' && ME && ME.role === 'agent') want.push(['kb', '/api/kb'], ['qz', '/api/quizzes']);
   if (['quiz', 'acad'].includes(route)) want.push(['qz', '/api/quizzes']);
@@ -190,6 +200,9 @@ async function load() {
   if (R.se) SESS = JSON.parse(R.se);
   if (R.sm) SIMS = JSON.parse(R.sm);
   if (R.qf) QF = JSON.parse(R.qf);
+  Object.keys(R).filter(k => k.startsWith('c_') && R[k]).forEach(k => { CO[k.slice(2)] = JSON.parse(R[k]); });
+  if (R.xp) XPS = JSON.parse(R.xp);
+  if (R.bk) BKS = JSON.parse(R.bk);
   if (R.au) AUD = JSON.parse(R.au);
   if (R.ca) CALS = JSON.parse(R.ca);
   if (R.kb) KB = JSON.parse(R.kb);
@@ -282,3 +295,11 @@ const chTag = (ch, short) => `<span class=cht style="--c:${CHC[ch]}" title="${CH
 const chChips = (list, cur, fn) => { const c = k => list.filter(e => !k || chOf(e) === k); const used = CHS.filter(k => c(k).length);
   return used.length < 2 && !cur ? '' : `<div class=chchips>${['', ...used].map(k => { const l = c(k), a = avg(l.map(e => e.sc)); return `<button class="chchip ${cur === k ? 'on' : ''}" style="--c:${k ? CHC[k] : 'var(--ac)'}" onclick="${fn}('${k}')">${k ? IC['ch_' + k] : ''}${k ? CHP[k] : 'All types'} <b>(${l.length})</b>${l.length ? `<b class=chav>${a.toFixed(0)}%</b>` : ''}</button>`; }).join('')}</div>`; };
 const chSel = (cur, on) => `<select onchange="${on}"><option value="">All types</option>${CHS.map(k => `<option value=${k} ${cur === k ? 'selected' : ''}>${CHP[k]}</option>`).join('')}</select>`;
+
+// ---------------------------------------------------------------- the new sections keep their records in simple lists (CO.goals, CO.pips, CO.kudos ...)
+const CO = {};
+let XPS = [], BKS = [];
+// save one record; returns an error text or nothing (so it can be used as the save of a form)
+async function coSave(c, x) { const { id, ...b } = x; const r = await api('/api/c/' + c + (id ? '/' + id : ''), b, id ? 'PUT' : 'POST'); if (!r.ok) return errOf(r, 'Could not save'); await load(); render(); toast('Saved'); }
+async function coPatch(c, id, b, msg) { const r = await api('/api/c/' + c + '/' + id, b, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true); await load(); render(); if (msg) toast(msg); }
+const coDel = (c, id, what) => ask('Delete this ' + what + '?', 'It is removed for everybody. This cannot be undone.', async () => { const r = await api('/api/c/' + c + '/' + id, null, 'DELETE'); if (!r.ok) return toast(await errOf(r, 'Could not delete'), true); await load(); render(); toast('Deleted'); }, { yes: 'Yes, delete', no: 'Cancel', danger: true });

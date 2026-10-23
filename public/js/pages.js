@@ -10,13 +10,20 @@ const GROUPS = [
   { id: 'quality', name: 'Quality', icon: 'g_quality', items: [['calls', 'Reviews'], ['entry', 'QA Entry'], ['flags', 'Quick Flags'], ['disputes', 'Disputes']] },
   { id: 'scorecards', name: 'Scorecards', icon: 'g_sc', items: [['sco', 'Scorecards'], ['scat', 'Categories'], ['roots', 'Root causes'], ['aqcats', 'Auto QA categories']] },
   { id: 'analytics', name: 'Analytics', icon: 'g_analytics', items: [['agents', 'Agents'], ['team', 'Team Review'], ['cats', 'Category Stats']] },
+  { id: 'reports', name: 'Reports', icon: 'g_reports', items: [['rbuild', 'Report builder'], ['rsaved', 'Saved & scheduled'], ['rexp', 'Export centre']] },
   { id: 'coaching', name: 'Coaching', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration']] },
+  { id: 'performance', name: 'Performance', icon: 'g_perf', items: [['goals', 'Goals & KPIs'], ['pips', 'Improvement plans'], ['kudos', 'Recognition']] },
+  { id: 'planning', name: 'Planning', icon: 'g_plan', items: [['planner', 'Review planner'], ['workload', 'QA workload'], ['calendar', 'Calendar']] },
+  { id: 'comply', name: 'Compliance & CX', icon: 'g_comply', items: [['compliance', 'Compliance'], ['risks', 'Risk register'], ['complaints', 'Complaints'], ['csat', 'Surveys (CSAT)']] },
   { id: 'learning', name: 'Learning', icon: 'g_learning', items: [['acad', 'My Learning'], ['kb', 'Knowledge Base'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },
   { id: 'tools', name: 'Tools', icon: 'g_tools', items: [['tr', 'Transcripts'], ['sim', 'Call Simulator']] },
-  { id: 'admin', name: 'Admin', icon: 'g_admin', items: [['users', 'Users'], ['teams', 'Teams'], ['wsp', 'Workspaces'], ['skills', 'Skills'], ['audit', 'Audit log']] }
+  { id: 'admin', name: 'Admin', icon: 'g_admin', items: [['users', 'Users'], ['teams', 'Teams'], ['wsp', 'Workspaces'], ['skills', 'Skills'], ['perms', 'Roles & permissions'], ['integ', 'Integrations'], ['notifs', 'Notification rules'], ['backup', 'Backups & data'], ['mailtpl', 'Email templates'], ['audit', 'Audit log']] }
 ];
 const RR = { entry: ['admin', 'qa'], flags: STAFFR, team: STAFFR, cats: STAFFR, coach: STAFFR, cal: STAFFR, sco: STAFFR, scat: ['admin', 'qa'], roots: ['admin', 'qa'], aqcats: ['admin', 'qa'], users: ['admin'], teams: ['admin'], wsp: ['admin'], skills: ['admin'], audit: ['admin'] };
-const canRoute = k => !RR[k] || RR[k].includes(ME.role);
+Object.assign(RR, { rbuild: STAFFR, rsaved: STAFFR, rexp: STAFFR, planner: ['admin', 'qa', 'lead'], workload: ['admin', 'qa', 'lead'], compliance: STAFFR, risks: STAFFR, complaints: STAFFR, csat: STAFFR, perms: ['admin'], integ: ['admin'], notifs: ['admin'], backup: ['admin'], mailtpl: ['admin'] });
+// an admin can change who sees which page (Admin > Roles & permissions); admins always keep the Admin pages
+const ADMINP = ['users', 'teams', 'wsp', 'skills', 'perms', 'integ', 'notifs', 'backup', 'mailtpl', 'audit'];
+const canRoute = k => { if (ME.role === 'admin' && ADMINP.includes(k)) return true; const p = (SET.perm || {})[k] || RR[k]; return !p || p.includes(ME.role); };
 const groupsFor = () => GROUPS.map(g => ({ ...g, items: g.items.filter(([k]) => canRoute(k)) })).filter(g => g.items.length);
 const groupOf = r => ({ aqlist: 'home', aqgaps: 'home' })[r] || (GROUPS.find(g => g.items.some(([k]) => k === r)) || {}).id;
 

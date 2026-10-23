@@ -59,14 +59,17 @@ const BASE = process.env.PUBLIC_URL || 'http://localhost:' + (process.env.PORT |
 const mailer = process.env.SMTP_HOST ? nodemailer.createTransport({
   host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT) || 587, secure: Number(process.env.SMTP_PORT) === 465,
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } }) : null;
-async function mail(to, subject, text) {
+async function mail(to, subject, text, key, vars = {}, html) {
   if (!to) return;
+  const t = key && ((load().settings || {}).mailtpl || {})[key], fill = s => String(s).replace(/\{(\w+)\}/g, (m, k) => vars[k] != null ? vars[k] : m);
+  if (t && (t.subject || t.body)) { if (t.subject) subject = fill(t.subject); if (t.body) text = fill(t.body); }
   try {
-    if (mailer) { await mailer.sendMail({ from: process.env.MAIL_FROM || process.env.SMTP_USER, to, subject, text }); console.log('Email sent to ' + to + ': ' + subject); }
+    if (mailer) { await mailer.sendMail({ from: process.env.MAIL_FROM || process.env.SMTP_USER, to, subject, text, ...(html ? { html } : {}) }); console.log('Email sent to ' + to + ': ' + subject); }
     else console.log('[no SMTP configured] Email to ' + to + ' - ' + subject + '\n' + text + '\n');
   } catch (e) { console.error('Mail failed:', e.message); }
 }
 function notify(db, to, type, text, extra = {}) {
+  const u = db.users.find(x => x.username === to); if (u && (((db.settings || {}).notifOff || {})[type] || []).includes(u.role)) return;
   db.notifications.unshift({ id: 'n' + hex(5), to, type, text, at: iso(), read: false, ...extra });
   if (db.notifications.length > 5000) db.notifications.length = 5000;
 }
@@ -119,7 +122,7 @@ app.post('/api/demo/reset', need('admin'), (req, res) => {
   try { require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'seed.js')], { cwd: __dirname, stdio: 'ignore' }); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: 'The reset failed - run "node seed.js" in the terminal to see why' }); }
 });
-const ctx = { app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, scopeOf: (db, u) => scopeOf(db, u) };
+const ctx = { FILE, DIR: __dirname, app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, scopeOf: (db, u) => scopeOf(db, u) };
 
 // ------------------------------------------------------------------ login / account
 app.post('/api/login', (req, res) => {
@@ -203,7 +206,7 @@ app.post('/api/registrations/:id/approve', need('admin'), (req, res) => {
   db.notifications = db.notifications.filter(n => !(n.type === 'reg' && n.reg === r.id));
   save(db); res.json({ ok: 1 });
   mail(r.email, 'Your registration has been approved',
-    `Hi ${r.name},\n\nGood news - your registration has been approved. You can now log in:\n${BASE}\n\nUsername: ${r.username}\n`);
+    `Hi ${r.name},\n\nGood news - your registration has been approved. You can now log in:\n${BASE}\n\nUsername: ${r.username}\n`, 'approved', { name: r.name, link: BASE, username: r.username });
 });
 app.post('/api/registrations/:id/decline', need('admin'), (req, res) => {
   const db = load(), r = db.registrations.find(x => x.id === req.params.id && x.status === 'pending');
@@ -288,7 +291,7 @@ app.post('/api/users', need('admin'), (req, res) => {
     if (db.users.some(u => u.username === username)) { if (b.username) throw new Error('That username already exists'); let n = 2; while (db.users.some(u => u.username === username + n)) n++; username += n; }
     const u = { username, ...userBody(b, db), hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), mustChange: true, teamHistory: [] };
     db.users.push(u); setStaffWs(db, username, u.role, b.workspaces); save(db); res.json({ ok: 1, username });
-    mail(u.email, 'Your account has been created', `Hi ${u.name},\n\nAn account was created for you.\n\nAddress: ${BASE}\nUsername: ${username}\nTemporary password: ${DEFAULT_PASSWORD}\n\nYou will be asked to choose a new password the first time you log in.\n`);
+    mail(u.email, 'Your account has been created', `Hi ${u.name},\n\nAn account was created for you.\n\nAddress: ${BASE}\nUsername: ${username}\nTemporary password: ${DEFAULT_PASSWORD}\n\nYou will be asked to choose a new password the first time you log in.\n`, 'account', { name: u.name, link: BASE, username, password: DEFAULT_PASSWORD });
   } catch (e) { bad(res, e.message); }
 });
 app.put('/api/users/:username', need('admin'), (req, res) => {
@@ -431,7 +434,7 @@ app.put('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
   if (b.a !== undefined) {
     if (!ev.cs.some(c => c.it.length)) return bad(res, 'This older record has no item answers, so its scores cannot be edited');
     try {
-      const r = build({ cats: ev.cs.map(c => ({ n: c.n, k: c.k, it: c.it.map(i => ({ t: i.t, p: i.p, k: i.k })) })) }, b.a);
+      const r = build({ cats: ev.cs.map(c => ({ n: c.n, k: c.k, it: c.it.map(i => ({ t: i.t, p: i.p, k: i.k, cp: i.cp })) })) }, b.a);
       ev.cs = r.cs; ev.sc = r.sc;
     } catch (err) { return bad(res, 'The answers do not match the scorecard'); }
   }
@@ -479,7 +482,7 @@ app.post('/api/evaluations/:rid/remind', need('admin', 'qa'), (req, res) => {   
   if (!u || u.active === false) return bad(res, 'This agent no longer has an active account, so there is nobody to remind');
   if (ev.rm && Date.now() - new Date(ev.rm) < 6e5) return bad(res, 'A reminder was already sent a moment ago');
   notify(db, u.username, 'remind', `Reminder: please open your call review for Lead #${ev.id}`, { rid: ev.rid, lead: ev.id });
-  mail(u.email, 'Reminder: you have a call review waiting', `Hi ${u.name},\n\nPlease open your call review for Lead #${ev.id}:\n${BASE}\n`);
+  mail(u.email, 'Reminder: you have a call review waiting', `Hi ${u.name},\n\nPlease open your call review for Lead #${ev.id}:\n${BASE}\n`, 'reminder', { name: u.name, link: BASE, lead: ev.id });
   ev.rm = iso(); save(db); res.json({ ok: 1 });
 });
 
@@ -534,7 +537,7 @@ const cleanSC = b => {
       const t = str(i.t, 300), p = Number(i.p);
       if (!t) throw new Error('Every item needs a description');
       if (!Number.isInteger(p) || p < 0 || p > 100) throw new Error('Points must be whole numbers from 0 to 100');
-      total += p; return { t, p, k: !!i.k };
+      total += p; return { t, p, k: !!i.k, cp: !!i.cp };
     });
     return { n, k: !!c.k, it };
   });
@@ -562,6 +565,7 @@ app.delete('/api/scorecards/:id', need('admin'), (req, res) => {
 app.post('/api/export/call-reviews', need(), async (req, res) => {
   const rows = (req.body || {}).rows, pf = Number((req.body || {}).pf), pt = Number((req.body || {}).pt), name = str((req.body || {}).name, 30) || 'Call Reviews';
   if (!Array.isArray(rows) || !rows.length || rows.length > 20000) return res.status(400).json({ error: 'bad rows' });
+  if (!(req.body || {}).again) { const db = load(), u = req.session.user; db.exports = Array.isArray(db.exports) ? db.exports : []; db.exports.unshift({ id: 'x' + hex(5), name, n: rows.length - 1, pf, pt, by: u.username, byName: u.name, at: iso(), rows: rows.length <= 5001 ? rows : null }); db.exports = db.exports.slice(0, 200); save(db); }   // the Export centre keeps a copy
   const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(name.replace(/[\\/?*[\]:]/g, ' '));
   rows.forEach((r, i) => ws.addRow(r.map((v, j) => (i && j === 1) ? new Date(v + 'T12:00:00') : v)));
   ws.eachRow((row, n) => row.eachCell((c, j) => {
@@ -586,7 +590,7 @@ app.post('/api/forgot', async (req, res) => {
     const token = crypto.randomBytes(32).toString('hex');
     u.reset = { h: sha(token), exp: now + 36e5 }; save(db);          // link is valid for 1 hour
     const url = `${BASE}/?reset=${token}&u=${encodeURIComponent(u.username)}`;
-    await mail(u.email, 'Reset your password', `Hi ${u.name},\n\nChoose a new password here (valid for 1 hour):\n${url}\n\nIf you did not ask for this, ignore this email.`);
+    await mail(u.email, 'Reset your password', `Hi ${u.name},\n\nChoose a new password here (valid for 1 hour):\n${url}\n\nIf you did not ask for this, ignore this email.`, 'reset', { name: u.name, link: url });
   } else console.log('Reset requested, but no account with an email address matched "' + id + '"');
   res.json({ ok: 1 });   // same answer whether or not the account exists
 });
@@ -634,7 +638,8 @@ app.get('/api/recordings/:file', need(), (req, res) => {
 });
 
 // ------------------------------------------------------------------ the other modules
-require('./routes-work')(ctx);        // tasks, coaching sessions, calibrations
+require('./routes-work')(ctx);
+require('./routes-more')(ctx);        // reports, planning, performance, compliance & CX, backups, admin settings        // tasks, coaching sessions, calibrations
 require('./routes-learning')(ctx);    // knowledge base, quizzes, newsletter, import, ZIP export
 require('./routes-setup')(ctx);       // skills, workspaces, categories, root causes, Auto QA categories
 require('./routes-autoqa')(ctx);      // Auto QA conversations and scoring
