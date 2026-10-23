@@ -141,6 +141,25 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     db.sessions = db.sessions.filter(x => x !== s); save(db); res.json({ ok: 1 });
   });
 
+  // ---------------------------------------------------------------- quick flags: a red / green flag on a call, kept apart from QA reviews (scores never change)
+  const qfBody = (b, db) => {
+    const a = userBy(db, b.agent); if (!a || a.role !== 'agent') throw new Error('Choose the agent');
+    const lead = str(b.lead, 60); if (!lead) throw new Error('Enter the lead ID');
+    if (!DAY.test(b.date || '')) throw new Error('Choose the date');
+    const link = v => /^https?:///i.test(String(v || '').trim()) ? str(v, 500) : '';
+    return { type: b.type === 'green' ? 'green' : 'red', agent: a.username, tid: a.team, lead, date: b.date, cp: str(b.cp, 80), lk: link(b.lk), rl: link(b.rl), cm: str(b.cm, 1000) };
+  };
+  app.get('/api/qflags', need(), (req, res) => { const u = req.session.user; res.json(load().qflags.filter(f => u.role !== 'agent' || f.agent === u.username)); });
+  app.post('/api/qflags', need(...EDIT), (req, res) => {
+    const db = load(), me = req.session.user;
+    try { const f = { id: 'f' + hex(5), ...qfBody(req.body || {}, db), by: me.username, byName: me.name, at: iso() }; db.qflags.unshift(f); notify(db, f.agent, 'flag', `${me.name} gave you a ${f.type} flag for Lead #${f.lead}${f.cm ? ': ' + f.cm.slice(0, 80) : ''}`, { flag: f.id, lead: f.lead }); save(db); res.json(f); } catch (e) { bad(res, e.message); }
+  });
+  app.put('/api/qflags/:id', need(...EDIT), (req, res) => {
+    const db = load(), f = db.qflags.find(x => x.id === req.params.id); if (!f) return res.status(404).json({ error: 'not found' });
+    try { Object.assign(f, qfBody({ ...f, ...(req.body || {}) }, db), { updated: iso() }); save(db); res.json(f); } catch (e) { bad(res, e.message); }
+  });
+  app.delete('/api/qflags/:id', need(...EDIT), (req, res) => { const db = load(); db.qflags = db.qflags.filter(x => x.id !== req.params.id); save(db); res.json({ ok: 1 }); });
+
   // ---------------------------------------------------------------- call simulator results (shown on the Agents page, tab Simulations)
   app.get('/api/simulations', need(), (req, res) => {
     const db = load(), u = req.session.user;

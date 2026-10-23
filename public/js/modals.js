@@ -4,7 +4,7 @@ const OVL = (inner, close, w = 640, z = 50) => `<div class=ov style="z-index:${z
 let NUI = [];
 
 // ---------------------------------------------------------------- notifications
-const NFT = { task: [IC.check, 'New task', 'var(--ac)'], taskdone: [IC.check, 'Task completed', 'var(--ok)'], quiz: [IC.pen, 'New quiz', 'var(--wn)'], news: [IC.list, 'Newsletter', 'var(--ac)'], cal: [IC.grid, 'Calibration', 'var(--ac)'], review: [IC.eye, 'New Call Review', 'var(--ok)'], dispute: [IC.flag, 'Call Review Disputed', 'var(--wn)'], msg: [IC.pen, 'New dispute message', 'var(--ac)'], resolved: [IC.check, 'Dispute resolved', 'var(--ok)'], remind: [IC.clock, 'Reminder', 'var(--wn)'], reg: [IC.plus, 'New registration request', 'var(--ac)'] };
+const NFT = { task: [IC.check, 'New task', 'var(--ac)'], taskdone: [IC.check, 'Task completed', 'var(--ok)'], quiz: [IC.pen, 'New quiz', 'var(--wn)'], news: [IC.list, 'Newsletter', 'var(--ac)'], cal: [IC.grid, 'Calibration', 'var(--ac)'], review: [IC.eye, 'New Call Review', 'var(--ok)'], dispute: [IC.flag, 'Call Review Disputed', 'var(--wn)'], msg: [IC.pen, 'New dispute message', 'var(--ac)'], resolved: [IC.check, 'Dispute resolved', 'var(--ok)'], remind: [IC.clock, 'Reminder', 'var(--wn)'], reg: [IC.plus, 'New registration request', 'var(--ac)'], flag: [IC.flag, 'Quick flag', 'var(--bad)'] };
 async function openN() {
   const r0 = await api('/api/notifications'); if (r0.ok) NF = await r0.json();     // always show the freshest list
   NU = UN(); NUI = NF.filter(n => !n.read).map(n => n.id); NO = true; render();
@@ -13,7 +13,7 @@ async function openN() {
 function nfOpen(id) {
   const n = NF.find(x => x.id === id); if (!n) return;
   NO = false;
-  const go = { reg: 'users', task: 'tasks', taskdone: 'tasks', quiz: 'quiz', news: 'news', cal: 'cal' }[n.type];
+  const go = { flag: ME.role === 'agent' ? 'agents' : 'flags', reg: 'users', task: 'tasks', taskdone: 'tasks', quiz: 'quiz', news: 'news', cal: 'cal' }[n.type];
   if (go) { if (location.hash === '#' + go) render(); else location.hash = go; return; }
   if (n.rid && EV.some(e => e.rid === n.rid)) om('view', n.rid); else { render(); toast('This review no longer exists', true); }
 }
@@ -51,7 +51,7 @@ const DSP = e => {
       : `<p class=mu style="margin:0">Resolved by ${esc(d.res.by)} on ${fdt(d.res.at)}: score ${d.res.outcome === 'kept' ? 'kept' : 'changed'}${d.res.note ? ' — ' + esc(d.res.note) : ''}</p>`) + `</div>`;
 };
 // where the recording plays from: the uploaded file, or the recording link when it points straight at an audio file
-const recSrc = e => e.rec ? '/api/recordings/' + e.rec : /^https?:\/\/\S+\.(mp3|wav|m4a|ogg|webm|aac)(\?\S*)?$/i.test(e.rl || '') ? e.rl : '';
+const recSrc = e => e.rec && !e.recMissing ? '/api/recordings/' + e.rec : /^https?:\/\/\S+\.(mp3|wav|m4a|ogg|webm|aac)(\?\S*)?$/i.test(e.rl || '') ? e.rl : '';
 const mdTg = i => { MD.op = { ...(MD.op || {}), [i]: !(MD.op || {})[i] }; render(); };
 const mdAll = on => { const e = EV.find(x => x.rid === MD.id); MD.op = {}; if (on) (e.cs || []).forEach((c, i) => { MD.op[i] = true; }); render(); };
 // a team name opens the team: admins go to Teams, the other staff to Team Review filtered on that team
@@ -68,7 +68,7 @@ const MDL = () => {
 <div class=rvtop><div class=rvring><svg viewBox="0 0 120 120" width=120 height=120><circle cx=60 cy=60 r=${R} fill=none style="stroke:var(--bd)" stroke-width=10 /><circle cx=60 cy=60 r=${R} fill=none stroke="${e.sc >= PT(e.tm) ? 'url(#lg)' : sc}" stroke-width=10 stroke-linecap=round stroke-dasharray="${(C * e.sc / 100).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 60 60)"/></svg><b>${Math.round(e.sc)}<small>%</small></b></div>
 <div class=rvfacts>${fact('Agent', who && e.agent ? agLink(e.agent, agn(e)) : esc(agn(e)))}${fact('Reviewed by', esc(e.rv || '—'))}${fact('Team', teamLink(e.tm) + (e.tmh && e.tmh !== e.tm ? ` <small>(was ${esc(tn(e.tmh))})</small>` : ''))}${fact('Date', f(e.d))}${fact('Campaign', esc(cpn(e).slice(11) || 'general'))}${fact('Status', (e.st === 'disputed' ? pill('Disputed', 'wn') : pill('Completed', 'ok')) + (e.fl ? ` <span class="fgv ${e.fl}" title="${e.fl} flag">${IC.flag}</span>` : ''))}</div></div>
 <div class=rvbtn>${lnkB('CRM link', e.lk)}${lnkB('Recording link', e.rl)}<button class="ib ibx rvplay ${MD.play ? 'on' : ''}" ${src ? `onclick="MD.play=!MD.play;render()"` : 'disabled title="No recording to play"'}>${MD.play ? IC.x + ' Close player' : IC.play + ' Play recording'}</button></div>
-${MD.play && src ? `<audio class=player controls autoplay src="${esc(src)}"></audio>` : ''}
+${MD.play && src ? `<audio class=player controls autoplay src="${esc(src)}"></audio>` : ''}${e.recMissing ? `<div class=rvwarn>⚠ The recording file of this review is missing on this computer${staff() ? ' — open <b>Edit review</b> and upload it again' : ''}.</div>` : ''}
 ${staff() ? `<div class="row rvstaff"><small>${e.seen ? '👁 Seen by the agent on ' + fdt(e.seen) : '⚠ Not seen yet by the agent'}</small><span style="display:flex;gap:8px">${!e.seen ? `<button class="ib ibx" onclick="remind('${e.rid}')">${IC.bell} Remind agent</button>` : ''}${hasItems(e) ? `<button class="ib ibx" onclick="edE('${e.rid}')">${IC.pen} Edit review</button>` : ''}</span></div>` : ''}
 <div class=row><h3 style="margin:0">Evaluation Criteria</h3><a href="javascript:void(0)" class=agl onclick="mdAll(${(e.cs || []).every((c, i) => op[i]) ? 0 : 1})">${(e.cs || []).every((c, i) => op[i]) ? 'Collapse all' : 'Expand all'}</a></div>
 ${(e.cs || []).map((c, ci) => { const p = c.m ? c.e / c.m * 100 : 0, cc = scol(p, e.tm); return `<div class="rvcat ${op[ci] ? 'open' : ''}"><div class=rvch onclick="mdTg(${ci})"><span class=rvchev>${IC.chev}</span><b>${esc(c.n)}${c.k ? '<span class=crit>Critical category</span>' : ''}${c.z ? '<span class=crit>Scored 0</span>' : ''}</b><span class=mono style="color:var(--mu)">${c.e} / ${c.m}</span><b class=mono style="color:${cc};min-width:52px;text-align:right">${Math.round(p)}%</b></div>${bar(p, cc)}${op[ci] ? c.it.map(i => `<div class="rvit ${i.a}"><span>${esc(i.t)}${i.k ? '<span class=crit>Critical</span>' : ''}${i.cm ? `<br><small>💬 ${esc(i.cm)}</small>` : ''}${i.rc ? `<br><small>Root cause: ${esc(i.rc)}</small>` : ''}</span>${i.a === 'y' ? pill('YES', 'ok') : i.a === 'n' ? pill('NO', 'bad') : pill('N/A', 'ac')}</div>`).join('') : ''}</div>`; }).join('')}
@@ -98,4 +98,4 @@ const SYSM = () => OVL(`<div class=mh><h2>System Settings</h2>${X('SYS=false;ren
 const resetDemo = () => ask('Reset the data?', 'All data goes back to the copy saved in seed.js. Everything changed since then is replaced (a backup is kept in data.backup.json).', async () => { const r = await api('/api/demo/reset', {}, 'POST'); if (!r.ok) return toast(await errOf(r, 'Could not reset')); SYS = false; await load(); render(); toast('Data reset'); });
 
 // all overlays, in stacking order
-const overlays = () => (NO ? MODAL() : '') + (MD ? MDL() : '') + (SSV ? SSVM() : '') + (TKV ? TKM() : '') + (TPLM ? TPLMM() : '') + (RSV ? RSVM() : '') + (AC ? ACCT() : '') + (SYS ? SYSM() : '') + (FM ? FMM() : '') + (PLY ? PLYM() : '') + (AQV ? AQM() : '') + (TEST ? TESTM() : '') + (AIH ? AIHM() : '') + (ME.mustChange ? FIRSTM() : '') + (CFM ? CFMM() : '');
+const overlays = () => (NO ? MODAL() : '') + (MD ? MDL() : '') + (SSV ? SSVM() : '') + (TKV ? TKM() : '') + (TPLM ? TPLMM() : '') + (RSV ? RSVM() : '') + (AC ? ACCT() : '') + (SYS ? SYSM() : '') + (FM ? FMM() : '') + (PLY ? PLYM() : '') + (QFM ? QFMM() : '') + (PAL ? PALM() : '') + (WE && WADD ? WADDM() : '') + (WE && WSET ? WSETM() : '') + (AQV ? AQM() : '') + (TEST ? TESTM() : '') + (AIH ? AIHM() : '') + (ME.mustChange ? FIRSTM() : '') + (CFM ? CFMM() : '');

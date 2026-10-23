@@ -21,7 +21,7 @@ function load() {
   const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : { users: [], evaluations: [] };
   let dirty = false;
   if (!Array.isArray(db.scorecards) || !db.scorecards.length) db.scorecards = [DEFAULT_SC];
-  for (const k of ['notifications', 'registrations', 'tasks', 'taskTpl', 'sessions', 'calibrations', 'kbFolders', 'kbArticles', 'newsletters', 'quizzes', 'attempts', 'simulations'])
+  for (const k of ['notifications', 'registrations', 'tasks', 'taskTpl', 'sessions', 'calibrations', 'kbFolders', 'kbArticles', 'newsletters', 'quizzes', 'attempts', 'simulations', 'qflags'])
     if (!Array.isArray(db[k])) db[k] = [];
   if (!db.kbReads) db.kbReads = {};
   if (!db.settings) db.settings = { pass: 85, teams: {} };
@@ -83,7 +83,7 @@ const pwBad = p => {
   return '';
 };
 const validEmail = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
-const pub = u => ({ username: u.username, name: u.name, email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {} });
+const pub = u => ({ username: u.username, name: u.name, email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {}, views: u.views || {} });
 // skills and languages can only be picked from the catalog (Admin > Skills); unknown names are dropped, spelling is normalised
 const pick = (v, catalog) => { const out = []; (Array.isArray(v) ? v : String(v || '').split(',')).forEach(x => { const m = (catalog || []).find(c => c.toLowerCase() === String(x).trim().toLowerCase()); if (m && !out.includes(m)) out.push(m); }); return out; };
 const rosterPub = u => ({ username: u.username, name: u.name, role: u.role, team: u.team || '', title: u.title || '', desc: u.desc || '', languages: u.languages || [], skills: u.skills || [], start: u.start || '', active: u.active !== false });
@@ -332,7 +332,21 @@ app.put('/api/layouts/:role', need('admin'), (req, res) => {                    
   if ((req.body || {}).reset) delete db.settings.layouts[page][req.params.role]; else db.settings.layouts[page][req.params.role] = items;
   save(db); res.json(db.settings);
 });
-const cleanLayout = a => Array.isArray(a) && a.length <= 40 ? a.map(x => ({ id: str(x.id, 30), size: [3, 4, 6, 12].includes(Number(x.size)) ? Number(x.size) : 6, on: x.on !== false })).filter(x => x.id) : null;
+// a widget on a page: k = its own key (the same widget can be added twice), id = the kind of widget, size, an own title and own filters (team, period)
+const SIZES = [3, 4, 6, 12, 15, 20, 30, 40, 60];
+const cleanLayout = a => Array.isArray(a) && a.length <= 40 ? a.map(x => ({ k: str(x.k, 40) || undefined, id: str(x.id, 30), size: SIZES.includes(Number(x.size)) ? Number(x.size) : 30, on: x.on !== false, title: str(x.title, 60) || undefined, f: x.f && typeof x.f === 'object' ? { t: str(x.f.t, 40), p: str(x.f.p, 10) } : undefined })).filter(x => x.id) : null;
+// named dashboard views: personal ones (everybody) and shared ones (admins and QA) that are shown to chosen roles or to everyone
+const cleanViews = (a, shared) => Array.isArray(a) && a.length <= 20 ? a.map(v => ({ id: str(v.id, 20) || 'v' + hex(4), name: str(v.name, 40) || 'My view', items: cleanLayout(v.items) || [], ...(shared ? { roles: list(v.roles, 6, 10).filter(r => r === 'all' || ROLES.includes(r)), by: str(v.by, 60) } : {}) })) : null;
+app.put('/api/views', need(), (req, res) => {
+  const db = load(), u = userBy(db, req.session.user.username), page = str((req.body || {}).page, 20), views = cleanViews((req.body || {}).views);
+  if (!page || !views) return bad(res, 'Bad views');
+  u.views = u.views || {}; u.views[page] = views; save(db); req.session.user = pub(u); res.json(req.session.user);
+});
+app.put('/api/shared-views', need('admin', 'qa'), (req, res) => {
+  const db = load(), page = str((req.body || {}).page, 20), views = cleanViews((req.body || {}).views, true);
+  if (!page || !views) return bad(res, 'Bad views');
+  db.settings.views = db.settings.views || {}; db.settings.views[page] = views; save(db); res.json({ ...db.settings, oldTeams: db.oldTeams });
+});
 
 // ------------------------------------------------------------------ system settings (pass rate thresholds)
 app.get('/api/settings', need(), (req, res) => { const db = load(); res.json({ ...db.settings, oldTeams: db.oldTeams }); });
@@ -381,7 +395,8 @@ const canSee = (u, ev) => u.role !== 'agent' || isOwner(u, ev);          // agen
 const leadId = v => String(v == null ? '' : v).trim();
 const findEv = (db, rid) => db.evaluations.find(e => e.rid === rid);
 
-app.get('/api/evaluations', need(), (req, res) => { const db = load(), u = req.session.user; res.json(db.evaluations.filter(e => canSee(u, e) && inScope(db, u, e))); });
+// recMissing = the review points to an audio file that is not in the recordings folder (the player would show 0 seconds)
+app.get('/api/evaluations', need(), (req, res) => { const db = load(), u = req.session.user; res.json(db.evaluations.filter(e => canSee(u, e) && inScope(db, u, e)).map(e => e.rec && !fs.existsSync(path.join(REC, path.basename(e.rec))) ? { ...e, recMissing: true } : e)); });
 
 app.post('/api/evaluations', need('admin', 'qa'), (req, res) => {
   const b = req.body || {}, db = load();
@@ -577,13 +592,17 @@ app.post('/api/reset', (req, res) => {
   u.hash = bcrypt.hashSync(String(password), 10); u.mustChange = false; delete u.reset; save(db); res.json({ ok: 1 });
 });
 
-// ------------------------------------------------------------------ call recordings (audio files live in the "recordings" folder)
-const REC = path.join(__dirname, 'recordings');
+// ------------------------------------------------------------------ call recordings
+// The audio files live in ONE folder outside the project (Documents\Q-smart recordings), so every copy of the project plays the same files.
+// Set RECORDINGS_DIR to use another folder. Files from an old "recordings" folder inside the project are copied there once.
+const REC = process.env.RECORDINGS_DIR || path.join(require('os').homedir(), 'Documents', 'Q-smart recordings');
+try { fs.mkdirSync(REC, { recursive: true }); const old = path.join(__dirname, 'recordings'); if (fs.existsSync(old)) fs.readdirSync(old).forEach(f => { const t = path.join(REC, f); if (!fs.existsSync(t)) fs.copyFileSync(path.join(old, f), t); }); } catch (e) { console.log('Recordings folder problem:', e.message); }
 const EXT = { 'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/wave': 'wav',
   'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/ogg': 'ogg', 'audio/webm': 'webm' };
+const EXTS = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'webm'];
 app.post('/api/evaluations/:rid/recording', need('admin', 'qa'), express.raw({ type: () => true, limit: '100mb' }), (req, res) => {
   const db = load(), ev = findEv(db, req.params.rid);
-  const ext = EXT[String(req.headers['content-type']).split(';')[0]];
+  const q = String(req.query.ext || '').toLowerCase(), ext = EXT[String(req.headers['content-type']).split(';')[0]] || (EXTS.includes(q) ? q : '');   // some browsers send no audio type: the file name decides
   if (!ev) return res.status(404).json({ error: 'evaluation not found' });
   if (!ext) return res.status(415).json({ error: 'unsupported audio type' });
   if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'empty file' });
@@ -602,6 +621,7 @@ app.delete('/api/evaluations/:rid/recording', need('admin', 'qa'), (req, res) =>
 app.get('/api/recordings/:file', need(), (req, res) => {
   const f = path.basename(req.params.file), ev = load().evaluations.find(e => e.rec === f);
   if (!ev || !canSee(req.session.user, ev)) return res.status(404).json({ error: 'not found' });
+  if (!fs.existsSync(path.join(REC, f))) return res.status(404).json({ error: 'The recording file is missing' });
   res.sendFile(path.join(REC, f));
 });
 

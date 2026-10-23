@@ -48,7 +48,7 @@ PG.entry = function () {
       + `<label>${L('Agent', 1)}<select id=eag ${!ENT.team ? 'disabled' : ''} onchange="ENT.agent=this.value">${AGO()}</select></label>`
       + `<label>${L('Lead ID', 1)}<input id=eid placeholder="Enter lead ID (any characters)" maxlength=60 value="${esc(ENT.id)}" oninput="ENT.id=this.value"></label>`
       + `<label>${L('Call Date', 1)}<input id=edt type=date value="${ENT.dt}" oninput="ENT.dt=this.value"></label>`
-      + `<label>${L('Lead Link')}<input placeholder="https://…" value="${esc(ENT.lk)}" oninput="ENT.lk=this.value"></label>`
+      + `<label>${L('CRM Link')}<input placeholder="https://…" value="${esc(ENT.lk)}" oninput="ENT.lk=this.value"></label>`
       + `<label>${L('Recording Link')}<input placeholder="https://…" value="${esc(ENT.rl)}" oninput="ENT.rl=this.value"></label>`
       + `<label>${L('Campaign')}<input id=ecp placeholder="Enter campaign name" value="${esc(ENT.cp)}" oninput="ENT.cp=this.value"></label>`
       + `<label>${L(ed && ENT.rec && !ENT.recDel ? 'Replace recording file' : 'Recording file')}<input id=ef type=file accept="audio/*">${ed && ENT.rec ? (ENT.recDel ? `<small class=mu>The recording will be removed when you save. <a href="javascript:void(0)" style="color:var(--ac)" onclick="ENT.recDel=false;render()">Undo</a></small>` : `<small class=mu style="display:flex;gap:8px;align-items:center">${IC.play} Current file: ${esc(ENT.rec)} <a href="javascript:void(0)" style="color:var(--bad)" onclick="ENT.recDel=true;render()">Remove</a></small>`) : ''}</label>` + `</div>`)
@@ -86,7 +86,7 @@ async function saveE() {
   if (!r.ok) { if (r.status === 401) return; return toast(await errOf(r, r.status === 403 ? 'Your role cannot add evaluations' : 'Could not save the review'), true); }
   const ev = await r.json();
   if (!fl && EDITID && E.recDel) await api('/api/evaluations/' + ev.rid + '/recording', null, 'DELETE');
-  if (fl) { const u = await fetch('/api/evaluations/' + ev.rid + '/recording', { method: 'POST', headers: { 'Content-Type': fl.type }, body: fl }); if (!u.ok) toast('The review was saved, but the recording was not accepted (use mp3, wav, m4a, ogg or webm).', true); }
+  if (fl) { const u = await fetch('/api/evaluations/' + ev.rid + '/recording?ext=' + encodeURIComponent((fl.name.split('.').pop() || '').toLowerCase()), { method: 'POST', headers: { 'Content-Type': fl.type || 'application/octet-stream' }, body: fl }); if (!u.ok) toast('The review was saved, but the recording was not accepted (use mp3, wav, m4a, ogg or webm).', true); }
   beep(); await load();
   if (EDITID) { ENT = null; EDITID = ''; location.hash = 'calls'; render(); toast('Changes saved'); return; }
   newEnt(E.scid); render(); window.scrollTo({ top: 0, behavior: 'smooth' }); toast('Review saved ✓  You can enter the next one');   // stay on the form, ready for the next review

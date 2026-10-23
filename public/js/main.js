@@ -86,13 +86,36 @@ async function onHash() {
   if (!canRoute(n)) { location.hash = 'dash'; return; }
   if (n !== 'entry') { ENT = null; EDITID = ''; }
   if (n !== 'kb') KBE = null;
-  OG = null; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; WE = null; AQV = ''; PKN = null;
+  OG = null; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; WE = null; AQV = ''; PKN = null;
   if (n === 'calls' && !KQ) { Q = ''; FSC = null; PN = 1; }   // opening Call Reviews from the menu starts with an empty search
   KQ = false; MD = null; NO = false; AC = null; SYS = false; RSV = null; PLY = null; SE = n === 'sco' ? SE : null;
   route = n; await load(); render(); window.scrollTo(0, 0);
 }
 addEventListener('hashchange', onHash);
-addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'k') { const i = $('.qi'); if (i) { e.preventDefault(); i.focus(); } } });
+// ---------------------------------------------------------------- quick jump (Ctrl+K or the search box in any header): pages, agents, leads and actions in one list
+let PAL = null;
+function palOpen(q = '') { if (!ME) return; PAL = { q, i: 0 }; render(); setTimeout(() => { const i = $('#palq'); if (i) { i.focus(); i.setSelectionRange(99, 99); } }, 20); }
+function palItems() {
+  const q = PAL.q.trim().toLowerCase(), hit = s => !q || s.toLowerCase().includes(q), out = [];
+  const acts = [staff() && ['New evaluation', 'Score a call', "goPage('entry')"], isStaffR() && ['New quick flag', 'Red or green flag without a review', "goPage('flags');setTimeout(()=>qfNew({type:'red'}),300)"], isStaffR() && ['New task', 'Give a task to agents', "TV.tab='my';goPage('tasks');setTimeout(()=>newTask(),300)"], isStaffR() && ['New one-to-one', 'Document a one-to-one', "goPage('o2o')"]].filter(Boolean);
+  acts.forEach(([t, s, go]) => hit(t) && out.push({ ic: IC.plus, t, s, go }));
+  groupsFor().forEach(g => g.items.forEach(([k, n]) => hit(n + ' ' + g.name) && out.push({ ic: IC[g.icon], t: n, s: g.name, go: `goPage('${k}')` })));
+  if (q) {
+    AGENTS().filter(a => hit(a.name) || hit(a.username)).slice(0, 6).forEach(a => out.push({ ic: `<span class=av style="margin:0;width:24px;height:24px;font-size:9px">${esc(ini(a.name))}</span>`, t: a.name, s: 'Agent · ' + tn(a.team), go: ME.role === 'agent' ? "goPage('agents')" : `openAgent('${esc(a.username)}')` }));
+    EV.filter(e => String(e.id).toLowerCase().includes(q)).slice(0, 6).forEach(e => out.push({ ic: IC.eye, t: 'Lead ' + e.id, s: `${agn(e)} · ${f(e.d)} · ${Math.round(e.sc)}%`, go: `om('view','${e.rid}')` }));
+    out.push({ ic: IC.search, t: `Search Call Reviews for "${PAL.q.trim()}"`, s: 'Lead ID, agent or campaign', go: `Q=${JSON.stringify(PAL.q.trim()).replace(/"/g, "'")};KQ=true;location.hash==='#calls'?render():location.hash='calls'` });
+  }
+  return out.slice(0, 14);
+}
+function palGo(k) { const it = palItems()[k]; PAL = null; render(); if (it) new Function(it.go)(); }
+const PALM = () => { const l = palItems(); if (PAL.i >= l.length) PAL.i = 0;
+  return OVL(`<div class=pal><div class=sx><span>${IC.search}</span><input id=palq placeholder="Go to a page, an agent or a lead ID…" value="${esc(PAL.q)}" oninput="PAL.q=this.value;PAL.i=0;palRt()" onkeydown="palKey(event)"><kbd class=kb>Esc</kbd></div><div id=pall>${palList(l)}</div><small class=mu>↑ ↓ to choose · Enter to open</small></div>`, 'PAL=null;render()', 620, 99); };
+const palList = l => l.map((it, k) => `<button class="palr ${k === PAL.i ? 'on' : ''}" onclick="palGo(${k})"><span class=pali>${it.ic}</span><span><b>${esc(it.t)}</b><small>${esc(it.s)}</small></span></button>`).join('') || '<p class=mu style="padding:14px">Nothing found</p>';
+const palRt = () => { const b = $('#pall'); if (b) b.innerHTML = palList(palItems()); };
+function palKey(e) { const n = palItems().length; if (e.key === 'Escape') { PAL = null; render(); } else if (e.key === 'ArrowDown') { e.preventDefault(); PAL.i = (PAL.i + 1) % Math.max(n, 1); palRt(); } else if (e.key === 'ArrowUp') { e.preventDefault(); PAL.i = (PAL.i - 1 + n) % Math.max(n, 1); palRt(); } else if (e.key === 'Enter') { e.preventDefault(); palGo(PAL.i); } }
+addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); palOpen(); } });
+// every header search box opens the quick jump too (typing goes straight into it)
+document.addEventListener('focusin', e => { if (e.target.classList && e.target.classList.contains('qi') && route !== 'calls') { const v = e.target.value; e.target.blur(); palOpen(v); } });
 addEventListener('beforeunload', e => { if (entDirty() || kbDirty()) { e.preventDefault(); e.returnValue = ''; } });
 
 // new reviews and notifications show up by themselves (every 20 s and when you come back to the tab)
@@ -101,8 +124,8 @@ const refreshBell = () => $$('.ib[onclick*="openN"]').forEach(b => { b.innerHTML
 async function poll() {
   if (!ME || ME.mustChange) return;
   const ch = await load(), u = UN(); if (PREVU !== null && u > PREVU) beep(); PREVU = u;
-  const busy = ['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement || {}).tagName);
-  if (ch && (!MD || MD.t === 'view') && !NO && !AC && !SYS && !RSV && !CFM && !PLY && !FM && !TKV && !TEST && !SSV && !TPLM && !AQV && !WE && !busy && route !== 'entry' && !SE && !KBE && !QZE && !NWE) render(); else if (ch) refreshBell();
+  const busy = ['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement || {}).tagName) || $$('audio').some(a => !a.paused);   // never restart a recording that is playing
+  if (ch && (!MD || MD.t === 'view') && !NO && !AC && !SYS && !RSV && !CFM && !PLY && !FM && !TKV && !TEST && !SSV && !TPLM && !AQV && !WE && !QFM && !PAL && !busy && route !== 'entry' && !SE && !KBE && !QZE && !NWE) render(); else if (ch) refreshBell();
 }
 setInterval(poll, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
