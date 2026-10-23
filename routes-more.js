@@ -21,6 +21,8 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     if (typeof v === 'object') { if (depth > 4) return {}; const o = {}; Object.keys(v).slice(0, 60).forEach(k => { if (!/^[_$]/.test(k) && !['id', 'by', 'byName', 'at', 'updated'].includes(k)) o[k.slice(0, 40)] = clean(v[k], depth + 1); }); return o; }
     return undefined;
   };
+  // the few records whose numbers feed reports are checked here too (the page checks first, but the server must not trust the page)
+  const CHECK = { surveys: x => Number.isInteger(x.score) && x.score >= 1 && x.score <= 5 && /^\d{4}-\d{2}-\d{2}$/.test(String(x.date || '')) ? '' : 'Each survey answer needs a date (YYYY-MM-DD) and a score from 1 to 5' };
   const coll = (db, c) => { if (!Array.isArray(db[c])) db[c] = []; return db[c]; };
   const canRead = (c, u) => COLS[c] && COLS[c].read.includes(u.role);
   const canWrite = (c, u) => COLS[c] && COLS[c].write.includes(u.role);
@@ -39,6 +41,7 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     const list = Array.isArray(b.bulk) ? b.bulk.slice(0, 3000) : [b];                // bulk = an imported list (surveys)
     if (JSON.stringify(list).length > 3e6) return bad(res, 'Too much data at once');
     const out = list.map(x => ({ ...clean(x), id: c.slice(0, 1) + hex(5), by: u.username, byName: u.name, at: iso() }));
+    const wrong = CHECK[c] && out.map(CHECK[c]).find(Boolean); if (wrong) return bad(res, wrong);
     out.forEach(x => { coll(db, c).unshift(x); after(db, c, x, u, true); });
     save(db); res.json(Array.isArray(b.bulk) ? { added: out.length } : out[0]);
   });
@@ -49,6 +52,7 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     if (u.role === 'agent' && COLS[c] && COLS[c].agentFields && COLS[c].mine(u, x, db)) { COLS[c].agentFields.forEach(k => { if (b[k] !== undefined) x[k] = b[k]; }); x.updated = iso(); save(db); return res.json(x); }
     if (!canWrite(c, u)) return res.status(403).json({ error: 'not allowed' });
     if (COLS[c].ownOnly && x.by !== u.username && u.role !== 'admin') return res.status(403).json({ error: 'Only the person who made it can change it' });
+    const wrong = CHECK[c] && CHECK[c]({ ...x, ...b }); if (wrong) return bad(res, wrong);
     Object.assign(x, b, { updated: iso() }); save(db); res.json(x);
   });
   app.delete('/api/c/:col/:id', need(), (req, res) => {
@@ -104,24 +108,26 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   setInterval(scheduler, 10 * 60 * 1000); setTimeout(scheduler, 20000);
 
   // ---------------------------------------------------------------- backups & data (admins)
-  const BK = path.join(DIR, 'backups'), stamp = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/(\d{8})(\d{4})/, '$1-$2');
+  const BK = process.env.BACKUPS_DIR ? path.resolve(process.env.BACKUPS_DIR) : path.join(DIR, 'backups'), stamp = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/(\d{8})(\d{4})/, '$1-$2');
   const okName = f => /^[\w.-]+\.json$/.test(f);
+  const DL = { dotfiles: 'allow' };   // downloads must also work when the app runs inside a "." folder (e.g. .claude\worktrees\...); file names are checked by okName
   const backupNow = label => { fs.mkdirSync(BK, { recursive: true }); const f = `data-${stamp()}${label ? '-' + label : ''}.json`; fs.copyFileSync(FILE, path.join(BK, f)); return f; };
   app.get('/api/backups', need('admin'), (req, res) => { fs.mkdirSync(BK, { recursive: true }); res.json(fs.readdirSync(BK).filter(okName).map(f => { const s = fs.statSync(path.join(BK, f)); return { f, size: s.size, at: s.mtime }; }).sort((a, b) => b.at - a.at)); });
   app.post('/api/backups', need('admin'), (req, res) => res.json({ f: backupNow(str((req.body || {}).label, 20).replace(/[^\w-]/g, '')) }));
-  app.get('/api/backups/current/download', need('admin'), (req, res) => res.download(FILE, `q-smart-data-${stamp()}.json`));
-  app.get('/api/backups/:f', need('admin'), (req, res) => { const f = req.params.f; if (!okName(f) || !fs.existsSync(path.join(BK, f))) return res.status(404).json({ error: 'not found' }); res.download(path.join(BK, f)); });
+  app.get('/api/backups/current/download', need('admin'), (req, res) => res.download(FILE, `q-smart-data-${stamp()}.json`, DL));
+  app.get('/api/backups/:f', need('admin'), (req, res) => { const f = req.params.f; if (!okName(f) || !fs.existsSync(path.join(BK, f))) return res.status(404).json({ error: 'not found' }); res.download(path.join(BK, f), f, DL); });
   app.delete('/api/backups/:f', need('admin'), (req, res) => { const f = req.params.f; if (okName(f)) fs.rmSync(path.join(BK, f), { force: true }); res.json({ ok: 1 }); });
   const validData = d => d && Array.isArray(d.users) && Array.isArray(d.evaluations) && d.users.some(u => u.role === 'admin');
+  // the upload route must come BEFORE "/:f/restore", otherwise "upload" is taken for a backup file name and the restore always answers "not found"
+  app.post('/api/backups/upload/restore', need('admin'), (req, res) => {
+    const d = (req.body || {}).data; if (!validData(d)) return bad(res, 'That file is not a Q-smart backup with an admin user');
+    const safety = backupNow('before-restore'); save(d); res.json({ ok: 1, safety });
+  });
   app.post('/api/backups/:f/restore', need('admin'), (req, res) => {
     const f = req.params.f, p = path.join(BK, f); if (!okName(f) || !fs.existsSync(p)) return res.status(404).json({ error: 'not found' });
     let d; try { d = JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { return bad(res, 'That backup file is damaged'); }
     if (!validData(d)) return bad(res, 'That file is not a Q-smart backup with an admin user');
-    const safety = backupNow('before-restore'); fs.copyFileSync(p, FILE); res.json({ ok: 1, safety });
-  });
-  app.post('/api/backups/upload/restore', need('admin'), (req, res) => {
-    const d = (req.body || {}).data; if (!validData(d)) return bad(res, 'That file is not a Q-smart backup with an admin user');
-    const safety = backupNow('before-restore'); fs.writeFileSync(FILE, JSON.stringify(d, null, 2)); res.json({ ok: 1, safety });
+    const safety = backupNow('before-restore'); save(d); res.json({ ok: 1, safety });
   });
   // the data saved inside seed.js becomes today's data (what "node seed.js" brings back)
   app.post('/api/seed/refresh', need('admin'), (req, res) => {

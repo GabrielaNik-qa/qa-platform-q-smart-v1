@@ -31,7 +31,7 @@ input[type=password]::-webkit-credentials-auto-fill-button{visibility:hidden;dis
 .ic{border-radius:9px}.ic:hover{background:color-mix(in srgb,var(--ac) 12%,transparent)}.ic:active svg{opacity:.55}
 .ib svg{margin-right:4px}.ib:active svg{opacity:.55}
 /* widgets (Home) */
-.wgrid{display:grid;grid-template-columns:repeat(60,minmax(0,1fr));gap:14px}
+.wgrid{display:grid;grid-template-columns:repeat(60,minmax(0,1fr));gap:14px;column-gap:min(14px,1.6%)}   /* 59 gaps of 14px need 826px: on narrower screens the gap shrinks a little so the cards still fit */
 .wgrid>.w12{grid-column:span 12}.wgrid>.w15{grid-column:span 15}.wgrid>.w20{grid-column:span 20}.wgrid>.w30{grid-column:span 30}.wgrid>.w40{grid-column:span 40}.wgrid>.w60{grid-column:span 60}
 @media(max-width:1000px){.wgrid>.w12,.wgrid>.w15{grid-column:span 20}.wgrid>.w20{grid-column:span 30}}
 @media(max-width:900px){.wgrid>.w12,.wgrid>.w15,.wgrid>.w20{grid-column:span 30}.wgrid>.w30,.wgrid>.w40{grid-column:span 60}}
@@ -226,7 +226,7 @@ label:not(.rad):not([style*="display:flex"])>small{display:block;margin-top:4px}
 .sb.co .thc1 .ti{display:flex!important}
 .sb.co .fly a{justify-content:flex-start;padding:8px 12px}
 /* ===== sidebar on laptop screens: the profile row is always visible at the bottom; only the menu scrolls when space is short ===== */
-@media(min-width:801px){
+@media(min-width:761px){
   .sb{overflow:hidden}
   #br,#fz{flex:none}
   #n{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#ffffff30 transparent;margin:0 -4px;padding:0 4px}
@@ -234,7 +234,7 @@ label:not(.rad):not([style*="display:flex"])>small{display:block;margin-top:4px}
   .sub{margin:2px 0 6px 26px}.sub a{padding:6px 10px}
   .ft{gap:8px;padding-top:10px}.thm button{padding:7px 0}.usr{padding:6px 8px}
 }
-@media(min-width:801px) and (max-height:760px){
+@media(min-width:761px) and (max-height:760px){
   .brand{padding-bottom:6px}.gh{padding:5px 10px}.gh i{width:30px;height:30px}.sub a{padding:5px 10px;font-size:14px}
 }
 
@@ -286,3 +286,13 @@ label:not(.rad):not([style*="display:flex"])>small{display:block;margin-top:4px}
 .rvtool{color:var(--mu)!important}
 .fchip select{field-sizing:content;max-width:220px;text-overflow:ellipsis}
 .wg .rbsvg{max-height:300px}
+
+/* accessibility: the pop-up box itself receives the keyboard focus when it opens (no ring around the whole box) */
+.ov > .md:focus{outline:none}
+
+/* ===== tablets (761-1100px): nothing may be wider than the screen ===== */
+.g > *, .rbg > * { min-width: 0 }                  /* grid columns may shrink; wide tables scroll inside their card (.sc) */
+select { max-width: 100% }                        /* a drop-down is never wider than its box, even with a long option */
+.sx { min-width: min(260px, 100%) }
+@media(max-width:1000px){ .agfilt{grid-template-columns:repeat(2,minmax(0,1fr))} .agfilt > :last-child{grid-column:1/-1} }
+.hd > *, .row > * { max-width: 100% }               /* a toolbar part never pushes past its row (with select max-width: long team names stay inside) */

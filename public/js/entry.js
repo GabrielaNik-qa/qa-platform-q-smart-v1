@@ -45,7 +45,8 @@ const setSc = id => { const keep = ['ch', 'team', 'agent', 'id', 'dt', 'lk', 'cp
 const setTm = v => { ENT.team = v; ENT.agent = ''; const a = $('#eag'); a.innerHTML = AGO(); a.disabled = !v; pvu(); };
 
 PG.entry = function () {
-  if (!SCS.length) return head('QA Entry Form', 'Enter QA scores for calls, chats and emails') + card('', '<p class=mu>There is no scorecard yet. Create one in Scorecards first.</p>');
+  if (!SCS.length) return head('QA Entry Form', 'Enter QA scores for calls, chats and emails') + card('', ME.role === 'admin' ? '<p class=mu>There is no scorecard yet. Create one in Scorecards first.</p>'
+    : '<p class=mu>You do not have a scorecard to use yet. You only see the scorecards of your workspace: ask an administrator to add you to a workspace (Admin &gt; Workspaces).</p>');   // non-admins only see their workspace's scorecards
   if (!ENT || (!EDITID && !SCS.some(x => x.id === ENT.scid))) newEnt();
   const ed = EDITID, s = SCS.find(x => x.id === ENT.scid), S = entS(), L = (t, r) => t + (r ? ' <i class=rq>*</i>' : ' <span class=mu>(optional)</span>'), ch = ENT.ch || 'call', fit = SCS.filter(x => scChs(x).includes(ch)), rest = SCS.filter(x => !scChs(x).includes(ch));
   const opt = x => `<option value="${esc(x.id)}" ${x.id === ENT.scid ? 'selected' : ''}>${esc(x.name)}</option>`;
@@ -89,7 +90,13 @@ function subE() {
   if (EDITID) return ask('Change this score?', 'Are you sure you want to save these changes? The answers and the score of this review will be updated.', saveE, { yes: 'Yes, save changes', no: 'No, keep editing' });
   saveE();
 }
+let SAVINGE = false;                                      // a quick double-click on Submit must not save the same review twice
 async function saveE() {
+  if (SAVINGE) return; SAVINGE = true;
+  const b = $$('#m .sbtn2')[0], txt = b && b.textContent; if (b) { b.disabled = true; b.textContent = 'Saving…'; }
+  try { await saveE0(); } finally { SAVINGE = false; if (b && b.isConnected) { b.disabled = false; b.textContent = txt; } }
+}
+async function saveE0() {
   const E = ENT, a = E.cats.map(c => c.it.map(i => [i.a, i.cm, i.rc])), fl = E.ch === 'call' && $('#ef') && $('#ef').files[0];
   const body = { scid: E.scid, ch: E.ch || 'call', agent: E.agent, id: E.id.trim(), dt: E.dt, lk: E.lk, rl: E.rl, cl: E.cl, tx: E.tx, subj: E.subj, chn: E.chn, cp: E.cp, cm: E.cm, fl: E.fl, a };
   const r = EDITID ? await api('/api/evaluations/' + EDITID, body, 'PUT') : await api('/api/evaluations', body);

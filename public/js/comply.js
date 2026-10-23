@@ -73,6 +73,16 @@ const csForm = () => openForm({ title: 'Add a survey answer', w: 520, yes: 'Add'
   save: d => d.agent ? coSave('surveys', { ...d, score: +d.score }) : 'Choose the agent' });
 const csImport = () => openForm({ title: 'Import survey answers', w: 640, yes: 'Import', d: { txt: '' }, fields: [{ k: 'txt', l: 'Paste the lines from Excel or a CSV file', t: 'textarea', rows: 10, ph: 'date, agent, score, comment, lead\n2026-10-20, Deyan Petrov, 5, Very helpful, 4482301\n2026-10-21, k.dimova, 3, , 4419932', hint: 'One answer per line: date, agent (name or username), score 1-5, comment (optional), lead ID (optional). A first line with titles is skipped.' }],
   save: async d => { const find = v => { v = String(v || '').trim().toLowerCase(); return (AGENTS().find(a => a.username.toLowerCase() === v || a.name.toLowerCase() === v) || {}).username; };
-    const rows = d.txt.split(/\r?\n/).map(l => l.split(/\t|;|,/).map(x => x.trim())).filter(c => c.length >= 3 && /\d{4}-\d{2}-\d{2}/.test(c[0])).map(c => ({ date: c[0].slice(0, 10), agent: find(c[1]), score: Math.max(1, Math.min(5, Math.round(+c[2]) || 0)), comment: c[3] || '', lead: c[4] || '', ch: 'call' }));
-    const ok = rows.filter(r => r.agent && r.score), bad2 = rows.length - ok.length; if (!ok.length) return 'No line could be read. Check the order: date, agent, score…';
-    const r = await api('/api/c/surveys', { bulk: ok }); if (!r.ok) return errOf(r, 'Could not import'); await load(); toast(`${ok.length} answers imported${bad2 ? ` · ${bad2} lines skipped (unknown agent)` : ''}`); } });
+    const rows = d.txt.split(/\r?\n/).map(csvCells).filter(c => c.length >= 3 && /^\d{4}-\d{2}-\d{2}$/.test(c[0].slice(0, 10))).map(c => ({ date: c[0].slice(0, 10), agent: find(c[1]), score: /^[1-5]$/.test(c[2]) ? +c[2] : 0, comment: c[3] || '', lead: c[4] || '', ch: 'call' }));
+    const ok = rows.filter(r => r.agent && r.score && !isNaN(new Date(r.date))), bad2 = rows.length - ok.length; if (!ok.length) return 'No line could be read. Check the order: date, agent, score 1-5…';
+    const r = await api('/api/c/surveys', { bulk: ok }); if (!r.ok) return errOf(r, 'Could not import'); await load(); toast(`${ok.length} answers imported${bad2 ? ` · ${bad2} lines skipped (unknown agent, wrong date, or a score that is not a whole number from 1 to 5)` : ''}`); } });
+// one pasted line -> its cells. The separator is the one right after the date (tab from Excel, ; or ,); "quoted text" may contain the separator, "" is a quote
+function csvCells(l) {
+  const m = String(l).match(/^\s*"?\d{4}-\d{2}-\d{2}"?\s*([\t;,])/), sep = m ? m[1] : ',', out = []; let cur = '', q = false;
+  for (let i = 0; i < l.length; i++) {
+    const ch = l[i];
+    if (q) { if (ch === '"') { if (l[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"' && !cur.trim()) { q = true; cur = ''; } else if (ch === sep) { out.push(cur.trim()); cur = ''; } else cur += ch;
+  }
+  out.push(cur.trim()); return out;
+}

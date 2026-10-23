@@ -59,9 +59,13 @@ async function xfExport() {
 // ---- the "New Quick Flag" pop-up
 const qfNew = (o = {}) => { QFM = { ch: XF.c || 'call', type: 'red', team: o.agent ? teamOf(o.agent) : (XF.t || ''), agent: o.agent || XF.a || '', lead: o.lead || '', date: o.date || todayS(), cp: o.cp || '', lk: '', rl: '', cm: '', ...o }; render(); setTimeout(() => { const i = $(QFM.agent ? '#qfc' : '#qft'); if (i) i.focus(); }, 30); };
 const qfEdit = id => { const x = QF.find(f => f.id === id); if (!x) return; QFM = { ...x, team: teamOf(x.agent) || x.tid }; render(); };
+let QFBUSY = false;                                       // a double-click on Save must not add the flag twice
 async function qfSave() {
-  const d = QFM; if (!d.agent) return toast('Choose the team and the agent', true); if (!String(d.lead).trim()) return toast('Enter the lead ID', true);
-  const r = await api('/api/qflags' + (d.id ? '/' + d.id : ''), d, d.id ? 'PUT' : 'POST'); if (!r.ok) return toast(await errOf(r, 'Could not save the flag'), true);
+  const d = QFM; if (!d || QFBUSY) return;
+  if (!d.agent) return toast('Choose the team and the agent', true); if (!String(d.lead).trim()) return toast('Enter the lead ID', true);
+  QFBUSY = true;
+  let r; try { r = await api('/api/qflags' + (d.id ? '/' + d.id : ''), d, d.id ? 'PUT' : 'POST'); } finally { QFBUSY = false; }
+  if (!r.ok) return toast(await errOf(r, 'Could not save the flag'), true);
   QFM = null; await load(); render(); toast(d.id ? 'Flag saved' : (d.type === 'red' ? 'Red' : 'Green') + ' flag added');
 }
 const qfDel = id => ask('Delete this flag?', 'The flag is removed. QA reviews and scores are not affected.', async () => { await api('/api/qflags/' + id, null, 'DELETE'); QFM = null; await load(); render(); toast('Flag deleted'); }, { yes: 'Yes, delete', no: 'Cancel', danger: true });

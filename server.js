@@ -662,7 +662,7 @@ app.get('/api/recordings/:file', need(), (req, res) => {
   const f = path.basename(req.params.file), ev = load().evaluations.find(e => e.rec === f);
   if (!ev || !canSee(req.session.user, ev)) return res.status(404).json({ error: 'not found' });
   if (!fs.existsSync(path.join(REC, f))) return res.status(404).json({ error: 'The recording file is missing' });
-  res.sendFile(path.join(REC, f));
+  res.sendFile(path.join(REC, f), { dotfiles: 'allow' });   // the folder path may contain a "." folder (e.g. .claude); the file name itself was checked above
 });
 
 // ------------------------------------------------------------------ the other modules
@@ -673,5 +673,12 @@ require('./routes-setup')(ctx);       // skills, workspaces, categories, root ca
 require('./routes-autoqa')(ctx);      // Auto QA conversations and scoring
 
 app.use(express.static(path.join(__dirname, 'public')));
+// any error that reaches this point: a short message for the browser (the details, with the folder paths of this computer, only go to the terminal)
+app.use((err, req, res, next) => {
+  const status = err.status || err.statusCode || 500;
+  if (status >= 500) console.error(req.method + ' ' + req.path + ':', err);
+  if (res.headersSent) return next(err);
+  res.status(status).json({ error: status === 404 ? 'not found' : status === 413 ? 'This is too large' : status < 500 ? 'The request could not be read' : 'Something went wrong on the server' });
+});
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('Running on http://localhost:' + PORT));

@@ -267,7 +267,8 @@ function fmField(f) {
   return `<label>${L}<input ${f.id ? 'id=' + f.id : ''} type="${f.t || 'text'}" placeholder="${esc(f.ph || '')}" value="${esc(v)}" ${f.max ? 'maxlength=' + f.max : ''} oninput="fmSet('${k}',this.value,${f.re ? 1 : 0});${f.on ? f.on + '(this.value)' : ''}">${hint}</label>`;
 }
 async function fmSave() {
-  const f = FM; const err = await f.save(f.d);
+  const f = FM; if (!f || f.busy) return;                // a double-click on the save button must not save twice
+  f.busy = true; let err; try { err = await f.save(f.d); } finally { f.busy = false; }
   if (typeof err === 'string') return toast(err, true);
   if (FM === f) FM = null; render();
 }

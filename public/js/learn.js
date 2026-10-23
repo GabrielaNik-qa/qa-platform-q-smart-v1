@@ -133,7 +133,14 @@ async function impRun() {
     IMP.drafts = out.map(x => ({ ...x, on: true })); IMP.text = ''; toast(out.length + ' draft article(s) ready to check'); } catch (e) { toast(e.message, true); }
   IMP.busy = false; render();
 }
-async function impSave() { const sel = IMP.drafts.filter(x => x.on); if (!sel.length) return toast('Nothing selected', true); const r = await api('/api/kb/import/save', { articles: sel, folder: IMP.dest }); if (!r.ok) return toast(await errOf(r, 'Could not save'), true); const j = await r.json(); IMP.drafts = []; KBS.tab = 'browse'; await load(); render(); toast(j.created + ' article(s) saved'); }
+async function impSave() {
+  const sel = IMP.drafts.filter(x => x.on); if (!sel.length) return toast('Nothing selected', true);
+  if (IMP.saving) return; IMP.saving = true;               // a double-click must not save the articles twice
+  try {
+    const r = await api('/api/kb/import/save', { articles: sel, folder: IMP.dest }); if (!r.ok) return toast(await errOf(r, 'Could not save'), true);
+    const j = await r.json(); IMP.drafts = []; KBS.tab = 'browse'; await load(); render(); toast(j.created + ' article(s) saved');
+  } finally { IMP.saving = false; }
+}
 
 // ---------------------------------------------------------------- progress report (who has read / passed what)
 function PROGRESS() {
