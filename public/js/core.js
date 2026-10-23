@@ -15,6 +15,8 @@ const LS = {
 };
 const $ = q => document.querySelector(q), $$ = q => [...document.querySelectorAll(q)];
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+// a text as a JavaScript string inside onclick="..." (apostrophes, quotes and backslashes in names are all safe)
+const jsq = s => esc(JSON.stringify(String(s == null ? '' : s)));
 const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
 const f = d => d.toLocaleDateString('en-GB'), fdt = d => new Date(d).toLocaleString('en-GB');
 const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -32,6 +34,8 @@ let P = 'all', T = '', DF = ds(-30), DT = ds(0);
 let Q = '', FT = '', FA = '', FP = 'month', F1 = ds(-30), F2 = ds(0), FS = '', FSC = null, FF = '', SK = 'd', SD = -1, PS = 10, PN = 1, KQ = false;
 // overlays: review popup, notifications, account, system settings, resolve dispute, confirm, player, generic form
 let MD = null, NO = false, NU = 0, AC = null, SYS = false, RSV = null, CFM = null, PLY = null, DRF = '', FM = null;
+let WEL = null, BUSY = {};                       // WEL: the welcome pop-up; BUSY: actions being saved right now (a second click waits)
+const NDEL = new Set();                          // notifications deleted a moment ago, still waiting for a possible Undo
 // QA entry form + scorecard editor
 let ENT = null, ENT0 = '', EDITID = '', SE = null;
 // data of the other sections (loaded when you open them)
@@ -49,7 +53,7 @@ const PT = tm => { const v = SET.teams && SET.teams[tm]; return (v === undefined
 const isPass = e => e.sc >= PT(e.tm);
 let THR = null;                                   // a team's own pass rate while a team-specific view is drawn
 const gthr = () => THR != null ? THR : PASSG();
-const col = v => v >= gthr() ? 'var(--ok)' : v >= 70 ? 'var(--ac)' : v >= 50 ? 'var(--wn)' : 'var(--bad)';
+const col = v => v >= gthr() ? 'var(--ok)' : v >= 70 ? 'var(--wn)' : v >= 50 ? 'var(--hot)' : 'var(--bad)';   // pass, below target, low, fail
 const scol = (v, tm) => { const p = tm == null ? PASSG() : PT(tm); return v >= p ? 'var(--ok)' : v >= Math.min(70, p) ? 'var(--wn)' : 'var(--bad)'; };
 
 // ---------------------------------------------------------------- html helpers
@@ -59,7 +63,7 @@ const tbl = (h, rows) => `<div class=sc><table><tr>${h.map(x => `<th>${x}</th>`)
 const pill = (t, c = 'ok') => `<span class="pill ${c}">${t}</span>`;
 const sp = (v, tm) => { const p = tm == null ? PASSG() : PT(tm); return pill(v + '%', v >= p ? 'ok' : v >= Math.min(70, p) ? 'wn' : 'bad'); };
 const head = (t, s, x = '') => `<header class=hd><div><h1>${t}</h1><p class=mu style="margin:4px 0 0">${s}</p></div>${x}</header>`;
-const svg = (d, s = 16) => `<svg class=ico width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="url(#lg)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const svg = (d, s = 16) => `<svg class=ico width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;   // icons take the colour of the text around them
 const IC = {
   eye: svg('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
   pen: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>'),
@@ -85,42 +89,88 @@ const IC = {
   g_home: svg('<path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-7H9v7H5a2 2 0 01-2-2z"/>', 22), g_quality: svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>', 22),
   g_sc: svg('<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 13l2 2 4-4"/>', 22), g_analytics: svg('<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>', 22),
   g_coaching: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', 22), g_learning: svg('<path d="M12 6c-2-1.5-5-2-9-2v14c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2zM12 6v14"/>', 22),
-  g_tools: svg('<path d="M21 7l-5 5-3-3 5-5a5 5 0 00-6 7L3 19l2 2 8-8a5 5 0 008-6z"/>', 22), g_admin: svg('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>', 22)
+  g_tools: svg('<path d="M21 7l-5 5-3-3 5-5a5 5 0 00-6 7L3 19l2 2 8-8a5 5 0 008-6z"/>', 22), g_admin: svg('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>', 22),
+  // used instead of emoji, so every icon has the same style
+  task: svg('<rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/>'), box: svg('<rect x="4" y="4" width="16" height="16" rx="3"/>'),
+  target: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'), repeat: svg('<path d="M17 2l4 4-4 4M3 11V9a3 3 0 013-3h15M7 22l-4-4 4-4M21 13v2a3 3 0 01-3 3H3"/>'),
+  trophy: svg('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0zM17 5h3v2a3 3 0 01-3 3M7 5H4v2a3 3 0 003 3"/>'), flame: svg('<path d="M12 3c1 3.5 5 5 5 10a5 5 0 01-10 0c0-2.2 1-3.6 2.2-4.6 0 1.8.8 2.9 1.8 3.1 0-3.2-.4-5.8 1-8.5z"/>'),
+  bolt: svg('<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>'), book: svg('<path d="M12 6c-2-1.5-5-2-9-2v14c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2zM12 6v14"/>'),
+  quiz: svg('<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/>'), folder: svg('<path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>'),
+  spark: svg('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>'), link: svg('<path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/>'),
+  quote: svg('<path d="M7 7h4v4c0 3-2 5-4 6M15 7h4v4c0 3-2 5-4 6"/>'), info: svg('<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'),
+  warn: svg('<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18h.01"/>'), stack: svg('<path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/>'),
+  medal: svg('<circle cx="12" cy="15" r="6"/><path d="M8.5 10L6 3h4l2 4 2-4h4l-2.5 7"/>'), star: svg('<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>'),
+  compass: svg('<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'), bulb: svg('<path d="M9 18h6M10 21h4M12 3a6 6 0 00-3.6 10.8c.6.5 1 1.2 1 2V17h5.2v-1.2c0-.8.4-1.5 1-2A6 6 0 0012 3z"/>'),
+  rocket: svg('<path d="M5 15c-1.5 1.5-2 4-2 6 2 0 4.5-.5 6-2M9 13l2 2M14 4c3-1 6-1 6-1s0 3-1 6l-6 6-4-4z"/><circle cx="15" cy="9" r="1.5"/>'), tool: svg('<path d="M21 7l-5 5-3-3 5-5a5 5 0 00-6 7L3 19l2 2 8-8a5 5 0 008-6z"/>'),
+  phone: svg('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 005 5L15 13l5 2v4a2 2 0 01-2 2A16 16 0 013 6a2 2 0 012-2"/>'), chat: svg('<path d="M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z"/>'),
+  cap: svg('<path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5M22 9v6"/>'), brain: svg('<path d="M9 4a3 3 0 00-3 3 3 3 0 00-2 5 3 3 0 002 5 3 3 0 003 3h1V4zM15 4a3 3 0 013 3 3 3 0 012 5 3 3 0 01-2 5 3 3 0 01-3 3h-1V4z"/>'),
+  chart: svg('<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>'), heart: svg('<path d="M12 20s-7-4.5-9-9a4.5 4.5 0 018-3.5A4.5 4.5 0 0121 11c-2 4.5-9 9-9 9z"/>'),
+  lock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>'), globe: svg('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/>'),
+  puzzle: svg('<path d="M4 4h6v2a2 2 0 004 0V4h6v6h-2a2 2 0 000 4h2v6h-6v-2a2 2 0 00-4 0v2H4v-6h2a2 2 0 000-4H4z"/>')
 };
-const mark = (id, s) => `<svg width="${s}" height="${s}" viewBox="0 0 34 34" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3ecfa6"/><stop offset="1" stop-color="#2f8fe6"/></linearGradient></defs><circle cx="16" cy="16" r="11" fill="none" stroke="url(#${id})" stroke-width="4"/><path d="M22 22l8 8" stroke="url(#${id})" stroke-width="4" stroke-linecap="round"/></svg>`;
+// the Q-smart mark: an orange ring with a yellow tail
+const mark = (id, s) => `<svg width="${s}" height="${s}" viewBox="0 0 34 34" aria-hidden="true"><circle cx="15.5" cy="15.5" r="10.5" fill="none" style="stroke:var(--brand)" stroke-width="4.6"/><path d="M22 22l7.5 7.5" stroke="#FFD447" stroke-width="4.6" stroke-linecap="round"/></svg>`;
 
-// ---------------------------------------------------------------- toast + confirmation pop-up ("Are you sure?")
-function toast(msg, err) {
-  const t = document.createElement('div'); t.className = 'toast' + (err ? ' err' : ''); t.textContent = msg;
-  document.body.appendChild(t); setTimeout(() => t.remove(), 3400);
+// ---------------------------------------------------------------- toast (a short message at the bottom) + confirmation pop-up ("Are you sure?")
+// toast('Saved') · toast('Could not save', true) · toast('Moved', false, { undo: () => moveBack(), done: () => afterTheUndoChanceIsOver() })
+// Errors stay longer, have a close button and are read out by screen readers at once. Pointing at a message pauses it.
+function toast(msg, err, o = {}) {
+  let box = $('#toasts'); if (!box) { box = document.createElement('div'); box.id = 'toasts'; box.className = 'toasts'; document.body.appendChild(box); }
+  const t = document.createElement('div'); t.className = 'toast' + (err ? ' err' : ''); t.setAttribute('role', err ? 'alert' : 'status');
+  t.innerHTML = `<span class=ti2>${err ? IC.warn : IC.check}</span><span></span>${o.undo ? '<button type=button class=un2>Undo</button>' : ''}${err || o.undo ? `<button type=button class=tx aria-label="Close">${IC.x}</button>` : ''}`;
+  t.children[1].textContent = msg;
+  let timer = null, undone = false;
+  const close = () => { clearTimeout(timer); if (!t.isConnected) return; t.remove(); if (!undone && o.done) o.done(); };
+  const arm = () => { clearTimeout(timer); timer = setTimeout(close, err ? 8000 : o.undo ? 7000 : 3400); };
+  t.querySelectorAll('button').forEach(b => { b.onclick = () => { if (b.classList.contains('un2')) { undone = true; o.undo(); } close(); }; });
+  t.onmouseenter = () => clearTimeout(timer); t.onmouseleave = arm; t._close = close;
+  box.appendChild(t); arm();
+  while (box.children.length > 4) box.firstChild._close();     // at most 4 at a time: the oldest one goes first
 }
-// ask('Title', 'Text', onYes, {yes:'Yes, delete', no:'Cancel', danger:true, onNo:fn})
-function ask(title, text, fn, o = {}) { CFM = { title, text, fn, yes: o.yes || 'Yes', no: o.no || 'No', danger: o.danger, onNo: o.onNo }; render(); }
-function cfY() { const c = CFM; CFM = null; render(); if (c && c.fn) c.fn(); }
+// ask('Title', 'Text', onYes, {yes:'Yes, delete', no:'Cancel', danger:true, onNo:fn, id:'confirm.move-user'})
+// id = a ROUTINE confirmation listed in prefs.js that the person may switch off ("Don't ask me again"). Without an id it is a
+// safeguard (deleting, unsaved changes, access, passwords ...) and it always asks.
+function ask(title, text, fn, o = {}) {
+  const id = o.id && PREFMSG.isConfirm(o.id) ? o.id : '';
+  if (id && !msgOn(id)) return fn();                          // switched off by this person: do it now (these actions offer Undo instead)
+  CFM = { title, text, fn, yes: o.yes || 'Yes', no: o.no || 'No', danger: o.danger, onNo: o.onNo, id, dna: false }; render();
+}
+function cfY() { const c = CFM; CFM = null; render(); if (c && c.id && c.dna) setPrefs({ dismiss: [c.id] }, 'This will not be asked again. You can switch it back on in My account › Notifications & Confirmations.'); if (c && c.fn) c.fn(); }
 function cfN() { const c = CFM; CFM = null; render(); if (c && c.onNo) c.onNo(); }
 
+// ---------------------------------------------------------------- pop-up preferences (My account > Notifications & Confirmations), saved with the person's account
+const MYP = () => (ME && ME.prefs) || {};
+const msgOn = id => PREFMSG.msgOn(MYP(), id);
+async function setPrefs(patch, okMsg, o) {
+  const r = await api('/api/prefs', patch, 'PUT');
+  if (!r.ok) { if (r.status !== 401) toast(await errOf(r, 'Could not save this setting. Please try again.'), true); return false; }
+  ME = await r.json(); render(); if (okMsg) toast(okMsg, false, o); return true;
+}
+
 // ---------------------------------------------------------------- theme, accent colour, sounds
-// named themes: accent colour + sidebar colours (light / dark mode is chosen separately)
+// named themes: the accent colour and the menu colour (light / dark mode is chosen separately)
+//   ac = the accent as a fill (buttons, highlights), on = the text on that fill, tl / td = the accent as text in light / dark mode, sb = menu
 const THEMES = {
-  classic: { n: 'Classic', ac: '#2563eb', sb: '#0b1626', sb2: '#0b1626', d: 'The original blue' },
-  ocean: { n: 'Ocean', ac: '#0284c7', sb: '#06243a', sb2: '#0b4a6e', d: 'Deep sea blues' },
-  forest: { n: 'Forest', ac: '#15803d', sb: '#0b2216', sb2: '#16472c', d: 'Calm greens' },
-  ruby: { n: 'Ruby', ac: '#be123c', sb: '#2a0a14', sb2: '#561227', d: 'Bold crimson' },
-  serendipity: { n: 'Serendipity', ac: '#c026d3', sb: '#2a1038', sb2: '#5a1f66', d: 'Pink and purple' },
-  sunrise: { n: 'Sunrise', ac: '#ea580c', sb: '#2b1408', sb2: '#5a2c10', d: 'Warm orange' },
-  lavender: { n: 'Lavender', ac: '#7c3aed', sb: '#1c1236', sb2: '#3b2670', d: 'Soft violet' },
-  mint: { n: 'Mint', ac: '#0d9488', sb: '#062925', sb2: '#0e4f48', d: 'Fresh teal' },
-  midnight: { n: 'Midnight', ac: '#6366f1', sb: '#090b1f', sb2: '#1b1f4a', d: 'Indigo night' },
-  graphite: { n: 'Graphite', ac: '#475569', sb: '#0f141c', sb2: '#232b38', d: 'Quiet greys' }
+  sport: { n: 'Sport', ac: '#FF6B00', on: '#171717', tl: '#B84A00', td: '#FF8A3D', sb: '#171717', d: 'Charcoal and vivid orange' },
+  classic: { n: 'Classic', ac: '#2563eb', on: '#ffffff', tl: '#1d4ed8', td: '#7ea6ff', sb: '#0b1626', d: 'The original blue' },
+  ocean: { n: 'Ocean', ac: '#0369a1', on: '#ffffff', tl: '#0369a1', td: '#56c1f2', sb: '#06243a', d: 'Deep sea blues' },
+  forest: { n: 'Forest', ac: '#15803d', on: '#ffffff', tl: '#166534', td: '#5ad38c', sb: '#0b2216', d: 'Calm greens' },
+  ruby: { n: 'Ruby', ac: '#be123c', on: '#ffffff', tl: '#9f1239', td: '#ff7d9b', sb: '#2a0a14', d: 'Bold crimson' },
+  serendipity: { n: 'Serendipity', ac: '#c026d3', on: '#ffffff', tl: '#a21caf', td: '#ef86f7', sb: '#2a1038', d: 'Pink and purple' },
+  sunrise: { n: 'Sunrise', ac: '#ea580c', on: '#171717', tl: '#c2410c', td: '#ff9a5c', sb: '#2b1408', d: 'Warm orange' },
+  lavender: { n: 'Lavender', ac: '#7c3aed', on: '#ffffff', tl: '#6d28d9', td: '#b493ff', sb: '#1c1236', d: 'Soft violet' },
+  mint: { n: 'Mint', ac: '#0d9488', on: '#171717', tl: '#0f766e', td: '#4fd8c8', sb: '#062925', d: 'Fresh teal' },
+  midnight: { n: 'Midnight', ac: '#4f46e5', on: '#ffffff', tl: '#4f46e5', td: '#a5a8ff', sb: '#090b1f', d: 'Indigo night' },
+  graphite: { n: 'Graphite', ac: '#475569', on: '#ffffff', tl: '#334155', td: '#a9b6c8', sb: '#0f141c', d: 'Quiet greys' }
 };
-let THN = LS.get('qa_themename', 'classic');
+let THN = LS.get('qa_theme_v6', 'sport');          // a new key: the redesign starts everybody on Sport once; any theme can still be picked
 function applyTheme() {
-  const r = document.documentElement, T0 = THEMES[THN] || THEMES.classic;
+  const r = document.documentElement, T0 = THEMES[THN] || THEMES.sport;
   if (THM === 'light' || THM === 'dark') r.dataset.theme = THM; else delete r.dataset.theme;
-  r.style.setProperty('--ac', T0.ac); r.style.setProperty('--sb', T0.sb); r.style.setProperty('--sb2', T0.sb2);
+  [['--brand', T0.ac], ['--on-brand', T0.on], ['--ac-l', T0.tl], ['--ac-d', T0.td], ['--sb', T0.sb]].forEach(([k, v]) => r.style.setProperty(k, v));
 }
 function th(x) { THM = x || 'system'; LS.set('qa_theme', THM); applyTheme(); if (ME) render(); }
-function setTheme(k) { THN = k; LS.set('qa_themename', k); applyTheme(); render(); }
+function setTheme(k) { THN = k; LS.set('qa_theme_v6', k); applyTheme(); render(); }
 function beep(force) {
   if (!SND && !force) return;
   try {
@@ -136,7 +186,9 @@ function tsnd() { SND = !SND; LS.set('qa_sound', SND ? 'on' : 'off'); render(); 
 
 // ---------------------------------------------------------------- API
 async function api(u, b, m) {
-  const r = await fetch(u, { method: m || (b ? 'POST' : 'GET'), headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined });
+  let r;
+  try { r = await fetch(u, { method: m || (b ? 'POST' : 'GET'), headers: { 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined }); }
+  catch (e) { return new Response(JSON.stringify({ error: 'Cannot reach the server. Check your connection and try again.' }), { status: 503, headers: { 'Content-Type': 'application/json' } }); }   // no network: a normal error the page can show
   if (r.status === 401 && ME && u !== '/api/login') { ME = null; MSG = 'Your session expired. Please sign in again.'; render(); }
   return r;
 }
@@ -171,7 +223,7 @@ async function load() {
   if (R.tm) TEAMS = JSON.parse(R.tm);
   if (R.ev) EV.splice(0, EV.length, ...JSON.parse(R.ev).map(x => ({ ...x, d: new Date(x.d), tm: teamOf(x.agent) || x.tid || '', tmh: x.tid || '' })));   // tm = the agent's CURRENT team, tmh = the team at review time
   if (R.sc) SCS = JSON.parse(R.sc);
-  if (R.nf) NF = JSON.parse(R.nf);
+  if (R.nf) NF = JSON.parse(R.nf).filter(n => !NDEL.has(n.id));   // a notification waiting for its Undo stays hidden
   if (R.set) SET = JSON.parse(R.set);
   if (R.us) USR = JSON.parse(R.us);
   if (R.rg) REG = JSON.parse(R.rg);
@@ -206,7 +258,7 @@ const pkObj = scope => scope === 'fm' ? FM.d : ACD;
 const pkOpts = kind => (kind === 'languages' ? SKL.languages : SKL.skills) || [];
 function pkHtml(scope, k, kind) {
   const sel = pkObj(scope)[k] || [], opts = pkOpts(kind).filter(x => !sel.includes(x)), one = kind === 'languages' ? 'language' : 'skill', open = PKN && PKN.scope === scope && PKN.k === k;
-  return `<div class=pk><div class=pkb>${sel.map(x => `<span class=tg>${esc(x)} <a href="javascript:void(0)" onclick="pkDel('${scope}','${k}','${esc(x).replace(/&#39;/g, '')}')" title="Remove">×</a></span>`).join('') || `<small class=mu>No ${kind} chosen</small>`}</div>`
+  return `<div class=pk><div class=pkb>${sel.map(x => `<span class=tg>${esc(x)} <a href="javascript:void(0)" onclick="pkDel('${scope}','${k}',${jsq(x)})" title="Remove ${esc(x)}" aria-label="Remove ${esc(x)}">×</a></span>`).join('') || `<small class=mu>No ${kind} chosen</small>`}</div>`
     + (open ? `<div class=row style="gap:6px;margin-top:6px"><input id=pkn placeholder="New ${one}" style="flex:1" onkeydown='if(event.key=="Enter")pkMake("${scope}","${k}","${kind}")'><button type=button class=btn onclick="pkMake('${scope}','${k}','${kind}')">Create</button><button type=button class=ib onclick="PKN=null;render()">Cancel</button></div>`
       : `<select style="margin-top:6px" onchange="pkAdd('${scope}','${k}','${kind}',this.value)"><option value="">+ Add ${one}…</option>${opts.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}${ME && ME.role === 'admin' ? `<option value="__new__">＋ Create a new ${one}…</option>` : ''}</select>`) + `</div>`;
 }
@@ -225,28 +277,36 @@ const vwSet = (k, v) => { VW[k] = v; LS.set('qa_views', VW); render(); };
 const vwBtn = k => `<div class=sg style="height:38px"><button class="${vw(k) === 'table' ? 'on' : ''}" onclick="vwSet('${k}','table')" title="Table view">${IC.list}</button><button class="${vw(k) === 'boxes' ? 'on' : ''}" onclick="vwSet('${k}','boxes')" title="Boxes view">${IC.grid}</button></div>`;
 
 const SWATCH = ['#2563eb', '#7c3aed', '#0d9488', '#e11d48', '#ea580c', '#16a34a', '#ca8a04', '#475569'];
-const EMOJI = ['📁', '📘', '📗', '📙', '📕', '📒', '🧭', '💡', '🎯', '🚀', '⭐', '🔥', '🛠️', '📞', '💬', '🎓', '🧠', '🏆', '📊', '✅', '❤️', '🔒', '🌍', '🧩'];
+// folder icons: the data keeps the emoji it always had (so other versions of the app still read it), the page draws it as a line icon
+const FICONS = [['📁', 'folder'], ['📘', 'book'], ['🧭', 'compass'], ['💡', 'bulb'], ['🎯', 'target'], ['🚀', 'rocket'], ['⭐', 'star'], ['🔥', 'flame'], ['🛠️', 'tool'], ['📞', 'phone'],
+  ['💬', 'chat'], ['🎓', 'cap'], ['🧠', 'brain'], ['🏆', 'trophy'], ['📊', 'chart'], ['✅', 'check'], ['❤️', 'heart'], ['🔒', 'lock'], ['🌍', 'globe'], ['🧩', 'puzzle']];
+const FICON_ALIAS = { '📗': 'book', '📙': 'book', '📕': 'book', '📒': 'book', '🗂️': 'stack', '🛠': 'tool', '❤': 'heart' };
+const ficon = e => { const k = (FICONS.find(x => x[0] === e) || [])[1] || FICON_ALIAS[e]; return k && IC[k] ? IC[k] : esc(e || ''); };
 function fmField(f) {
   if (f.show && !f.show(FM.d)) return '';
   const v = FM.d[f.k], L = `${esc(f.l || '')}${f.req ? ' <i class=rq>*</i>' : ''}`, hint = f.hint ? `<small class=mu>${esc(f.hint)}</small>` : '';
   const k = f.k, opts = typeof f.o === 'function' ? f.o(FM.d) : (f.o || []);
   if (f.t === 'textarea') return `<label>${L}<textarea rows=${f.rows || 3} placeholder="${esc(f.ph || '')}" oninput="fmSet('${k}',this.value)">${esc(v)}</textarea>${hint}</label>`;
   if (f.t === 'select') return `<label>${L}<select onchange="fmSet('${k}',this.value,${f.re ? 1 : 0})">${opts.map(([a, b]) => `<option value="${esc(a)}" ${String(v) === String(a) ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>${hint}</label>`;
-  if (f.t === 'multi') return `<div><b style="font-size:12px">${L}</b><div class=chk>${opts.map(([a, b]) => `<label class=rad><input type=checkbox ${(v || []).includes(a) ? 'checked' : ''} onchange="fmTog('${k}','${esc(a)}',this.checked)"> ${esc(b)}</label>`).join('') || '<small class=mu>Nothing to choose from yet</small>'}</div>${hint}</div>`;
+  if (f.t === 'multi') return `<div><b style="font-size:12.5px">${L}</b><div class=chk style="margin-top:6px">${opts.map(([a, b]) => `<label class=rad><input type=checkbox ${(v || []).includes(a) ? 'checked' : ''} onchange="fmTog('${k}',${jsq(a)},this.checked)"> ${esc(b)}</label>`).join('') || '<small class=mu>Nothing to choose from yet</small>'}</div>${hint}</div>`;
   if (f.t === 'lines') return `<label>${L}<textarea rows=${f.rows || 3} placeholder="${esc(f.ph || 'one per line')}" oninput="fmLines('${k}',this.value)">${esc((v || []).join('\n'))}</textarea>${hint}</label>`;
-  if (f.t === 'picker') return `<div><b style="font-size:12px">${L}</b>${pkHtml('fm', k, f.kind)}</div>`;
+  if (f.t === 'picker') return `<div><b style="font-size:12.5px">${L}</b>${pkHtml('fm', k, f.kind)}</div>`;
   if (f.t === 'chips') return `<label>${L}<input placeholder="${esc(f.ph || 'separate with commas')}" value="${esc((v || []).join(', '))}" oninput="fmChips('${k}',this.value)">${hint}</label>`;
   if (f.t === 'checkbox') return `<label class=rad><input type=checkbox ${v ? 'checked' : ''} onchange="fmSet('${k}',this.checked,${f.re ? 1 : 0})"> <span>${L}${hint ? '<br>' + hint : ''}</span></label>`;
-  if (f.t === 'color') return `<div><b style="font-size:12px">${L}</b><div class=sw>${SWATCH.map(c => `<button type=button class="${v === c ? 'on' : ''}" style="background:${c}" onclick="fmSet('${k}','${c}',1)"></button>`).join('')}</div></div>`;
-  if (f.t === 'icon') return `<div><b style="font-size:12px">${L}</b><div class=emo>${EMOJI.map(c => `<button type=button class="${v === c ? 'on' : ''}" onclick="fmSet('${k}','${c}',1)">${c}</button>`).join('')}</div></div>`;
+  if (f.t === 'color') return `<div><b style="font-size:12.5px">${L}</b><div class=sw>${SWATCH.map(c => `<button type=button class="${v === c ? 'on' : ''}" style="background:${c}" onclick="fmSet('${k}','${c}',1)" aria-label="Colour ${c}" aria-pressed="${v === c}"></button>`).join('')}</div></div>`;
+  if (f.t === 'icon') return `<div><b style="font-size:12.5px">${L}</b><div class=emo>${FICONS.map(([c, n]) => `<button type=button class="${v === c || FICON_ALIAS[v] === n ? 'on' : ''}" onclick="fmSet('${k}',${jsq(c)},1)" title="${n}" aria-label="Icon ${n}" aria-pressed="${v === c}">${IC[n]}</button>`).join('')}</div></div>`;
   return `<label>${L}<input ${f.id ? 'id=' + f.id : ''} type="${f.t || 'text'}" placeholder="${esc(f.ph || '')}" value="${esc(v)}" ${f.max ? 'maxlength=' + f.max : ''} oninput="fmSet('${k}',this.value,${f.re ? 1 : 0});${f.on ? f.on + '(this.value)' : ''}">${hint}</label>`;
 }
 async function fmSave() {
-  const f = FM; const err = await f.save(f.d);
-  if (typeof err === 'string') return toast(err, true);
+  const f = FM; if (!f || f.busy) return;                     // a second click while saving would create everything twice
+  f.busy = true; render(); let err;
+  try { err = await f.save(f.d); } finally { f.busy = false; }
+  if (typeof err === 'string') { render(); return toast(err, true); }
   if (FM === f) FM = null; render();
 }
-const FMM = () => OVL(`<div class=mh><h2>${esc(FM.title)}</h2>${X('FM=null;render()')}</div><div class=mb><div class=form style="max-width:none">${(FM.fields || []).map(fmField).join('')}</div>${FM.extra ? FM.extra(FM.d) : ''}<div style="display:flex;gap:8px;justify-content:flex-end"><button class=ib onclick="FM=null;render()">Cancel</button><button class=btn onclick="fmSave()">${esc(FM.yes)}</button></div></div>`, 'FM=null;render()', FM.w, 70);
+const FMM = () => OVL(`<div class=mh><h2>${esc(FM.title)}</h2>${X('FM=null;render()')}</div><div class=mb><div class=form style="max-width:none">${(FM.fields || []).map(fmField).join('')}</div>${FM.extra ? FM.extra(FM.d) : ''}<div class=acts><button class=ib onclick="FM=null;render()">Cancel</button><button class=btn onclick="fmSave()" ${FM.busy ? 'disabled' : ''}>${FM.busy ? 'Saving…' : esc(FM.yes)}</button></div></div>`, 'FM=null;render()', FM.w, 70);
+// ---- a click that saves runs only once at a time: once('key', async () => ...) ignores further clicks until the first one has finished
+async function once(key, fn) { if (BUSY[key]) return; BUSY[key] = true; try { return await fn(); } finally { delete BUSY[key]; } }
 
 // ---------------------------------------------------------------- password rules (the same checks run on the server)
 const PWR = [['At least 6 characters', p => p.length >= 6], ['Uppercase and lowercase letters', p => /[a-z]/.test(p) && /[A-Z]/.test(p)], ['A number', p => /\d/.test(p)], ['A special character (e.g. ! @ # $)', p => /[^A-Za-z0-9]/.test(p)]];

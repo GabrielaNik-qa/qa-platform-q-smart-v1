@@ -1,7 +1,7 @@
 // Audit log: remembers who changed what (every successful create / change / delete, plus sign-ins). Passwords are never stored.
 // Lives in its own file (audit.json) so data.json stays small. Only admins can read it.
 const fs = require('fs'), path = require('path');
-const FILE = path.join(__dirname, 'audit.json'), MAX = 5000;
+const FILE = process.env.AUDIT_FILE ? path.resolve(process.env.AUDIT_FILE) : path.join(__dirname, 'audit.json'), MAX = 5000;
 let LOG = [];
 try { LOG = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) { LOG = []; }
 let timer = null;
@@ -17,7 +17,8 @@ const NAMES = [
   [/demo\/reset/, 'Reset the demo data'], [/^PUT \/api\/settings/, 'Changed system settings / pass rates'], [/^POST \/api\/scorecards/, 'Created a scorecard'], [/^PUT \/api\/scorecards/, 'Changed a scorecard'], [/^DELETE \/api\/scorecards/, 'Deleted a scorecard'],
   [/^POST \/api\/workspaces/, 'Created a workspace'], [/^PUT \/api\/workspaces/, 'Changed a workspace'], [/^DELETE \/api\/workspaces/, 'Deleted a workspace'],
   [/\/api\/skills/, 'Changed the skills / languages catalog'], [/\/api\/registrations/, 'Handled an access request'], [/\/api\/password|\/api\/me\/password/, 'Changed a password'],
-  [/\/api\/autoqa/, 'Changed Auto QA'], [/\/api\/calibrations/, 'Changed a calibration'], [/\/api\/sessions/, 'Changed a coaching / one-to-one session']
+  [/\/api\/autoqa/, 'Changed Auto QA'], [/\/api\/calibrations/, 'Changed a calibration'], [/\/api\/sessions/, 'Changed a coaching / one-to-one session'],
+  [/^PUT \/api\/prefs/, 'Changed own pop-up and confirmation settings']
 ];
 const label = k => { const f = NAMES.find(n => n[0].test(k)); return f ? f[1] : k; };
 

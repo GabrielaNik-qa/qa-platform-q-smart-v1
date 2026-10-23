@@ -9,12 +9,12 @@ const addI = ci => { SE.cats[ci].it.push({ t: '', p: 0, k: false }); render(); }
 const rmC = ci => { if (SE.cats.length > 1) SE.cats.splice(ci, 1); render(); };
 const rmI = (ci, ii) => { const it = SE.cats[ci].it; if (it.length > 1) it.splice(ii, 1); else it[0] = { t: '', p: 0, k: false }; render(); };
 const editSC = id => { const s = SCS.find(x => x.id === id); SE = JSON.parse(JSON.stringify({ id: s.id, name: s.name, desc: s.desc || '', cats: s.cats })); render(); };
-async function saveSC() {
+const saveSC = () => once('sc', async () => {
   const t = SCT(); if (t !== 100) return toast('Total points must equal 100 (currently ' + t + ')', true);
   const r = await api(SE.id ? '/api/scorecards/' + SE.id : '/api/scorecards', { name: SE.name, desc: SE.desc, cats: SE.cats, workspace: SE.workspace }, SE.id ? 'PUT' : 'POST');
   if (!r.ok) { if (r.status === 401) return; return toast(await errOf(r, 'Could not save the scorecard'), true); }
   SE = null; await load(); render(); toast('Scorecard saved');
-}
+});
 const delSC = id => ask('Delete this scorecard?', 'Reviews already made with it keep their scores. This cannot be undone.', async () => {
   const r = await api('/api/scorecards/' + id, null, 'DELETE'); if (!r.ok) return toast(await errOf(r, 'Could not delete the scorecard'), true);
   await load(); render(); toast('Scorecard deleted');
@@ -23,7 +23,7 @@ const SCL = () => head('Scorecards', 'Create and manage the scorecards used in Q
   + `<div class="g g2">${SCS.map(s => { const n = s.cats.reduce((a, c) => a + c.it.length, 0), t = s.cats.reduce((a, c) => a + c.it.reduce((x, i) => x + i.p, 0), 0);
     return card(esc(s.name), `<p class=mu style="margin:0 0 10px">${esc(s.desc || '')}</p><small>${s.cats.length} categories · ${n} items · ${t} pts</small><div style="margin:12px 0">${s.cats.map(c => `<div class=row style="font-size:13px;padding:3px 0"><span>${esc(c.n)}${c.k ? '<span class=crit>Critical category</span>' : ''}${c.it.some(i => i.k) ? '<span class=crit>Critical items</span>' : ''}</span><b class=mono>${c.it.reduce((x, i) => x + i.p, 0)} pts</b></div>`).join('')}</div>${ME.role === 'admin' ? `<div style="display:flex;gap:8px"><button class="ib ibx" onclick="editSC('${esc(s.id)}')">${IC.pen} Edit</button><button class="ib ibx" onclick="delSC('${esc(s.id)}')">${IC.bin} Delete</button></div>` : ''}`); }).join('')}</div>`;
 const SED = () => head(SE.id ? 'Edit scorecard' : 'New scorecard', 'Add categories and items. The points of all items must add up to 100.', `<div style="display:flex;gap:8px"><button class=ib onclick="SE=null;render()">Cancel</button><button class=btn onclick="saveSC()">Save scorecard</button></div>`)
-  + card('Details', `<div class=eg2><label>Name<input value="${esc(SE.name)}" oninput="SE.name=this.value"></label><label>Description <span class=mu>(optional)</span><input value="${esc(SE.desc)}" oninput="SE.desc=this.value"></label></div><div class=tips style="margin-top:12px"><b>Critical rules</b><ul><li><b>Critical item</b>: if it is answered <b>No</b>, the whole category scores 0 points.</li><li><b>Critical category</b>: if any item in it is answered <b>No</b>, the whole review scores 0%.</li><li><b>N/A</b> (not applicable) never lowers the score.</li></ul></div>`)
+  + card('Details', `<div class=eg2><label>Name<input value="${esc(SE.name)}" oninput="SE.name=this.value"></label><label>Description <span class=mu>(optional)</span><input value="${esc(SE.desc)}" oninput="SE.desc=this.value"></label></div>${tipBox('tip.sc-rules', 'Critical rules', '<ul><li><b>Critical item</b>: if it is answered <b>No</b>, the whole category scores 0 points.</li><li><b>Critical category</b>: if any item in it is answered <b>No</b>, the whole review scores 0%.</li><li><b>N/A</b> (not applicable) never lowers the score.</li></ul>')}`)
   + SE.cats.map((c, ci) => card('', `<div class=row style="gap:10px;margin-bottom:12px;flex-wrap:wrap"><input style="flex:1;min-width:200px;font-weight:600" placeholder="Category name" value="${esc(c.n)}" oninput="SE.cats[${ci}].n=this.value"><label class=rad style="white-space:nowrap" title="If any item in this category is answered No, the whole review scores 0%"><input type=checkbox ${c.k ? 'checked' : ''} onchange="SE.cats[${ci}].k=this.checked"> Critical category</label><b class=mono id=cs${ci} style="white-space:nowrap">${c.it.reduce((a, i) => a + (+i.p || 0), 0)} pts</b><button class=ic onclick="rmC(${ci})" title="Delete category">${IC.bin}</button></div>`
     + c.it.map((i, ii) => `<div class=row style="gap:10px;margin-bottom:8px;flex-wrap:wrap"><input style="flex:1;min-width:220px" placeholder="Evaluation criterion" value="${esc(i.t)}" oninput="SE.cats[${ci}].it[${ii}].t=this.value"><input type=number min=0 max=100 style="width:84px" value="${i.p}" oninput="SE.cats[${ci}].it[${ii}].p=+this.value;upT()"><small>pts</small><label class=rad style="white-space:nowrap" title="If this item is answered No, its whole category scores 0 points"><input type=checkbox ${i.k ? 'checked' : ''} onchange="SE.cats[${ci}].it[${ii}].k=this.checked"> Critical</label><button class=ic onclick="rmI(${ci},${ii})" title="Delete item">${IC.bin}</button></div>`).join('')
     + `<button class="ib ibx" onclick="addI(${ci})">+ Add item</button>`)).join('')
@@ -53,11 +53,15 @@ const TEAM_FIELDS = isNew => [
 const newTeam = () => openForm({ title: 'New team', fields: TEAM_FIELDS(true), d: { name: '', desc: '', lead: '', workspace: WSP[0] ? WSP[0].id : '', languages: [], skills: [], region: '', hours: '', channels: [], notes: '', color: '#2563eb' }, yes: 'Create team', save: async d => { const r = await api('/api/teams', d); if (!r.ok) return errOf(r, 'Could not create the team'); await load(); toast('Team created'); } });
 const editTeam = id => { const t = TEAMS.find(x => x.id === id); openForm({ title: 'Edit team', fields: TEAM_FIELDS(false), d: t, save: async d => { const r = await api('/api/teams/' + id, d, 'PUT'); if (!r.ok) return errOf(r, 'Could not save the team'); await load(); toast('Team saved'); } }); };
 const delTeam = id => ask('Delete this team?', 'The team must be empty. Reviews already made keep their history and the team name.', async () => { const r = await api('/api/teams/' + id, null, 'DELETE'); if (!r.ok) return toast(await errOf(r, 'Could not delete the team'), true); await load(); render(); toast('Team deleted'); }, { yes: 'Yes, delete', no: 'Cancel', danger: true });
-// moving an agent: old reviews stay on record, both teams' statistics change automatically
+// moving an agent: old reviews stay on record, both teams' statistics change automatically.
+// A routine action: the person may switch the question off, and every move offers Undo (moving them straight back).
 const moveUser = (un, team) => { const u = ROSTER.find(x => x.username === un); if (!u || u.team === team) return render();
-  ask('Move ' + u.name + '?', `${u.name} moves from ${tn(u.team)} to ${tn(team)}. Their earlier reviews stay on record, and the statistics of both teams are recalculated with the new members.`, async () => {
-    const r = await api('/api/users/' + encodeURIComponent(un), { team }, 'PUT'); if (!r.ok) toast(await errOf(r, 'Could not move the user'), true); else toast(u.name + ' moved to ' + tn(team)); await load(); render();
-  }, { yes: 'Yes, move', no: 'Cancel', onNo: render }); };
+  const from = u.team, go = async (to, undo) => {
+    const r = await api('/api/users/' + encodeURIComponent(un), { team: to }, 'PUT');
+    if (!r.ok) toast(await errOf(r, 'Could not move the user'), true); else if (undo) toast(u.name + ' moved to ' + tn(to), false, { undo: () => go(from, false) }); else toast(u.name + ' is back in ' + tn(to));
+    await load(); render();
+  };
+  ask('Move ' + u.name + '?', `${u.name} moves from ${tn(u.team)} to ${tn(team)}. Their earlier reviews stay on record, and the statistics of both teams are recalculated with the new members.`, () => go(team, true), { yes: 'Yes, move', no: 'Cancel', onNo: render, id: 'confirm.move-user' }); };
 const teamActions = t => `<div style="display:flex;gap:8px"><button class="ib ibx" onclick="editTeam('${t.id}')">${IC.pen} Edit</button>${t.system ? '' : `<button class="ib ibx" onclick="delTeam('${t.id}')">${IC.bin} Delete</button>`}</div>`;
 PG.teams = function () {
   const head2 = head('Teams', 'Every team has a team lead and a workspace. Administration holds all admins, QA, team leads and trainers.', `<div style="display:flex;gap:8px;flex-wrap:wrap">${vwBtn('teams')}<button class=btn onclick="newTeam()">+ New team</button></div>`);
@@ -100,11 +104,11 @@ const delUser = un => { const u = USR.find(x => x.username === un);
 const resetPw = u => ask('Reset this password?', `The password of ${u} will be set back to "password" and they must choose a new one at their next login.`, async () => {
   const r = await api('/api/users/' + encodeURIComponent(u) + '/reset', {}); toast(r.ok ? 'Password reset to "password"' : await errOf(r, 'Could not reset the password'), !r.ok); await load(); render();
 }, { yes: 'Yes, reset it', no: 'Cancel' });
-async function regApprove(id) {
+const regApprove = id => once('reg' + id, async () => {
   const role = $('#rr' + id).value, team = $('#rt' + id).value;
   const r = await api(`/api/registrations/${id}/approve`, { role, team }); if (!r.ok) return toast(await errOf(r, 'Could not approve'), true);
   await load(); render(); toast('Registration approved. The person was emailed.');
-}
+});
 const regDecline = id => ask('Decline this registration?', 'The person will receive an email saying the registration was declined.', async () => {
   const r = await api(`/api/registrations/${id}/decline`, {}); if (!r.ok) return toast(await errOf(r, 'Could not decline'), true);
   await load(); render(); toast('Registration declined. The person was emailed.');
@@ -122,7 +126,7 @@ PG.users = function () {
     + card('', `<div class=row style="gap:10px;flex-wrap:wrap"><input style="flex:1;min-width:200px" placeholder="Search name, username or email…" value="${esc(UF.q)}" oninput="UF.q=this.value;ul()"><select onchange="UF.team=this.value;render()"><option value="">All teams</option>${TEAMS.map(t => `<option value="${t.id}" ${UF.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select><select onchange="UF.role=this.value;render()"><option value="">All roles</option>${Object.entries(ROLE).map(([k, v]) => `<option value=${k} ${UF.role === k ? 'selected' : ''}>${v}</option>`).join('')}</select><select onchange="UF.sk=this.value;render()"><option value="">All skills</option>${SKL.skills.map(s => `<option ${UF.sk === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select><select onchange="UF.lg=this.value;render()"><option value="">All languages</option>${SKL.languages.map(s => `<option ${UF.lg === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select><select onchange="UF.st=this.value;render()"><option value="active" ${UF.st === 'active' ? 'selected' : ''}>Active</option><option value="inactive" ${UF.st === 'inactive' ? 'selected' : ''}>Inactive</option><option value="" ${UF.st === '' ? 'selected' : ''}>All</option></select></div>`)
     + `<div id=ut>${UT(userList())}</div>`;
 };
-const ul = () => { const e = $('#ut'); if (e) e.innerHTML = UT(userList()); };
+const ul = () => { const e = $('#ut'); if (e) { e.innerHTML = UT(userList()); enhance(); } };
 
 // ---------- skills and languages catalog (people can only pick from these)
 const skForm = (kind, name) => openForm({ title: (name ? 'Rename ' : 'New ') + kind, d: { name: name || '' }, fields: [{ k: 'name', l: kind === 'language' ? 'Language' : 'Skill', req: 1 }], yes: name ? 'Rename' : 'Add',
@@ -130,8 +134,8 @@ const skForm = (kind, name) => openForm({ title: (name ? 'Rename ' : 'New ') + k
 const skDel = (kind, name) => { const n = (SKL.counts[kind === 'language' ? 'languages' : 'skills'] || {})[name] || 0; ask('Delete "' + name + '"?', n ? `${n} ${n === 1 ? 'person has' : 'people have'} it. It will be removed from them too.` : 'Nobody has it yet.', async () => { await api('/api/skills?kind=' + kind + '&name=' + encodeURIComponent(name), null, 'DELETE'); await load(); render(); toast('Deleted'); }, { yes: 'Yes, delete', no: 'Cancel', danger: true }); };
 const skWin = (kind, title, list) => { const k = kind === 'language' ? 'languages' : 'skills', cnt = SKL.counts[k] || {};
   return card(`${title} <span class=bg>${list.length}</span>`, `<div class=row style="margin-bottom:10px"><small class=mu>${kind === 'language' ? 'Languages people speak' : 'What people are good at'}</small><button class="btn ibx" onclick="skForm('${kind}')">${IC.plus} Add ${kind}</button></div>` + (vw('skills') === 'boxes'
-    ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${list.map(x => `<span class=tg style="padding:6px 12px;font-size:13px">${esc(x)} <small class=mu>${cnt[x] || 0}</small> <a href="javascript:void(0)" onclick="skForm('${kind}','${esc(x).replace(/&#39;/g, '')}')" title="Rename">✎</a> <a href="javascript:void(0)" onclick="skDel('${kind}','${esc(x).replace(/&#39;/g, '')}')" title="Delete">×</a></span>`).join('')}</div>`
-    : list.map(x => `<div class="row li"><span>${esc(x)}</span><span><small class=mu>${cnt[x] || 0} people</small> <button class=ic onclick="skForm('${kind}','${esc(x).replace(/&#39;/g, '')}')">${IC.pen}</button><button class=ic onclick="skDel('${kind}','${esc(x).replace(/&#39;/g, '')}')">${IC.bin}</button></span></div>`).join(''))); };
+    ? `<div style="display:flex;flex-wrap:wrap;gap:8px">${list.map(x => `<span class=tg style="padding:5px 6px 5px 12px;font-size:13px;color:var(--tx)">${esc(x)} <small class=mu>${cnt[x] || 0}</small> <button class=ic style="width:24px;height:24px" onclick="skForm('${kind}',${jsq(x)})" title="Rename ${esc(x)}">${IC.pen}</button><button class=ic style="width:24px;height:24px" onclick="skDel('${kind}',${jsq(x)})" title="Delete ${esc(x)}">${IC.x}</button></span>`).join('')}</div>`
+    : list.map(x => `<div class="row li"><span>${esc(x)}</span><span><small class=mu>${cnt[x] || 0} people</small> <button class=ic onclick="skForm('${kind}',${jsq(x)})" title="Rename ${esc(x)}">${IC.pen}</button><button class=ic onclick="skDel('${kind}',${jsq(x)})" title="Delete ${esc(x)}">${IC.bin}</button></span></div>`).join(''))); };
 PG.skills = () => head('Skills', 'The lists people pick their skills and languages from', vwBtn('skills')) + `<div class="g g2">${skWin('skill', 'Skills', SKL.skills)}${skWin('language', 'Languages', SKL.languages)}</div>`;
 
 // ---------- workspaces: each workspace holds its own teams, scorecards and staff. Admins see all of them.
@@ -144,7 +148,7 @@ const wsAct = w => `<div style="display:flex;gap:8px"><button class="ib ibx" onc
 PG.wsp = function () {
   const ag = w => ROSTER.filter(r => r.active && r.role === 'agent' && w.teams.includes(r.team)).length;
   return head('Workspaces', 'Keep teams, scorecards and people in separate spaces. Only admins see everything.', `<div style="display:flex;gap:8px;flex-wrap:wrap">${vwBtn('wsp')}<button class=btn onclick="wsForm({name:'',desc:'',color:'#2563eb',teams:[],scorecards:[],staff:[]})">+ New workspace</button></div>`)
-    + howTo('workspaces', '<p>A workspace is a small world of its own: <b>teams</b>, the <b>scorecards</b> they are scored with, and the <b>QA specialists, team leads and trainers</b> who work there. People only see the reviews, teams and scorecards of their workspace; <b>admins see all workspaces</b>. Agents belong to the workspace of their team. Start with one workspace and add more when teams stop sharing scorecards.</p>')
+    + howTo('workspaces', '<p>A workspace is a small world of its own: <b>teams</b>, the <b>scorecards</b> they are scored with, and the <b>QA specialists, team leads and trainers</b> who work there. People only see the reviews, teams and scorecards of their workspace; <b>admins see all workspaces</b>. Agents belong to the workspace of their team. Start with one workspace and add more when teams stop sharing scorecards.</p>', 'tip.workspaces')
     + (vw('wsp') === 'table' ? card('', tbl(['Workspace', 'Teams', 'Agents', 'Scorecards', 'Staff', ''], WSP.map(w => [`<span style="color:${w.color}">●</span> <b>${esc(w.name)}</b><br><small class=mu>${esc(w.desc || '')}</small>`, chips(w.teams.map(tn)), ag(w), chips(w.scorecards.map(id => (SCS.find(s => s.id === id) || {}).name).filter(Boolean)), chips(w.staff.map(an)), wsAct(w)])))
       : `<div class=bxg>${WSP.map(w => `<div class=bx><b><span style="color:${w.color}">●</span> ${esc(w.name)}</b><small class=mu>${esc(w.desc || '')}</small><div><small class=mu>Teams</small> ${chips(w.teams.map(tn))}</div><div><small class=mu>Scorecards</small> ${chips(w.scorecards.map(id => (SCS.find(s => s.id === id) || {}).name).filter(Boolean))}</div><small>${ag(w)} agents · ${w.staff.length} staff</small>${wsAct(w)}</div>`).join('')}</div>`);
 };
@@ -164,14 +168,14 @@ async function chPw() {
   if (!pwOk(p)) return toast('The new password does not meet the requirements', true);
   if (p !== c) return toast('The new passwords do not match', true);
   const r = await api('/api/password', { current: $('#pn0').value, next: p }); if (!r.ok) return toast(await errOf(r, 'Could not change the password'), true);
-  toast('Password changed'); render();
+  ['#pn0', '#pn1', '#pn2'].forEach(s => { const i = $(s); if (i) i.value = ''; }); pwUpd(); toast('Password changed');
 }
 async function firstPw() {
   const p = $('#pn1').value, c = $('#pn2').value, e = $('#fpe');
   const msg = !pwOk(p) ? 'The new password does not meet the requirements' : p !== c ? 'The two passwords do not match' : '';
   if (msg) { e.innerHTML = `<small style="color:var(--bad)">${msg}</small>`; return; }
   const r = await api('/api/password/first', { next: p }); if (!r.ok) { e.innerHTML = `<small style="color:var(--bad)">${esc(await errOf(r, 'Could not change the password'))}</small>`; return; }
-  ME = await r.json(); await load(); render(); toast('Password changed. Welcome!');
+  ME = await r.json(); await load(); render(); toast('Password changed. Welcome!'); maybeWelcome();
 }
 
 
@@ -181,6 +185,6 @@ PG.audit = function () {
   const q = AUF.q.toLowerCase(), l = AUD.filter(x => (!AUF.u || x.u === AUF.u) && (AUF.ok === '' || String(x.ok) === AUF.ok) && (!q || (x.a + ' ' + x.d + ' ' + x.u + ' ' + x.n).toLowerCase().includes(q)));
   const users = [...new Set(AUD.map(x => x.u).filter(Boolean))].sort();
   return head('Audit log', 'Every change and sign-in, newest first (last 1000 entries). Passwords are never recorded.', `<button class=ib onclick="load().then(render)">Refresh</button>`)
-    + `<div class=row style="justify-content:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:14px"><input placeholder="Search action or detail" value="${esc(AUF.q)}" oninput="AUF.q=this.value;clearTimeout(window.__a);window.__a=setTimeout(render,250)" style="min-width:240px"><select onchange="AUF.u=this.value;render()"><option value="">All users</option>${users.map(u => `<option value="${esc(u)}" ${AUF.u === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}</select><select onchange="AUF.ok=this.value;render()"><option value="">All results</option><option value="true" ${AUF.ok === 'true' ? 'selected' : ''}>Succeeded</option><option value="false" ${AUF.ok === 'false' ? 'selected' : ''}>Failed sign-ins</option></select></div>`
+    + `<div class=row style="justify-content:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:14px"><input id=auq aria-label="Search the audit log" placeholder="Search action or detail" value="${esc(AUF.q)}" oninput="AUF.q=this.value;clearTimeout(window.__a);window.__a=setTimeout(render,250)" style="min-width:240px"><select onchange="AUF.u=this.value;render()"><option value="">All users</option>${users.map(u => `<option value="${esc(u)}" ${AUF.u === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}</select><select onchange="AUF.ok=this.value;render()"><option value="">All results</option><option value="true" ${AUF.ok === 'true' ? 'selected' : ''}>Succeeded</option><option value="false" ${AUF.ok === 'false' ? 'selected' : ''}>Failed sign-ins</option></select></div>`
     + card(`${l.length} entr${l.length === 1 ? 'y' : 'ies'}`, l.length ? tbl(['When', 'Who', 'Role', 'Action', 'Details'], l.slice(0, 300).map(x => [fdt(x.t), `<b>${esc(x.n || x.u || '—')}</b>${x.n ? ` <small class=mu>@${esc(x.u)}</small>` : ''}`, ROLE[x.r] || '—', x.ok ? esc(x.a) : `<span style="color:var(--bad)">${esc(x.a)}</span>`, `<small>${esc(x.d)}</small>`])) : '<p class=mu>Nothing recorded yet.</p>');
 };

@@ -31,9 +31,9 @@ const rowH = e => {
 const CTBL = () => {
   const l = CR(), n = l.length, pc = Math.max(1, Math.ceil(n / PS)); if (PN > pc) PN = pc;
   const a = (PN - 1) * PS, pg = l.slice(a, a + PS), ar = k => k === SK ? (SD > 0 ? '▲' : '▼') : '↕';
-  return card('', `<div class=row style="margin-bottom:14px"><h3 style="margin:0;display:flex;align-items:center;gap:10px">Call Reviews <span class=bg>${n}</span></h3><small>View and manage all call evaluations</small></div><div class=sc><table class=ct><tr>${TH.map(([k, t]) => `<th style="cursor:pointer" onclick="srt('${k}')">${t} <span style="opacity:${k === SK ? 1 : .4}">${ar(k)}</span></th>`).join('')}<th>ACTIONS</th></tr>${pg.map(rowH).join('') || `<tr><td colspan=11 class=mu style="text-align:center;padding:30px">No call reviews match your filters</td></tr>`}</table></div>` + PGN(n, pc, a));
+  return card('', `<div class=row style="margin-bottom:14px"><h3 style="margin:0;display:flex;align-items:center;gap:10px">Call Reviews <span class=bg>${n}</span></h3><small>View and manage all call evaluations</small></div><div class=sc><table class=ct><tr>${TH.map(([k, t]) => `<th aria-sort="${k === SK ? (SD > 0 ? 'ascending' : 'descending') : 'none'}"><button class=thb onclick="srt('${k}')" title="Sort by ${t.toLowerCase()}">${t} <span aria-hidden="true" style="opacity:${k === SK ? 1 : .4}">${ar(k)}</span></button></th>`).join('')}<th>ACTIONS</th></tr>${pg.map(rowH).join('') || `<tr><td colspan=11 class=mu style="text-align:center;padding:30px">No call reviews match your filters</td></tr>`}</table></div>` + PGN(n, pc, a));
 };
-const rt = () => { const t = $('#tb'); if (t) t.innerHTML = CTBL(); };
+const rt = () => { const t = $('#tb'); if (t) { t.innerHTML = CTBL(); enhance(); } };
 const gp = p => { PN = p; rt(); };
 const srt = k => { if (SK === k) SD = -SD; else { SK = k; SD = (k === 'd' || k === 'sc') ? -1 : 1; } PN = 1; rt(); };
 const sq = el => { Q = el.value; PN = 1; $$('.qi').forEach(i => { if (i !== el) i.value = Q; }); rt(); };
@@ -45,7 +45,7 @@ PG.calls = function () {
   const seg = [['week', 'Week'], ['month', 'Month'], ['all', 'All'], ['custom', 'Custom']].map(([k, l]) => `<button class="${k === FP ? 'on' : ''}" onclick="FP='${k}';PN=1;render()">${l}</button>`).join('');
   const si = `<div class=sx><span>${IC.search}</span><input class=qi placeholder="Search by agent, lead ID, or campaign…" value="${esc(Q)}" oninput="sq(this)"></div>`;
   const tOpts = TEAMS.filter(t => !FA || t.id === teamOf(FA)), aOpts = AGENTS().filter(a => !FT || a.team === FT);
-  const chip = FSC ? `<span class=chip onclick="FSC=null;PN=1;render()" title="Remove this filter">${FSC.m === 'pass' ? `Passing reviews (team pass rates)` : FSC.m === 'fail' ? 'Failing reviews (below the pass rate)' : `Score ${FSC.a}% – ${FSC.b > 100 ? 100 : FSC.b - 1}%`} ✕</span>` : '';
+  const chip = FSC ? `<span class=chip onclick="FSC=null;PN=1;render()" title="Remove this filter" aria-label="Remove this filter">${FSC.m === 'pass' ? `Passing reviews (team pass rates)` : FSC.m === 'fail' ? 'Failing reviews (below the pass rate)' : `Score ${FSC.a}% – ${FSC.b > 100 ? 100 : FSC.b - 1}%`} ${IC.x}</span>` : '';
   return head('Call Reviews', 'View and manage all call evaluations', `<div style="display:flex;gap:8px;flex-wrap:wrap"><div class=sx style="width:290px"><span>${IC.search}</span><input class=qi style="padding-right:64px" placeholder="Search lead ID, agent, campaign…" value="${esc(Q)}" oninput="sq(this)"><kbd class=kb>Ctrl K</kbd></div>${bellBtn()}<button class="ib ibx" onclick="xp(CR(),'Call Reviews')">${IC.dl} Export to Excel</button></div>`)
     + card('', `<div class=fl><label>Search${si}</label>
 <label>Team<select onchange="setFT(this.value)"><option value="">All Teams</option>${tOpts.map(t => `<option value="${t.id}" ${t.id === FT ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>
@@ -65,10 +65,11 @@ async function om(t, id) {
   }
 }
 function cm() { MD = null; DRF = ''; render(); }
-async function rmv(rid) { const r = await api('/api/evaluations/' + rid, null, 'DELETE'); if (!r.ok) return toast(await errOf(r, 'Could not delete the review'), true); MD = null; await load(); render(); toast('Review deleted'); }
-async function remind(rid) { const r = await api(`/api/evaluations/${rid}/remind`, {}); if (r.ok) toast('Reminder sent to the agent'); else toast(await errOf(r, 'Could not send the reminder'), true); }
+const rmv = rid => once('rmv', async () => { const r = await api('/api/evaluations/' + rid, null, 'DELETE'); if (!r.ok) return toast(await errOf(r, 'Could not delete the review'), true); MD = null; await load(); render(); toast('Review deleted'); });
+const remind = rid => once('remind', async () => { const r = await api(`/api/evaluations/${rid}/remind`, {}); if (r.ok) toast('Reminder sent to the agent'); else toast(await errOf(r, 'Could not send the reminder'), true); });
 function ply(rid) { const e = EV.find(x => x.rid === rid); if (!e) return; if (e.rec) { PLY = rid; render(); } else if (/^https?:\/\//.test(e.rl || '')) window.open(e.rl, '_blank', 'noopener'); }
-async function xp(l, name) {
+const xp = (l, name) => once('xp', () => xpRun(l, name));
+async function xpRun(l, name) {
   const cn = CATS(l), hd = ['Lead ID', 'Date', 'Agent', 'Team', 'Campaign', 'Reviewer', ...cn, 'Total Score (%)', 'Flag', 'Quick Flags', 'Status', 'Disputed', 'Comments', 'Link', 'Recording Link'],
     rows = [hd, ...l.map(e => [String(e.id), iso(e.d), agn(e), tn(e.tm), cpn(e), e.rv || '', ...cn.map(n => { const v = cpv(e, n); return v == null ? '' : Math.round(v * 10) / 10; }), e.sc, e.fl === 'red' ? 'Red Flag' : e.fl === 'green' ? 'Green Flag' : '', '', 'Completed', e.st === 'disputed' ? 'Yes' : 'No', [e.cm, ...(e.cs || []).flatMap(c => c.it.filter(i => i.cm).map(i => '[' + c.n + '] ' + i.cm))].filter(Boolean).join(' | '), e.lk || '', e.rl || (e.rec ? location.origin + '/api/recordings/' + e.rec : '')])];
   const r = await api('/api/export/call-reviews', { rows, pf: 6, pt: 6 + cn.length, name });

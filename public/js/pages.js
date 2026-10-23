@@ -48,5 +48,5 @@ const PG = {
 function snd() {
   const t = $('#si').value.trim(); if (!t) return;
   const g = /understand|value|include|\?/i.test(t);
-  CH.push(['u', t], ['c', RP[Math.min(CH.filter(m => m[0] === 'u').length, 2)]], ['c', g ? '✔ Coach: good, you acknowledged the concern.' : 'ℹ Coach: empathise first, then ask a question.']); render();
+  CH.push(['u', t], ['c', RP[Math.min(CH.filter(m => m[0] === 'u').length, 2)]], ['c', g ? 'Coach: good, you acknowledged the concern.' : 'Coach tip: empathise first, then ask a question.']); render();
 }

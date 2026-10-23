@@ -4,7 +4,7 @@ const crypto = require('crypto'), nodemailer = require('nodemailer'), ExcelJS = 
 const { DEFAULT_SC, build } = require('./scorecard');
 const { ensureBootstrap, uname, ADMIN_TEAM } = require('./bootstrap');
 
-const FILE = path.join(__dirname, 'data.json');            // <- this file IS the database
+const FILE = process.env.DATA_FILE ? path.resolve(process.env.DATA_FILE) : path.join(__dirname, 'data.json');   // <- this file IS the database (DATA_FILE = use another copy, e.g. for the tests)
 const DEFAULT_PASSWORD = 'password';                       // every user created in the app starts with this and must change it at first login
 const ROLES = ['admin', 'qa', 'lead', 'trainer', 'agent'];
 const STAFF = ['admin', 'qa', 'lead', 'trainer'];          // everyone who is not an agent
@@ -15,7 +15,11 @@ const hex = n => crypto.randomBytes(n).toString('hex');
 const iso = () => new Date().toISOString();
 
 // ------------------------------------------------------------------ database
-function save(db) { fs.writeFileSync(FILE, JSON.stringify(db, null, 2)); }
+function save(db) {                                       // write a copy first, then swap it in: a crash half-way never leaves a broken data.json
+  const s = JSON.stringify(db, null, 2), tmp = FILE + '.tmp';
+  try { fs.writeFileSync(tmp, s); fs.renameSync(tmp, FILE); }
+  catch (e) { fs.writeFileSync(FILE, s); try { fs.unlinkSync(tmp); } catch (x) { /* nothing left to clean */ } }   // e.g. OneDrive briefly locks the file
+}
 function load() {
   const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : { users: [], evaluations: [] };
   let dirty = false;
@@ -82,7 +86,15 @@ const pwBad = p => {
   return '';
 };
 const validEmail = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
-const pub = u => ({ username: u.username, name: u.name, email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {} });
+// pop-up preferences of one person: tips they switched off and whether routine confirmations are asked (errors and safeguards are never stored here)
+const PREF_ID = /^[a-z][a-z0-9.-]{1,39}$/;
+const cleanPrefs = p => {
+  p = p && typeof p === 'object' ? p : {};
+  const off = {};
+  Object.entries(p.off && typeof p.off === 'object' && !Array.isArray(p.off) ? p.off : {}).slice(0, 100).forEach(([k, v]) => { if (PREF_ID.test(k)) off[k] = String(v || '').slice(0, 30); });
+  return { info: p.info !== false, confirm: p.confirm !== false, off };
+};
+const pub = u => ({ username: u.username, name: u.name, email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {}, prefs: cleanPrefs(u.prefs) });
 // skills and languages can only be picked from the catalog (Admin > Skills); unknown names are dropped, spelling is normalised
 const pick = (v, catalog) => { const out = []; (Array.isArray(v) ? v : String(v || '').split(',')).forEach(x => { const m = (catalog || []).find(c => c.toLowerCase() === String(x).trim().toLowerCase()); if (m && !out.includes(m)) out.push(m); }); return out; };
 const rosterPub = u => ({ username: u.username, name: u.name, role: u.role, team: u.team || '', title: u.title || '', desc: u.desc || '', languages: u.languages || [], skills: u.skills || [], start: u.start || '', active: u.active !== false });
@@ -90,11 +102,14 @@ const rosterPub = u => ({ username: u.username, name: u.name, role: u.role, team
 // ------------------------------------------------------------------ app + sessions
 const app = express();
 app.set('trust proxy', 1);   // so the real visitor IP is seen behind a tunnel
+app.use((req, res, next) => {   // basic browser protections: no MIME guessing, no framing by other sites, no full URLs leaked to other sites
+  res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('X-Frame-Options', 'SAMEORIGIN'); res.setHeader('Referrer-Policy', 'same-origin'); next();
+});
 app.use(express.json({ limit: '25mb' }));
 app.use(session({
-  secret: process.env.SECRET || 'change-this-secret',      // set a real one before sharing with others
+  secret: process.env.SECRET || hex(32),      // without $env:SECRET a random one is made at every start (sign-ins live in memory and end at a restart anyway)
   resave: false, saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: 'lax' }
+  cookie: { httpOnly: true, sameSite: 'lax', secure: 'auto' }   // 'auto': the cookie is HTTPS-only when the site is opened through HTTPS (the tunnel)
 }));
 const AUDIT = require('./audit');
 app.use(AUDIT.middleware);
@@ -161,6 +176,22 @@ app.post('/api/password/first', authed, (req, res) => {   // the pop-up every ne
   const db = load(), u = userBy(db, req.session.user.username);
   u.hash = bcrypt.hashSync(String(next), 10); u.mustChange = false; save(db);
   req.session.user = pub(u); res.json(req.session.user);
+});
+// My account > Notifications & Confirmations. Only ever changes the person who is signed in.
+//   { info: true|false }      welcome messages and tips on / off       { confirm: true|false }  routine confirmations on / off
+//   { dismiss: ['tip.roots'] } "Don't show me this again"               { restore: ['tip.roots'] } show one again
+//   { clear: true }            show every dismissed message again        { defaults: true }         everything back to the start
+app.put('/api/prefs', need(), (req, res) => {
+  const db = load(), u = userBy(db, req.session.user.username), b = req.body || {};
+  if (!u) return res.status(401).json({ error: 'login required' });
+  const p = b.defaults ? cleanPrefs({}) : cleanPrefs(u.prefs);
+  if (typeof b.info === 'boolean') p.info = b.info;
+  if (typeof b.confirm === 'boolean') p.confirm = b.confirm;
+  if (b.clear) p.off = {};
+  for (const id of list(b.restore, 30, 40)) delete p.off[id];
+  for (const id of list(b.dismiss, 30, 40)) { if (!PREF_ID.test(id)) return bad(res, 'Unknown message'); p.off[id] = iso(); }
+  if (Object.keys(p.off).length > 100) return bad(res, 'Too many dismissed messages');
+  u.prefs = p; save(db); req.session.user = pub(u); res.json(req.session.user);
 });
 
 // ------------------------------------------------------------------ registration (needs admin approval)
@@ -379,15 +410,18 @@ const isOwner = (u, ev) => u.role === 'agent' && ev.agent === u.username;
 const canSee = (u, ev) => u.role !== 'agent' || isOwner(u, ev);          // agents only see their own reviews
 const leadId = v => String(v == null ? '' : v).trim();
 const findEv = (db, rid) => db.evaluations.find(e => e.rid === rid);
+// a review this person may open or change: the same rule as the list (their own workspace; agents only their own reviews)
+const evOf = (db, u, rid) => { const ev = findEv(db, rid); return ev && canSee(u, ev) && inScope(db, u, ev) ? ev : null; };
+const agentInScope = (db, u, au) => { const s = scopeOf(db, u); return !s || s.teams.has(au.team); };
 
 app.get('/api/evaluations', need(), (req, res) => { const db = load(), u = req.session.user; res.json(db.evaluations.filter(e => canSee(u, e) && inScope(db, u, e))); });
 
 app.post('/api/evaluations', need('admin', 'qa'), (req, res) => {
-  const b = req.body || {}, db = load();
+  const b = req.body || {}, db = load(), scope = scopeOf(db, req.session.user);
   const sc = db.scorecards.find(s => s.id === b.scid);
-  if (!sc) return bad(res, 'Choose a scorecard');
+  if (!sc || (scope && !scope.sc.has(sc.id))) return bad(res, 'Choose a scorecard');
   const au = db.users.find(x => x.username === b.agent && x.role === 'agent' && x.active !== false);
-  if (!au) return bad(res, 'Choose an agent');
+  if (!au || !agentInScope(db, req.session.user, au)) return bad(res, 'Choose an agent');
   const id = leadId(b.id);
   if (!id || id.length > 60) return bad(res, 'Enter the lead ID (up to 60 characters)');
   if (!DAY.test(b.dt || '')) return bad(res, 'Choose the call date');
@@ -403,7 +437,7 @@ app.post('/api/evaluations', need('admin', 'qa'), (req, res) => {
 });
 
 app.put('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
-  const db = load(), ev = findEv(db, req.params.rid), b = req.body || {};
+  const db = load(), ev = evOf(db, req.session.user, req.params.rid), b = req.body || {};
   if (!ev) return res.status(404).json({ error: 'not found' });
   const oldSc = ev.sc;
   if (b.a !== undefined) {
@@ -416,7 +450,7 @@ app.put('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
   if (b.id !== undefined) { const id = leadId(b.id); if (!id || id.length > 60) return bad(res, 'Enter the lead ID (up to 60 characters)'); ev.id = id; }
   if (b.agent !== undefined && b.agent !== ev.agent) {
     const au = db.users.find(x => x.username === b.agent && x.role === 'agent');
-    if (!au) return bad(res, 'Choose an agent');
+    if (!au || !agentInScope(db, req.session.user, au)) return bad(res, 'Choose an agent');
     ev.agent = au.username; ev.agn = au.name; ev.tid = au.team;
   }
   if (b.dt !== undefined) {
@@ -433,12 +467,12 @@ app.put('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
 });
 
 app.delete('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
-  const db = load(), ev = findEv(db, req.params.rid);
+  const db = load(), ev = evOf(db, req.session.user, req.params.rid);
   if (!ev) return res.status(404).json({ error: 'not found' });
   db.evaluations = db.evaluations.filter(e => e !== ev);
   db.notifications = db.notifications.filter(n => n.rid !== ev.rid);
   save(db);
-  if (ev.rec) try { fs.unlinkSync(path.join(__dirname, 'recordings', path.basename(ev.rec))); } catch (e) {}
+  if (ev.rec) try { fs.unlinkSync(path.join(REC, path.basename(ev.rec))); } catch (e) {}
   res.json({ ok: 1 });
 });
 
@@ -449,7 +483,7 @@ app.post('/api/evaluations/:rid/seen', need('agent'), (req, res) => {           
   res.json({ seen: ev.seen });
 });
 app.post('/api/evaluations/:rid/remind', need('admin', 'qa'), (req, res) => {   // QA reminds the agent to open the review
-  const db = load(), ev = findEv(db, req.params.rid);
+  const db = load(), ev = evOf(db, req.session.user, req.params.rid);
   if (!ev) return res.status(404).json({ error: 'not found' });
   if (ev.seen) return bad(res, 'The agent has already seen this review');
   const u = userBy(db, ev.agent);
@@ -473,7 +507,7 @@ app.post('/api/evaluations/:rid/dispute', need('agent'), (req, res) => {
   save(db); res.json(ev);
 });
 app.post('/api/evaluations/:rid/dispute/msg', need(), (req, res) => {
-  const db = load(), ev = findEv(db, req.params.rid), u = req.session.user;
+  const db = load(), u = req.session.user, ev = evOf(db, u, req.params.rid);
   if (!ev || !ev.dp) return res.status(404).json({ error: 'not found' });
   const staff = u.role === 'admin' || u.role === 'qa';
   if (!staff && !isOwner(u, ev)) return res.status(403).json({ error: 'not allowed' });
@@ -486,7 +520,7 @@ app.post('/api/evaluations/:rid/dispute/msg', need(), (req, res) => {
   save(db); res.json(ev);
 });
 app.post('/api/evaluations/:rid/dispute/resolve', need('admin', 'qa'), (req, res) => {
-  const db = load(), ev = findEv(db, req.params.rid), u = req.session.user, b = req.body || {};
+  const db = load(), u = req.session.user, ev = evOf(db, u, req.params.rid), b = req.body || {};
   if (!ev || !ev.dp) return res.status(404).json({ error: 'not found' });
   if (ev.dp.status !== 'open') return bad(res, 'This dispute is already resolved');
   const outcome = b.outcome === 'changed' ? 'changed' : 'kept', note = str(b.note, 500);
@@ -577,11 +611,11 @@ app.post('/api/reset', (req, res) => {
 });
 
 // ------------------------------------------------------------------ call recordings (audio files live in the "recordings" folder)
-const REC = path.join(__dirname, 'recordings');
+const REC = process.env.REC_DIR ? path.resolve(process.env.REC_DIR) : path.join(__dirname, 'recordings');
 const EXT = { 'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/wave': 'wav',
   'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/ogg': 'ogg', 'audio/webm': 'webm' };
 app.post('/api/evaluations/:rid/recording', need('admin', 'qa'), express.raw({ type: () => true, limit: '100mb' }), (req, res) => {
-  const db = load(), ev = findEv(db, req.params.rid);
+  const db = load(), ev = evOf(db, req.session.user, req.params.rid);
   const ext = EXT[String(req.headers['content-type']).split(';')[0]];
   if (!ev) return res.status(404).json({ error: 'evaluation not found' });
   if (!ext) return res.status(415).json({ error: 'unsupported audio type' });
@@ -592,8 +626,8 @@ app.post('/api/evaluations/:rid/recording', need('admin', 'qa'), express.raw({ t
   ev.rec = name; save(db); res.json({ rec: name });
 });
 app.get('/api/recordings/:file', need(), (req, res) => {
-  const f = path.basename(req.params.file), ev = load().evaluations.find(e => e.rec === f);
-  if (!ev || !canSee(req.session.user, ev)) return res.status(404).json({ error: 'not found' });
+  const db = load(), f = path.basename(req.params.file), ev = db.evaluations.find(e => e.rec === f);
+  if (!ev || !canSee(req.session.user, ev) || !inScope(db, req.session.user, ev)) return res.status(404).json({ error: 'not found' });
   res.sendFile(path.join(REC, f));
 });
 
@@ -605,4 +639,4 @@ require('./routes-autoqa')(ctx);      // Auto QA conversations and scoring
 
 app.use(express.static(path.join(__dirname, 'public')));
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('Running on http://localhost:' + PORT));
+const srv = app.listen(PORT, () => console.log('Running on http://localhost:' + srv.address().port));   // PORT=0 picks any free port (used by the tests)

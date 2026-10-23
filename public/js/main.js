@@ -1,22 +1,22 @@
 // ===================== Sign-in / register screens, sidebar, router, start-up =====================
-const WAVE = (() => { let b = ''; for (let i = 0; i < 50; i++) { const h = 14 + 96 * Math.abs(Math.sin(i * .33 + .4)) * (.35 + .65 * Math.abs(Math.sin(i * .12 + 1.2))); b += `<rect x="${(i * 9.2).toFixed(1)}" y="${((120 - h) / 2).toFixed(1)}" width="5.2" height="${h.toFixed(1)}" rx="2.6" fill="url(#wg)"/>`; } return `<svg viewBox="0 0 460 120" width="100%" style="max-width:460px" aria-hidden="true"><defs><linearGradient id="wg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="120"><stop offset="0" stop-color="#3ecfa6"/><stop offset=".5" stop-color="#2f8fe6"/><stop offset="1" stop-color="#1f6f95"/></linearGradient></defs>${b}</svg>`; })();
-const EYE = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const WAVE = (() => { let b = ''; for (let i = 0; i < 50; i++) { const h = 14 + 96 * Math.abs(Math.sin(i * .33 + .4)) * (.35 + .65 * Math.abs(Math.sin(i * .12 + 1.2))); b += `<rect x="${(i * 9.2).toFixed(1)}" y="${((120 - h) / 2).toFixed(1)}" width="5.2" height="${h.toFixed(1)}" rx="2.6" fill="url(#wg)"/>`; } return `<svg viewBox="0 0 460 120" width="100%" style="max-width:460px" aria-hidden="true"><defs><linearGradient id="wg" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="120"><stop offset="0" stop-color="#FFD447"/><stop offset=".5" stop-color="#FF6B00"/><stop offset="1" stop-color="#FF6F91"/></linearGradient></defs>${b}</svg>`; })();
+const EYE = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
 let LU = '';
 const tp = id => { const i = $('#' + id); i.type = i.type === 'password' ? 'text' : 'password'; };
 const en = fn => `onkeydown='if(event.key=="Enter")${fn}()'`;
 const pwf = (id, label, extra = '') => `<label>${label}<div class=pw><input id=${id} type=password ${extra}><button type=button class=eye onclick="tp('${id}')" aria-label="Show or hide password">${EYE}</button></div></label>`;
 const LG = () => {
-  const m = MSG ? `<small style="color:#0f9b72">${esc(MSG)}</small>` : '';
-  const f = AUTH === 'forgot' ? `<h1>Reset your password</h1><p class=lgs style="margin-top:-6px;line-height:1.5">Enter your email address or username: we will send you a link to choose a new password.</p><label>Email address or username<input class=wh id=lu placeholder="Enter your email" ${en('forgot')}></label>${m}<div id=lge></div><button class=sbtn onclick=forgot()>Send Reset Email</button><a class=lgk href="#" onclick="AUTH='';MSG='';render();return false">← Back to login</a>`
-    : AUTH === 'reset' ? `<h1>New password</h1><p class=lgs>Choose a strong password.</p>${pwf('pn1', 'New password', 'oninput="pwUpd()"')}${pwf('pn2', 'Confirm new password', 'oninput="pwUpd()" ' + en('reset'))}${pwBox()}<div id=lge></div><button class=sbtn onclick=reset()>Save password</button>`
-    : AUTH === 'register' ? `<h1>Create account</h1><p class=lgs style="margin-top:-6px;line-height:1.5">Your registration will be reviewed by an administrator. You will get an email when it is approved.</p><label>Full name<input id=rn></label><label>Email address<input id=re type=email></label><label>Username<input id=ru placeholder="e.g. j.smith" autocomplete=username></label>${pwf('pn1', 'Password', 'oninput="pwUpd()"')}${pwf('pn2', 'Confirm password', 'oninput="pwUpd()" ' + en('register'))}${pwBox()}<div id=rge></div><button class=sbtn onclick=register()>Request access</button><a class=lgk href="#" onclick="AUTH='';MSG='';render();return false">← Back to login</a>`
-    : `<h1 style="margin-bottom:8px">Sign in</h1><label>Username or email<input id=lu autocomplete=username value="${esc(LU)}" oninput="LU=this.value" ${en('login')}></label>${pwf('lp', 'Password', en('login'))}${m}<div id=lge></div><button class=sbtn onclick=login()>Sign In</button><a class=lgk href="#" onclick="AUTH='forgot';MSG='';render();return false">Forgot your password?</a><button class=rgb onclick="AUTH='register';MSG='';render()">Register</button>`;
-  return `<div class=lg><aside class=lgl><div class=lgb>${mark('mg', 34)}<b>Q-SMART</b></div><div class=lgm><div class=lgw>${WAVE}</div><div class=lgt><h2>Quality Assurance<br>Platform</h2><p>Call Center Quality Assurance</p></div></div></aside><section class=lgr><div class=lgf>${f}</div></section></div>`;
+  const m = MSG ? `<small class=lgok role=status>${esc(MSG)}</small>` : '';
+  const f = AUTH === 'forgot' ? `<h1>Reset your password</h1><p class=lgs style="line-height:1.5">Enter your email address or username: we will send you a link to choose a new password.</p><label>Email address or username<input class=wh id=lu placeholder="Enter your email" ${en('forgot')}></label>${m}<div id=lge role=alert></div><button class=sbtn onclick=forgot()>Send reset email</button><a class=lgk href="#" onclick="AUTH='';MSG='';render();return false">← Back to sign in</a>`
+    : AUTH === 'reset' ? `<h1>New password</h1><p class=lgs>Choose a strong password.</p>${pwf('pn1', 'New password', 'oninput="pwUpd()"')}${pwf('pn2', 'Confirm new password', 'oninput="pwUpd()" ' + en('reset'))}${pwBox()}<div id=lge role=alert></div><button class=sbtn onclick=reset()>Save password</button>`
+    : AUTH === 'register' ? `<h1>Create account</h1><p class=lgs style="line-height:1.5">Your registration will be reviewed by an administrator. You will get an email when it is approved.</p><label>Full name<input id=rn autocomplete=name></label><label>Email address<input id=re type=email autocomplete=email></label><label>Username<input id=ru placeholder="e.g. j.smith" autocomplete=username></label>${pwf('pn1', 'Password', 'oninput="pwUpd()" autocomplete=new-password')}${pwf('pn2', 'Confirm password', 'oninput="pwUpd()" autocomplete=new-password ' + en('register'))}${pwBox()}<div id=rge role=alert></div><button class=sbtn onclick=register()>Request access</button><a class=lgk href="#" onclick="AUTH='';MSG='';render();return false">← Back to sign in</a>`
+    : `<h1>Sign in</h1><label>Username or email<input id=lu autocomplete=username value="${esc(LU)}" oninput="LU=this.value" ${en('login')}></label>${pwf('lp', 'Password', 'autocomplete=current-password ' + en('login'))}${m}<div id=lge role=alert></div><button class=sbtn onclick=login()>Sign in</button><a class=lgk href="#" onclick="AUTH='forgot';MSG='';render();return false">Forgot your password?</a><button class=rgb onclick="AUTH='register';MSG='';render()">Register</button>`;
+  return `<div class=lg><aside class=lgl><div class=lgb>${mark('mg', 34)}<b>Q-SMART</b></div><div class=lgm><div class=lgw>${WAVE}</div><div class=lgt><h2>Quality<br>Assurance<br><em>Platform</em></h2><p>Call center quality assurance</p></div></div></aside><section class=lgr><div class=lgf>${f}</div></section></div>`;
 };
-const lerr = (id, m) => { const e = $(id); if (e) e.innerHTML = `<small style="color:#dc2626">${esc(m)}</small>`; };
+const lerr = (id, m) => { const e = $(id); if (e) e.innerHTML = `<small class=lgerr>${esc(m)}</small>`; };
 async function login() {
   const r = await api('/api/login', { username: $('#lu').value, password: $('#lp').value });
-  if (r.ok) { MSG = ''; LU = ''; await boot(); if (ME && location.hash !== '#dash') location.hash = 'dash'; } else lerr('#lge', await errOf(r, 'Could not sign in'));
+  if (r.ok) { MSG = ''; LU = ''; welAgain((await r.json()).username); await boot(); if (ME && location.hash !== '#dash') location.hash = 'dash'; } else lerr('#lge', await errOf(r, 'Could not sign in'));   // a new sign-in may show the welcome again
 }
 async function register() {
   const p = $('#pn1').value;
@@ -26,7 +26,7 @@ async function register() {
   if (!r.ok) return lerr('#rge', await errOf(r, 'Could not register'));
   AUTH = ''; MSG = 'Registration received! It is pending approval by an administrator. We emailed you a confirmation.'; render();
 }
-async function forgot() { await api('/api/forgot', { identifier: $('#lu').value.trim() }); MSG = 'If that account has an email address, a reset link has been sent.'; render(); }
+async function forgot() { const r = await api('/api/forgot', { identifier: $('#lu').value.trim() }); if (!r.ok) return lerr('#lge', await errOf(r, 'Could not send the email')); MSG = 'If that account has an email address, a reset link has been sent.'; render(); }
 async function reset() {
   const q = new URLSearchParams(location.search), p = $('#pn1').value;
   if (!pwOk(p)) return lerr('#lge', 'The password does not meet the requirements');
@@ -34,7 +34,7 @@ async function reset() {
   const r = await api('/api/reset', { username: q.get('u'), token: q.get('reset'), password: p });
   if (r.ok) { history.replaceState(null, '', '/'); AUTH = ''; MSG = 'Password changed. Please sign in.'; render(); } else lerr('#lge', await errOf(r, 'Reset failed'));
 }
-async function out() { await api('/api/logout', {}); ME = null; MSG = ''; ENT = null; EDITID = ''; KBE = null; render(); }
+async function out() { await api('/api/logout', {}); welAgain(); ME = null; MSG = ''; ENT = null; EDITID = ''; KBE = null; WEL = null; render(); }
 
 // ---------------------------------------------------------------- sidebar (arrow button is fixed, double-click opens AND closes it)
 function applySb() {
@@ -53,16 +53,52 @@ document.addEventListener('click', e => { if (FLY && !e.target.closest('.fly,.gh
 const FOOT = () => `<div class=ft><div class=thm>${[['light', 'Light', IC.sun], ['dark', 'Dark', IC.moon], ['system', 'System', IC.mon]].map(([k, l, s]) => `<button class="${THM === k ? 'on' : ''}" data-m="${k}" onclick="th('${k}')" title="${l} mode"><span class=ti>${s}</span></button>`).join('')}</div><div class=usr><div class=av2 onclick="openAcct('profile')" title="My account">${esc(ini(ME.name))}</div><div class=un onclick="openAcct('profile')" title="My account"><b>${esc(ME.name)}</b><small>${ROLE[ME.role] || ME.role}</small></div><button onclick="tsnd()" title="${SND ? 'Sound on' : 'Sound off'}">${SND ? IC.vol : IC.mute}</button>${ME.role === 'admin' ? `<button onclick="SYS=true;render()" title="System settings">${IC.gear}</button>` : ''}<button onclick="out()" title="Log out">${IC.out}</button></div></div>`;
 
 // ---------------------------------------------------------------- render
+// Every change redraws the page. Typing must not be interrupted by that: the field you are in keeps the focus and the cursor.
 function render() {
   document.body.classList.toggle('auth', !ME);
-  if (!ME) { $('#m').innerHTML = LG(); $('#n').innerHTML = ''; $('#br').innerHTML = ''; $('#fz').innerHTML = ''; return; }
+  const a = document.activeElement, keep = a && a.id && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) ? { id: a.id, s: a.selectionStart, e: a.selectionEnd } : null;
+  if (!ME) { $('#m').innerHTML = LG(); $('#n').innerHTML = ''; $('#br').innerHTML = ''; $('#fz').innerHTML = ''; refocus(keep); return; }
   applySb();
   $('#m').innerHTML = (PG[route] || PG.dash)() + overlays();
   $('#br').innerHTML = `<div class=brand onclick="location.hash='dash'" title="Go to Home">${mark('mg2', 36)}<div><b>Q-SMART</b><small>QA Platform</small></div></div>`;
   $('#n').innerHTML = NAVH();
   $('#fz').innerHTML = FOOT();
   $$('.chat').forEach(c => { c.scrollTop = c.scrollHeight; });
+  enhance(); refocus(keep); dlgFocus();
 }
+function refocus(k) {
+  if (!k) return; const b = document.getElementById(k.id);
+  if (b && document.activeElement !== b) { b.focus({ preventScroll: true }); try { if (k.s != null) b.setSelectionRange(k.s, k.e); } catch (e) { /* number and date fields have no cursor position */ } }
+}
+// keyboard and screen reader access for the clickable cards, rows and chips (they are not real buttons): Tab reaches them, Enter or Space opens them
+function enhance() {
+  $$('#m [onclick]:not(a):not(button):not(input):not(select):not(textarea):not(label):not(.ov), #br [onclick], #fz [onclick]:not(button)').forEach(el => { if (!el.hasAttribute('tabindex')) el.tabIndex = 0; if (!el.hasAttribute('role')) el.setAttribute('role', 'button'); });
+  $$('button[title]:not([aria-label])').forEach(b => { if (!b.textContent.trim()) b.setAttribute('aria-label', b.title); });
+}
+// a pop-up that just opened gets the keyboard focus (on its main button when it has one marked data-af), so Tab and Esc work at once.
+// When the page is redrawn while the pop-up stays open, the focus would fall back to the page behind it: the pop-up takes it back.
+let LASTDLG = '';
+const topOv = () => $$('.ov').sort((x, y) => (+y.style.zIndex || 0) - (+x.style.zIndex || 0))[0] || null;
+function dlgFocus() {
+  const o = topOv(), sig = o ? o.style.zIndex + '|' + ((o.querySelector('h2') || {}).textContent || '') : '', fresh = sig !== LASTDLG;
+  LASTDLG = sig;
+  if (!o || o.contains(document.activeElement)) return;
+  if (!fresh && document.activeElement && document.activeElement !== document.body) return;
+  const t = (fresh && o.querySelector('[data-af]')) || o.querySelector('.md'); if (!t) return;
+  if (!t.hasAttribute('tabindex') && t.classList.contains('md')) t.tabIndex = -1;
+  t.focus({ preventScroll: true });
+}
+addEventListener('keydown', e => {
+  if (e.key === 'Escape') { const o = topOv(); if (o) { e.preventDefault(); o.click(); } else if (FLY) { FLY = null; render(); } return; }   // Esc = the same as clicking next to the pop-up
+  if (e.key === 'Tab') {                                       // Tab stays inside an open pop-up
+    const o = topOv(); if (!o) return;
+    const fs = [...o.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex="0"]')].filter(x => x.offsetParent !== null);
+    if (!fs.length) return; const i = fs.indexOf(document.activeElement);
+    if (e.shiftKey && i <= 0) { e.preventDefault(); fs[fs.length - 1].focus(); } else if (!e.shiftKey && (i === -1 || i === fs.length - 1)) { e.preventDefault(); fs[0].focus(); }
+    return;
+  }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.matches && e.target.matches('[role=button]:not(button):not(a)')) { e.preventDefault(); e.target.click(); }
+});
 
 // ---------------------------------------------------------------- router: warns before leaving an unsaved form, reloads data on every tab change
 let SKIPH = false;
@@ -70,7 +106,7 @@ async function onHash() {
   const n = location.hash.slice(1) || 'dash';
   if (SKIPH) { SKIPH = false; return; }
   if (!ME) { route = n; return; }
-  if (((route === 'entry' && entDirty()) || (route === 'kb' && kbDirty())) && n !== route) {      // put the page back and ask first
+  if (((route === 'entry' && entDirty()) || (route === 'kb' && kbDirty())) && n !== route) {      // put the page back and ask first (a safeguard: always asked)
     const back = route; SKIPH = true; location.hash = back;
     ask('Leave this page?', 'Your changes will be lost. Are you sure you want to leave?', () => { ENT = null; EDITID = ''; KBE = null; location.hash = n; }, { yes: 'Yes, leave', no: 'No, stay' });
     return;
@@ -81,7 +117,7 @@ async function onHash() {
   OG = null; FLY = null; TKV = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; WE = null; AQV = ''; PKN = null;
   if (n === 'calls' && !KQ) { Q = ''; FSC = null; PN = 1; }   // opening Call Reviews from the menu starts with an empty search
   KQ = false; MD = null; NO = false; AC = null; SYS = false; RSV = null; PLY = null; SE = n === 'sco' ? SE : null;
-  route = n; await load(); render(); window.scrollTo(0, 0);
+  route = n; await load(); render(); window.scrollTo(0, 0); maybeWelcome();
 }
 addEventListener('hashchange', onHash);
 addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'k') { const i = $('.qi'); if (i) { e.preventDefault(); i.focus(); } } });
@@ -94,7 +130,7 @@ async function poll() {
   if (!ME || ME.mustChange) return;
   const ch = await load(), u = UN(); if (PREVU !== null && u > PREVU) beep(); PREVU = u;
   const busy = ['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement || {}).tagName);
-  if (ch && (!MD || MD.t === 'view') && !NO && !AC && !SYS && !RSV && !CFM && !PLY && !FM && !TKV && !TEST && !SSV && !TPLM && !AQV && !WE && !busy && route !== 'entry' && !SE && !KBE && !QZE && !NWE) render(); else if (ch) refreshBell();
+  if (ch && (!MD || MD.t === 'view') && !NO && !AC && !SYS && !RSV && !CFM && !PLY && !FM && !TKV && !TEST && !SSV && !TPLM && !AQV && !WE && !WEL && !busy && route !== 'entry' && !SE && !KBE && !QZE && !NWE) render(); else if (ch) refreshBell();
 }
 setInterval(poll, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
@@ -102,6 +138,6 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) poll
 async function boot() {
   const r = await api('/api/me'); ME = r.ok ? await r.json() : null;
   if (ME && !ME.mustChange) await load();
-  PREVU = UN(); render();
+  PREVU = UN(); render(); maybeWelcome();
 }
 applyTheme(); boot();

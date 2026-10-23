@@ -4,7 +4,7 @@
 //   * a few knowledge base folders and articles (with a lesson test), a weekly quiz and a newsletter
 //   * sample tasks, a daily mission, a coaching session, a one-to-one and a calibration
 // The test users (agents, team leads, trainers) are created automatically: password "password", email  first-initial.lastname@test.com
-const fs = require('fs'), F = 'data.json';
+const fs = require('fs'), F = process.env.DATA_FILE || 'data.json';   // DATA_FILE: the same copy the server uses (Reset demo data in a test copy never touches the real file)
 const { DEFAULT_SC, build } = require('./scorecard');
 const B = require('./bootstrap');
 const { scoreConv } = require('./autoqa');

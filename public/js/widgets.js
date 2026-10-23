@@ -40,19 +40,19 @@ function wBar(page) {
   }
   return `<div class=row style="justify-content:flex-end;gap:8px;margin-bottom:12px;flex-wrap:wrap">${WPREV ? `<span class="pill wn">Previewing the ${ROLE[WPREV]} view</span>` : ''}${adm ? `<label style="display:flex;gap:6px;align-items:center;font-size:13px">View as<select onchange="WPREV=this.value==='me'?'':this.value;render()"><option value=me>Me (${ROLE[ME.role]})</option>${Object.entries(ROLE).map(([k, v]) => `<option value=${k} ${WPREV === k ? 'selected' : ''}>${v}</option>`).join('')}</select></label>` : ''}${(ME.layouts || {})[page] && !WPREV ? `<button class=ib onclick="wClearMine('${page}')">Reset my view</button>` : ''}<button class="ib ibx" onclick="wStart('${page}')">${IC.pen} Customize</button></div>`;
 }
-const wTb = x => `<div class=wtb><button onclick="wMove('${x.id}',-1)" title="Move earlier">←</button><button onclick="wMove('${x.id}',1)" title="Move later">→</button><small class=mu>${WLAB[x.size]}</small><button onclick="wSize('${x.id}',-1)" title="Narrower">−</button><button onclick="wSize('${x.id}',1)" title="Wider">+</button><button onclick="wHide('${x.id}')" title="Hide">✕</button></div>`;
+const wTb = x => `<div class=wtb><button onclick="wMove('${x.id}',-1)" title="Move earlier" aria-label="Move earlier">←</button><button onclick="wMove('${x.id}',1)" title="Move later" aria-label="Move later">→</button><small class=mu>${WLAB[x.size]}</small><button onclick="wSize('${x.id}',-1)" title="Narrower" aria-label="Narrower">−</button><button onclick="wSize('${x.id}',1)" title="Wider" aria-label="Wider">+</button><button onclick="wHide('${x.id}')" title="Hide" aria-label="Hide this card">${IC.x}</button></div>`;
 function wGrid(page, ctx) {
   const items = WE && WE.page === page ? WE.items : layoutFor(page, WPREV || ME.role), reg = WREG[page], ed = WE && WE.page === page;
   return `<div class=wgrid>${items.filter(x => x.on).map(x => `<div class="wg w${x.size} ${ed ? 'edit' : ''}" ${ed ? `draggable=true ondragstart="wDrag(event,'${x.id}')" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="wDrop(event,'${x.id}')"` : ''}>${ed ? wTb(x) : ''}${reg[x.id].r(ctx, x.size)}</div>`).join('')}</div>`;
 }
 
 // ---------------------------------------------------------------- Home dashboard widgets
-const kp = (t, v, s, c, b, act) => `<div class="card clk" onclick="${act}"><small>${t}</small><div class=big style="color:${c}">${v}</div>${b == null ? '' : bar(b, c)}<small>${s}</small></div>`;
+const kp = (t, v, s, c, b, act) => `<div class="card clk kpi" onclick="${act}"><small>${t}</small><div class=big style="color:${c}">${v}</div>${b == null ? '' : bar(b, c)}<small>${s}</small></div>`;
 function dashCtx(g) {
-  const d = dashD(), n = d.length, a = avg(d.map(e => e.sc)), ps = d.filter(isPass).length, pc = n ? ps / n * 100 : 0, h = Math.ceil(n / 2), dl = avg(d.slice(0, h).map(e => e.sc)) - avg(d.slice(h).map(e => e.sc));
+  const d = dashD().sort((x, y) => y.d - x.d), n = d.length, a = avg(d.map(e => e.sc)), ps = d.filter(isPass).length, pc = n ? ps / n * 100 : 0, h = Math.ceil(n / 2), dl = avg(d.slice(0, h).map(e => e.sc)) - avg(d.slice(h).map(e => e.sc));
   return { d, n, a, ps, pc, g, dl, tr: Math.abs(dl) < 1.5 ? '— Stable' : dl > 0 ? '↗ Improving' : '↘ Declining', cs: CATS(d).map(c => ({ c, v: avg(d.map(e => cpv(e, c)).filter(v => v != null)) })).sort((x, y) => y.v - x.v) };
 }
-const catList = l => l.map(x => `<div class=clk onclick="goPage('cats')"><div class=row><span>${esc(x.c)}</span><b class=mono>${x.v.toFixed(1)}%</b></div>${bar(x.v, col(x.v))}</div>`).join('') || '<p class=mu>None</p>';
+const catList = l => l.map(x => `<div class=clk onclick="goPage('cats')"><div class=row><span>${esc(x.c)}</span><b class=mono>${x.v.toFixed(1)}%</b></div>${bar(x.v, col(x.v))}</div>`).join('') || '<p class=mu style="margin:0">No category in this group for the selected period and team.</p>';
 wdef('dash', 'kpi_total', 'Total evaluations', 3, c => kp('Total evaluations', c.n, T ? tn(T) : 'All teams', 'var(--tx)', null, 'goCalls()'));
 wdef('dash', 'kpi_avg', 'Average score', 3, c => kp('Average score', c.a.toFixed(1) + '%', 'Target: ' + c.g + '%', 'var(--ok)', c.a, 'goCalls()'));
 wdef('dash', 'kpi_pass', 'Pass rate', 3, c => kp('Pass rate', c.pc.toFixed(1) + '%', c.ps + ' passed', 'var(--ok)', c.pc, "goCalls({sc:{m:'pass'}})"));

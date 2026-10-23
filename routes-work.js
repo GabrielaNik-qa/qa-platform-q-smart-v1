@@ -56,7 +56,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
       if (b.labels !== undefined) t.labels = list(b.labels, 8);
       if (b.checklist !== undefined) t.checklist = checklist(b.checklist);
       if (b.assignee !== undefined && b.assignee !== t.assignee) { const a = userBy(db, b.assignee); if (!a) return bad(res, 'Choose a valid person'); t.assignee = a.username; notify(db, a.username, 'task', `A ${t.type} was assigned to you: ${t.title}`, { task: t.id }); }
-    } else if (b.checklist !== undefined && Array.isArray(b.checklist) && b.checklist.length === t.checklist.length) t.checklist.forEach((c, i) => { c.done = !!b.checklist[i].done; });
+    } else if (b.checklist !== undefined && Array.isArray(b.checklist) && b.checklist.length === t.checklist.length) t.checklist.forEach((c, i) => { c.done = !!(b.checklist[i] && b.checklist[i].done); });
     if (b.status !== undefined) {
       if (!STATUS.includes(b.status)) return bad(res, 'Unknown status');
       if (b.status !== t.status) {
