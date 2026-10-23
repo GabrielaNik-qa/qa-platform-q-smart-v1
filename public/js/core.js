@@ -276,7 +276,7 @@ const vw = k => VW[k] || 'table';
 const vwSet = (k, v) => { VW[k] = v; LS.set('qa_views', VW); render(); };
 const vwBtn = k => `<div class=sg style="height:38px"><button class="${vw(k) === 'table' ? 'on' : ''}" onclick="vwSet('${k}','table')" title="Table view">${IC.list}</button><button class="${vw(k) === 'boxes' ? 'on' : ''}" onclick="vwSet('${k}','boxes')" title="Boxes view">${IC.grid}</button></div>`;
 
-const SWATCH = ['#2563eb', '#7c3aed', '#0d9488', '#e11d48', '#ea580c', '#16a34a', '#ca8a04', '#475569'];
+const SWATCH = ['#ea580c', '#2563eb', '#7c3aed', '#0d9488', '#e11d48', '#16a34a', '#ca8a04', '#475569'];
 // folder icons: the data keeps the emoji it always had (so other versions of the app still read it), the page draws it as a line icon
 const FICONS = [['📁', 'folder'], ['📘', 'book'], ['🧭', 'compass'], ['💡', 'bulb'], ['🎯', 'target'], ['🚀', 'rocket'], ['⭐', 'star'], ['🔥', 'flame'], ['🛠️', 'tool'], ['📞', 'phone'],
   ['💬', 'chat'], ['🎓', 'cap'], ['🧠', 'brain'], ['🏆', 'trophy'], ['📊', 'chart'], ['✅', 'check'], ['❤️', 'heart'], ['🔒', 'lock'], ['🌍', 'globe'], ['🧩', 'puzzle']];

@@ -1,6 +1,6 @@
-# Q-smart – QA platform (demo project, test data only)
+# Q-SMART – Customer Service Analytics (demo project, test data only)
 
-A small QA scorecard platform for call centers: call reviews and scorecards, disputes, tasks and missions, coaching and
+Customer service analytics — quality, performance and improvement for support teams (phone, email, chat and SMS): call reviews and scorecards, disputes, tasks and missions, coaching and
 calibration, a knowledge base with quizzes, teams and users. Plain Node.js + Express on the server, plain JavaScript in the browser,
 one JSON file (`data.json`) as the database.
 
