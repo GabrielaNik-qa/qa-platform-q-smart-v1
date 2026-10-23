@@ -1,4 +1,9 @@
 {
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test \"test/*.test.js\""
+  },
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "exceljs": "^4.4.0",
