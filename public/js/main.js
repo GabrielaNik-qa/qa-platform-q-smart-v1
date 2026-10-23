@@ -41,7 +41,9 @@ function applySb() {
   document.documentElement.classList.toggle('co', COL); const s = $('#sb'); if (s) s.classList.toggle('co', COL);
   const b = $('#sbt'); if (b && !b.innerHTML) b.innerHTML = IC.chev;
 }
-function toggleSb() { COL = !COL; LS.set('qa_col', COL); FLY = null; OG = null; UMN = false; applySb(); if (ME) render(); }
+function toggleSb() { COLP = !COL; COL = COLP || innerWidth <= 1100; LS.set('qa_col', COLP); FLY = null; OG = null; UMN = false; applySb(); if (ME) render(); }
+// narrow screens: the sidebar becomes compact by itself, and goes back to your choice when the window is wide again
+addEventListener('resize', () => { const c = COLP || innerWidth <= 1100; if (c !== COL) { COL = c; FLY = null; OG = null; UMN = false; applySb(); if (ME) render(); } });
 function sbDbl(e) { if (!ME || e.target.closest('a,button,.usr,select,input')) return; toggleSb(); }
 // ---------------------------------------------------------------- menu: a few main groups with drop-downs (a pop-out list when the sidebar is collapsed)
 let OG = null, FLY = null, FLYY = 100;
@@ -93,7 +95,7 @@ async function onHash() {
   if (!canRoute(n)) { location.hash = 'dash'; return; }
   if (n !== 'entry') { ENT = null; EDITID = ''; }
   if (n !== 'kb') KBE = null;
-  OG = null; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; WE = null; AQV = ''; PKN = null;
+  OG = null; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; WE = null; WADD = null; WSET = null; WDISP = null; AQV = ''; PKN = null;
   if (n === 'calls' && !KQ) { Q = ''; FSC = null; PN = 1; }   // opening Call Reviews from the menu starts with an empty search
   KQ = false; MD = null; NO = false; AC = null; SYS = false; RSV = null; PLY = null; SE = n === 'sco' ? SE : null;
   route = n; await load(); render(); window.scrollTo(0, 0);
@@ -132,7 +134,7 @@ async function poll() {
   if (!ME || ME.mustChange) return;
   const ch = await load(), u = UN(); if (PREVU !== null && u > PREVU) beep(); PREVU = u;
   const busy = ['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement || {}).tagName) || $$('audio').some(a => !a.paused);   // never restart a recording that is playing
-  if (ch && (!MD || MD.t === 'view') && !NO && !AC && !SYS && !RSV && !CFM && !PLY && !FM && !TKV && !TEST && !SSV && !TPLM && !AQV && !WE && !QFM && !PAL && !busy && route !== 'entry' && !SE && !KBE && !QZE && !NWE) render(); else if (ch) refreshBell();
+  if (ch && (!MD || MD.t === 'view') && !NO && !AC && !SYS && !RSV && !CFM && !PLY && !FM && !TKV && !TEST && !SSV && !TPLM && !AQV && !WE && !WADD && !WSET && !WDISP && !QFM && !PAL && !busy && route !== 'entry' && !SE && !KBE && !QZE && !NWE) render(); else if (ch) refreshBell();
 }
 setInterval(poll, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
