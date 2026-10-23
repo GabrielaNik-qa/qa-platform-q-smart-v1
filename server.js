@@ -4,7 +4,7 @@ const crypto = require('crypto'), nodemailer = require('nodemailer'), ExcelJS = 
 const { DEFAULT_SC, build } = require('./scorecard');
 const { ensureBootstrap, uname, ADMIN_TEAM } = require('./bootstrap');
 
-const FILE = path.join(__dirname, 'data.json');            // <- this file IS the database
+const FILE = process.env.DATA_FILE ? path.resolve(process.env.DATA_FILE) : path.join(__dirname, 'data.json');   // <- this file IS the database (DATA_FILE = another file, used by the tests)
 const DEFAULT_PASSWORD = 'password';                       // every user created in the app starts with this and must change it at first login
 const ROLES = ['admin', 'qa', 'lead', 'trainer', 'agent'];
 const STAFF = ['admin', 'qa', 'lead', 'trainer'];          // everyone who is not an agent
@@ -15,7 +15,12 @@ const hex = n => crypto.randomBytes(n).toString('hex');
 const iso = () => new Date().toISOString();
 
 // ------------------------------------------------------------------ database
-function save(db) { fs.writeFileSync(FILE, JSON.stringify(db, null, 2)); }
+// written to a temporary file first and then swapped in, so a crash or power cut in the middle of saving never leaves a half-written database
+function save(db) {
+  const txt = JSON.stringify(db, null, 2), tmp = FILE + '.tmp';
+  try { fs.writeFileSync(tmp, txt); fs.renameSync(tmp, FILE); }
+  catch (e) { try { fs.rmSync(tmp, { force: true }); } catch (x) {} fs.writeFileSync(FILE, txt); }   // e.g. OneDrive briefly locks the file: write it directly as before
+}
 function load() {
   if (!fs.existsSync(FILE)) require('./seed').restore();      // a new folder starts with the data saved in seed.js
   const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : { users: [], evaluations: [] };
@@ -79,7 +84,9 @@ const hits = {};
 function limited(key, max, ms) {
   const now = Date.now(); hits[key] = (hits[key] || []).filter(t => now - t < ms);
   if (hits[key].length >= max) return true;
-  hits[key].push(now); return false;
+  hits[key].push(now);
+  if (Object.keys(hits).length > 5000) for (const k in hits) if (!hits[k].some(t => now - t < 36e5)) delete hits[k];   // forget old visitors so the list cannot grow forever
+  return false;
 }
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 const pwBad = p => {
@@ -99,19 +106,39 @@ const rosterPub = u => ({ username: u.username, name: u.name, role: u.role, team
 // ------------------------------------------------------------------ app + sessions
 const app = express();
 app.set('trust proxy', 1);   // so the real visitor IP is seen behind a tunnel
+app.disable('x-powered-by');
+app.use((req, res, next) => {   // basic browser protections: no framing by other sites (clickjacking), no guessing of file types
+  res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'same-origin' }); next();
+});
 app.use(express.json({ limit: '25mb' }));
 app.use(session({
-  secret: process.env.SECRET || 'change-this-secret',      // set a real one before sharing with others
+  // without SECRET a new random one is made at every start; sign-ins are kept in memory, so a restart signs everybody out anyway
+  secret: process.env.SECRET || hex(32),
   resave: false, saveUninitialized: false,
   cookie: { httpOnly: true, sameSite: 'lax' }
 }));
 const AUDIT = require('./audit');
 app.use(AUDIT.middleware);
-const authed = (req, res, next) => req.session.user ? next() : res.status(401).json({ error: 'login required' });
+// the account as it is saved right now (re-read only when data.json changed), so a deactivated user or a changed role takes effect at once, not at the next login
+let UC = { key: null, users: null };
+function liveUser(username) {
+  let key = ''; try { const s = fs.statSync(FILE); key = s.mtimeMs + ':' + s.size; } catch (e) {}
+  if (key !== UC.key || !UC.users) UC = { key, users: new Map(load().users.map(u => [u.username, u])) };
+  return UC.users.get(username);
+}
+function refreshSession(req, res) {   // false = the account is gone or deactivated (the sign-in is ended and 401 is sent)
+  const cur = liveUser(req.session.user.username);
+  if (!cur || cur.active === false) { req.session.destroy(() => res.status(401).json({ error: 'login required' })); return false; }
+  const s = req.session.user;
+  if (s.role !== cur.role || s.team !== (cur.team || '') || s.name !== cur.name || s.mustChange !== !!cur.mustChange) req.session.user = pub(cur);
+  return true;
+}
+const authed = (req, res, next) => !req.session.user ? res.status(401).json({ error: 'login required' }) : refreshSession(req, res) && next();
 // must be logged in (and have finished the first-login password change) and, optionally, have one of the roles
 const need = (...roles) => (req, res, next) => {
+  if (!req.session.user) return res.status(401).json({ error: 'login required' });
+  if (!refreshSession(req, res)) return;
   const u = req.session.user;
-  if (!u) return res.status(401).json({ error: 'login required' });
   if (u.mustChange) return res.status(403).json({ error: 'You must set a new password first', mustChange: true });
   if (roles.length && !roles.includes(u.role)) return res.status(403).json({ error: 'not allowed' });
   next();
@@ -130,7 +157,8 @@ app.post('/api/login', (req, res) => {
   const { username, password } = req.body || {};
   const id = String(username || '').trim().toLowerCase(), db = load();
   const u = db.users.find(x => x.username === id || (x.email || '').toLowerCase() === id);   // username OR email
-  if (u && u.active !== false && bcrypt.compareSync(String(password || ''), u.hash)) { req.session.user = pub(u); return res.json(req.session.user); }
+  if (u && u.active !== false && bcrypt.compareSync(String(password || ''), u.hash))   // a fresh session id at every sign-in (an id planted before the sign-in is useless)
+    return req.session.regenerate(err => { if (err) return res.status(500).json({ error: 'Could not sign in, try again' }); req.session.user = pub(u); res.json(req.session.user); });
   if (u && u.active === false && bcrypt.compareSync(String(password || ''), u.hash)) return res.status(403).json({ error: 'This account is deactivated. Please contact the administrator.' });
   const r = db.registrations.find(x => (x.username === id || x.email === id) && x.status !== 'approved' && bcrypt.compareSync(String(password || ''), x.hash));
   if (r) return res.status(403).json({ error: r.status === 'pending'

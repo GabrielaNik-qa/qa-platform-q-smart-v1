@@ -67,7 +67,7 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
 
   // ---------------------------------------------------------------- export centre: every Excel file that was made, ready to download again
   app.get('/api/exports', need(...EDIT), (req, res) => { const u = req.session.user; res.json(coll(load(), 'exports').filter(x => u.role === 'admin' || x.by === u.username).map(({ rows, ...x }) => x)); });
-  app.get('/api/exports/:id', need(...EDIT), (req, res) => { const x = coll(load(), 'exports').find(r => r.id === req.params.id); if (!x) return res.status(404).json({ error: 'not found' }); res.json(x); });
+  app.get('/api/exports/:id', need(...EDIT), (req, res) => { const u = req.session.user, x = coll(load(), 'exports').find(r => r.id === req.params.id && (u.role === 'admin' || r.by === u.username)); if (!x) return res.status(404).json({ error: 'not found' }); res.json(x); });
   app.delete('/api/exports/:id', need(...EDIT), (req, res) => { const db = load(); db.exports = coll(db, 'exports').filter(r => r.id !== req.params.id || (r.by !== req.session.user.username && req.session.user.role !== 'admin')); save(db); res.json({ ok: 1 }); });
 
   // ---------------------------------------------------------------- scheduled reports: e-mailed by themselves (daily / weekly / monthly, at the chosen hour)
@@ -85,18 +85,20 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   app.post('/api/c/reports/:id/send', need(...EDIT), async (req, res) => {
     const db = load(), r = coll(db, 'reports').find(x => x.id === req.params.id); if (!r) return res.status(404).json({ error: 'not found' });
     const n = await sendReport(db, r); if (!n) return bad(res, 'Add at least one e-mail address in "Send to"');
-    r.lastSent = iso(); save(db); res.json({ sent: n });
+    markSent([r.id]); res.json({ sent: n });
   });
+  // sending e-mails takes a while: the data is read again before saving, so changes other people made meanwhile are not overwritten
+  const markSent = ids => { const db = load(); let n = 0; coll(db, 'reports').forEach(r => { if (ids.includes(r.id)) { r.lastSent = iso(); n++; } }); if (n) save(db); };
   async function scheduler() {
     try {
-      const db = load(), now = new Date(), today = now.toISOString().slice(0, 10); let changed = false;
+      const db = load(), now = new Date(), today = now.toISOString().slice(0, 10), sent = [];
       for (const r of coll(db, 'reports')) {
         const s = r.schedule || {}; if (!s.freq || s.freq === 'none' || now.getHours() < (+s.hour || 8) || String(r.lastSent || '').slice(0, 10) === today) continue;
         if (s.freq === 'weekly' && now.getDay() !== (+s.weekday || 1)) continue;
         if (s.freq === 'monthly' && now.getDate() !== (+s.day || 1)) continue;
-        if (await sendReport(db, r)) { r.lastSent = iso(); changed = true; }
+        if (await sendReport(db, r)) sent.push(r.id);
       }
-      if (changed) save(db);
+      if (sent.length) markSent(sent);
     } catch (e) { console.log('Scheduled reports problem:', e.message); }
   }
   setInterval(scheduler, 10 * 60 * 1000); setTimeout(scheduler, 20000);
