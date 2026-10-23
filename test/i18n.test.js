@@ -41,13 +41,16 @@ function texts(src) {
   return out;
 }
 // texts that are deliberately the same in every language (brand, commands typed in a terminal, sample transcripts in English)
-const SAME = new Set(['Q-SMART', 'Ctrl K', 'Escape', 'Tab', 'Enter', 'Content-Type', 'Customer: Hi, I have a question…nAgent: Good morning, thank you for calling…', 'Agent: Good morning, my name is Anna. How can I help you?nCustomer: …']);
+const SAME = new Set(['Q-SMART', 'Ctrl K', 'Escape', 'Tab', 'Enter', 'Content-Type', 'Customer: Hi, I have a question…nAgent: Good morning, thank you for calling…', 'Agent: Good morning, my name is Anna. How can I help you?nCustomer: …',
+  // example steps shown inside a text box (text boxes are never translated)
+  'Check work email | 5nClose tickets in Zendesk | 20', 'Check work email – Outlook | 5nCheck escalation group in Teams | 10']);
+const EMAIL = /\{(name|link|username|password|lead)\}/;   // the default e-mail texts (Admin › Email templates): e-mails stay in English, see docs/i18n-glossary.md
 const PAGES = fs.readdirSync(JS).filter(f => f.endsWith('.js') && !['i18n.js', 'md.js'].includes(f));
 
 test('every page text has a Bulgarian and a French translation (no screen is left in English)', () => {
   const missing = { bg: [], fr: [] };
   for (const f of PAGES) for (const t of texts(fs.readFileSync(path.join(JS, f), 'utf8'))) {
-    if (SAME.has(t)) continue;
+    if (SAME.has(t) || EMAIL.test(t)) continue;
     for (const l of ['bg', 'fr']) if (!I18N.has(t, l) && !I18N.has(t + ' 0)', l)) missing[l].push(f + ': ' + t);   // 'text (currently ' + n + ')'
   }
   assert.deepEqual(missing.bg, [], 'Bulgarian is missing:\n' + missing.bg.join('\n'));

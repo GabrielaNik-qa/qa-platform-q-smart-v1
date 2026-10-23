@@ -175,7 +175,7 @@ wdef('dash', 'coach_new', 'Latest coaching update', 60, (c, s, x) => {
 }, 'Your newest coaching or one-to-one');
 // ---- charts over time and category insights (ideas from Zendesk QA)
 const dgKey = d => { const x = new Date(d); if (DGR === 'day') return iso(x); if (DGR === 'month') return iso(x).slice(0, 7); if (DGR === 'quarter') return x.getFullYear() + ' Q' + (Math.floor(x.getMonth() / 3) + 1); const m = new Date(x); m.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return iso(m); };
-const dgLab = k => DGR === 'day' || DGR === 'week' ? k.slice(8, 10) + '/' + k.slice(5, 7) : DGR === 'month' ? new Date(k + '-01T12:00').toLocaleString('en-GB', { month: 'short', year: '2-digit' }) : k;
+const dgLab = k => DGR === 'day' || DGR === 'week' ? k.slice(8, 10) + '/' + k.slice(5, 7) : DGR === 'month' ? new Date(k + '-01T12:00').toLocaleString(I18N.locale(), { month: 'short', year: '2-digit' }) : k;
 const dgBuckets = l => { const m = {}; l.forEach(e => { const k = dgKey(e.d); (m[k] = m[k] || []).push(e); }); return Object.keys(m).sort().slice(-16).map(k => ({ k, l: m[k] })); };
 function svgCombo(b, g) {          // bars = number of reviews, line = average score (wide and low so it fits a full-width card)
   if (b.length < 1) return '<p class=mu>No reviews in this period</p>';
