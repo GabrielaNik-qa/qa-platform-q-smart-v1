@@ -126,6 +126,15 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
       db.sessions.unshift(s); save(db); res.json(s);
     } catch (e) { bad(res, e.message); }
   });
+  // the agent signs a one-to-one / coaching session: "I have read it and agree" (optional comment); the person who wrote it is told
+  app.post('/api/sessions/:id/sign', need(), (req, res) => {
+    const db = load(), s = db.sessions.find(x => x.id === req.params.id), me = req.session.user;
+    if (!s) return res.status(404).json({ error: 'not found' });
+    if (!s.agents.includes(me.username)) return res.status(403).json({ error: 'Only the agents of this session can sign it' });
+    s.signed = { ...(s.signed || {}), [me.username]: { at: iso(), cm: str((req.body || {}).cm, 500) } };
+    if (s.by && s.by !== me.username) notify(db, s.by, 'taskdone', `${me.name} signed the ${s.kind === 'o2o' ? 'one-to-one' : 'session'}: ${s.title}`, {});
+    save(db); res.json(s);
+  });
   app.put('/api/sessions/:id', need(...EDIT), (req, res) => {
     const db = load(), s = db.sessions.find(x => x.id === req.params.id), me = req.session.user;
     if (!s) return res.status(404).json({ error: 'not found' });

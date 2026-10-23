@@ -193,3 +193,13 @@ label:not(.rad):not([style*="display:flex"])>small{display:block;margin-top:4px}
 /* clearer numbers: big figures and score pills use the regular font with even-width digits (the mono "0" looked like an "8") */
 .big,.fk>b,.tkk>b,.agk .big,.agst b,.tkmss b,.wtk b{font-family:Outfit,system-ui,sans-serif!important;font-variant-numeric:tabular-nums;font-weight:600}
 .pill{font-family:Outfit,system-ui,sans-serif;font-variant-numeric:tabular-nums;font-weight:600}
+/* one-to-one: missing this month + signatures */
+.o2om{border-color:color-mix(in srgb,var(--wn) 45%,var(--bd));background:color-mix(in srgb,var(--wn) 7%,var(--pn))}.o2om h3{display:flex;gap:8px;align-items:center;color:var(--wn)}.o2om h3 svg{stroke:currentColor}
+.sigbox{display:grid;gap:6px;padding:12px 14px;border-radius:12px;background:var(--bg)}
+/* one-to-one: missing this month + signatures */
+.o2om{border-color:color-mix(in srgb,var(--wn) 45%,var(--bd));background:color-mix(in srgb,var(--wn) 7%,var(--pn))}.o2om h3{display:flex;gap:8px;align-items:center;color:var(--wn)}.o2om h3 svg{stroke:currentColor}
+.sigbox{display:grid;gap:6px;padding:12px 14px;border-radius:12px;background:var(--bg)}
+/* team review cards */
+.trk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.trk div{padding:10px;border-radius:10px;background:var(--bg)}.trk small{display:block}.trk b{font-size:20px;font-weight:600}
+.trc{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:13px;border-bottom:1px dashed color-mix(in srgb,var(--bd) 70%,transparent)}
+.trp{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px}
