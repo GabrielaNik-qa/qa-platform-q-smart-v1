@@ -96,6 +96,15 @@ const pwBad = p => {
   if (!/[^A-Za-z0-9]/.test(p)) return 'Include at least one special character';
   return '';
 };
+// first letter of the first name + "." + last name, lowercase, no accents or spaces
+const plain = t => String(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const makeUsername = (first, last) => plain(first).slice(0, 1) + '.' + plain(last);
+// first and last name come as two fields; the full name is always "First Last" (older callers may still send only a full name)
+const nameParts = b => {
+  let f = str(b.firstName, 40), l = str(b.lastName, 40);
+  if (!f && !l) { const p = str(b.name, 80).split(/\s+/); f = p[0] || ''; l = p.slice(1).join(' '); }
+  return { firstName: f, lastName: l, name: (f + ' ' + l).trim() };
+};
 const validEmail = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
 // pop-up preferences of one person: tips they switched off and whether routine confirmations are asked (errors and safeguards are never stored here)
 const PREF_ID = /^[a-z][a-z0-9.-]{1,39}$/;
@@ -108,7 +117,7 @@ const cleanPrefs = p => {
   if (LANGS.includes(p.lang)) out.lang = p.lang;                  // the language of the app (My account > Language); nothing saved = English
   return out;
 };
-const pub = u => ({ username: u.username, name: u.name, email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {}, prefs: cleanPrefs(u.prefs), views: u.views || {} });
+const pub = u => ({ username: u.username, name: u.name, firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {}, prefs: cleanPrefs(u.prefs), views: u.views || {} });
 // skills and languages can only be picked from the catalog (Admin > Skills); unknown names are dropped, spelling is normalised
 const pick = (v, catalog) => { const out = []; (Array.isArray(v) ? v : String(v || '').split(',')).forEach(x => { const m = (catalog || []).find(c => c.toLowerCase() === String(x).trim().toLowerCase()); if (m && !out.includes(m)) out.push(m); }); return out; };
 const rosterPub = u => ({ username: u.username, name: u.name, role: u.role, team: u.team || '', title: u.title || '', desc: u.desc || '', languages: u.languages || [], skills: u.skills || [], start: u.start || '', active: u.active !== false });
@@ -183,11 +192,12 @@ app.get('/api/me', authed, (req, res) => {
 });
 app.put('/api/profile', need(), (req, res) => {
   const db = load(), u = userBy(db, req.session.user.username), b = req.body || {};
-  const name = str(b.name, 80), email = str(b.email, 120).toLowerCase();
-  if (!name) return bad(res, 'Enter your name');
+  const np = nameParts(b), email = str(b.email, 120).toLowerCase();
+  if (!np.firstName) return bad(res, 'Enter your first name');
+  if (!np.lastName) return bad(res, 'Enter your last name');
   if (email && !validEmail(email)) return bad(res, 'Enter a valid email address');
   if (email && db.users.some(x => x !== u && (x.email || '').toLowerCase() === email)) return bad(res, 'That email is already used by another account');
-  u.name = name; u.email = email;
+  Object.assign(u, np); u.email = email;
   if (b.desc !== undefined) u.desc = str(b.desc, 600);
   if (b.languages !== undefined) u.languages = list(b.languages);
   if (b.skills !== undefined) u.skills = list(b.skills);
@@ -199,12 +209,14 @@ app.post('/api/password', need(), (req, res) => {
   const db = load(), u = userBy(db, req.session.user.username);
   if (!u || !bcrypt.compareSync(String(current || ''), u.hash)) return bad(res, 'Your current password is wrong');
   const pe = pwBad(next); if (pe) return bad(res, pe);
+  if (bcrypt.compareSync(String(next), u.hash)) return bad(res, 'The new password cannot be the same as your current password');
   u.hash = bcrypt.hashSync(String(next), 10); u.mustChange = false; save(db); res.json({ ok: 1 });
 });
 app.post('/api/password/first', authed, (req, res) => {   // the pop-up every new user sees at their first login
   if (!req.session.user.mustChange) return bad(res, 'Your password was already changed');
   const next = (req.body || {}).next, pe = pwBad(next); if (pe) return bad(res, pe);
   const db = load(), u = userBy(db, req.session.user.username);
+  if (bcrypt.compareSync(String(next), u.hash)) return bad(res, 'Please choose a different password than the temporary one');
   u.hash = bcrypt.hashSync(String(next), 10); u.mustChange = false; save(db);
   req.session.user = pub(u); res.json(req.session.user);
 });
@@ -230,15 +242,17 @@ app.put('/api/prefs', need(), (req, res) => {
 app.post('/api/register', (req, res) => {
   if (limited('reg:' + req.ip, 6, 36e5)) return res.status(429).json({ error: 'Too many registrations from this connection. Try again later.' });
   const b = req.body || {}, db = load();
-  const name = str(b.name, 80), email = str(b.email, 120).toLowerCase(), username = str(b.username, 30).toLowerCase();
-  if (!name) return bad(res, 'Enter your full name');
+  const first = str(b.firstName, 40), last = str(b.lastName, 40), email = str(b.email, 120).toLowerCase();
+  if (!first) return bad(res, 'Enter your first name');
+  if (!last) return bad(res, 'Enter your last name');
   if (!validEmail(email)) return bad(res, 'Enter a valid email address');
-  if (!/^[a-z0-9._-]{3,30}$/.test(username)) return bad(res, 'Username: 3-30 characters, letters, numbers, dots, dashes or underscores');
-  const pe = pwBad(b.password); if (pe) return bad(res, pe);
-  const taken = db.users.some(u => u.username === username || (u.email || '').toLowerCase() === email) ||
-    db.registrations.some(r => r.status === 'pending' && (r.username === username || r.email === email));
-  if (taken) return res.status(409).json({ error: 'That username or email is already registered' });
-  const reg = { id: 'g' + hex(5), username, name, email, hash: bcrypt.hashSync(String(b.password), 10), at: iso(), status: 'pending' };
+  const name = first + ' ' + last, username = makeUsername(first, last);   // e.g. Gabriela Pencheva -> g.pencheva
+  if (!/^[a-z0-9._-]{3,30}$/.test(username)) return bad(res, 'Your first and last name must contain letters or numbers so a username can be made');
+  if (db.users.some(u => u.username.toLowerCase() === username) || db.registrations.some(r => r.status === 'pending' && r.username === username))
+    return res.status(409).json({ error: 'The username ' + username + ' already exists. Please contact the administrator.' });
+  if (db.users.some(u => (u.email || '').toLowerCase() === email) || db.registrations.some(r => r.status === 'pending' && r.email === email))
+    return res.status(409).json({ error: 'That email address is already registered' });
+  const reg = { id: 'g' + hex(5), username, name, firstName: first, lastName: last, email, hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), at: iso(), status: 'pending' };
   db.registrations.push(reg);
   db.users.filter(u => u.role === 'admin').forEach(a => notify(db, a.username, 'reg', `${name} (@${username}) has requested access to the platform`, { reg: reg.id }));
   save(db); res.json({ ok: 1 });
@@ -254,13 +268,13 @@ app.post('/api/registrations/:id/approve', need('admin'), (req, res) => {
   const role = ROLES.includes(b.role) ? b.role : 'agent';
   const team = role === 'agent' ? b.team : ADMIN_TEAM;
   if (!db.teams.some(t => t.id === team && (role !== 'agent' ? true : t.id !== ADMIN_TEAM))) return bad(res, 'Choose the team of this agent first');
-  db.users.push({ username: r.username, name: r.name, email: r.email, role, team, title: '', desc: '', languages: [], skills: [], phone: '', start: '', active: true, hash: r.hash, mustChange: false });
+  db.users.push({ username: r.username, name: r.name, firstName: r.firstName || nameParts(r).firstName, lastName: r.lastName || nameParts(r).lastName, email: r.email, role, team, title: '', desc: '', languages: [], skills: [], phone: '', start: '', active: true, hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), mustChange: true });
   if (role !== 'agent' && role !== 'admin' && db.workspaces[0]) db.workspaces[0].staff.push(r.username);
   r.status = 'approved'; r.by = req.session.user.username; r.decided = iso();
   db.notifications = db.notifications.filter(n => !(n.type === 'reg' && n.reg === r.id));
   save(db); res.json({ ok: 1 });
   mail(r.email, 'Your registration has been approved',
-    `Hi ${r.name},\n\nGood news - your registration has been approved. You can now log in:\n${BASE}\n\nUsername: ${r.username}\n`, 'approved', { name: r.name, link: BASE, username: r.username });
+    `Hi ${r.name},\n\nGood news - your registration has been approved. You can now log in:\n${BASE}\n\nUsername: ${r.username}\nInitial password: ${DEFAULT_PASSWORD}\n\nYou will be asked to choose a new password the first time you log in.\n`, 'approved', { name: r.name, link: BASE, username: r.username });
 });
 app.post('/api/registrations/:id/decline', need('admin'), (req, res) => {
   const db = load(), r = db.registrations.find(x => x.id === req.params.id && x.status === 'pending');
@@ -319,7 +333,7 @@ app.delete('/api/teams/:id', need('admin'), (req, res) => {
 // ------------------------------------------------------------------ users (admin)
 app.get('/api/users', need('admin'), (req, res) => { const db = load(); res.json(db.users.map(({ hash, reset, ...u }) => ({ ...u, workspaces: u.role === 'agent' ? db.workspaces.filter(w => w.teams.includes(u.team)).map(w => w.id) : db.workspaces.filter(w => (w.staff || []).includes(u.username)).map(w => w.id) }))); });
 const userBody = (b, db, cur) => {
-  const name = str(b.name, 80); if (!name) throw new Error('Enter the name');
+  const np = nameParts(b); if (!np.firstName) throw new Error('Enter the first name'); if (!np.lastName) throw new Error('Enter the last name');
   const email = str(b.email, 120).toLowerCase();
   if (email && !validEmail(email)) throw new Error('Enter a valid email address');
   if (email && db.users.some(u => u !== cur && (u.email || '').toLowerCase() === email)) throw new Error('That email is already used by another account');
@@ -328,7 +342,7 @@ const userBody = (b, db, cur) => {
   if (role !== 'agent') team = ADMIN_TEAM;                                   // admins, QA, team leads and trainers always sit in the Administration team
   else if (!db.teams.some(t => t.id === team && t.id !== ADMIN_TEAM)) throw new Error('Choose a team. Every agent must belong to a team.');
   const start = /^\d{4}-\d{2}-\d{2}$/.test(b.start || '') ? b.start : '';
-  return { name, email, role, team, title: str(b.title, 80), desc: str(b.desc, 600), languages: pick(b.languages, db.languages), skills: pick(b.skills, db.skills), phone: str(b.phone, 40), start, active: b.active === undefined ? (cur ? cur.active !== false : true) : !!b.active };
+  return { ...np, email, role, team, title: str(b.title, 80), desc: str(b.desc, 600), languages: pick(b.languages, db.languages), skills: pick(b.skills, db.skills), phone: str(b.phone, 40), start, active: b.active === undefined ? (cur ? cur.active !== false : true) : !!b.active };
 };
 const setStaffWs = (db, username, role, ids) => {                          // staff belong to workspaces explicitly, agents through their team
   db.workspaces.forEach(w => { w.staff = (w.staff || []).filter(x => x !== username); });
@@ -340,7 +354,7 @@ const leadsTeam = (db, username) => db.teams.find(t => t.lead === username);
 app.post('/api/users', need('admin'), (req, res) => {
   const db = load(), b = req.body || {};
   try {
-    let username = str(b.username, 30).toLowerCase() || uname(str(b.name, 80));
+    let username = str(b.username, 30).toLowerCase() || uname(nameParts(b).name);
     if (!/^[a-z0-9._-]{3,30}$/.test(username)) throw new Error('Username: 3-30 characters, letters, numbers, dots, dashes or underscores');
     if (db.users.some(u => u.username === username)) { if (b.username) throw new Error('That username already exists'); let n = 2; while (db.users.some(u => u.username === username + n)) n++; username += n; }
     const u = { username, ...userBody(b, db), hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), mustChange: true, teamHistory: [] };
@@ -658,6 +672,7 @@ app.post('/api/reset', (req, res) => {
     crypto.timingSafeEqual(Buffer.from(sha(token)), Buffer.from(u.reset.h));
   if (!ok) return bad(res, 'This reset link is invalid or has expired');
   const pe = pwBad(password); if (pe) return bad(res, pe);
+  if (bcrypt.compareSync(String(password), u.hash)) return bad(res, 'For security, the new password cannot be the same as your current password');
   u.hash = bcrypt.hashSync(String(password), 10); u.mustChange = false; delete u.reset; save(db); res.json({ ok: 1 });
 });
 

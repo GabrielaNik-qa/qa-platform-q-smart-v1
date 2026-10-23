@@ -14,7 +14,7 @@ const LG = () => {
   const m = MSG ? `<small class=lgok role=status>${esc(MSG)}</small>` : '';
   const f = AUTH === 'forgot' ? `<h1>Reset your password</h1><p class=lgs style="line-height:1.5">Enter your email address or username: we will send you a link to choose a new password.</p><label>Email address or username<input class=wh id=lu placeholder="Enter your email" ${en('forgot')}></label>${m}<div id=lge role=alert></div><button class=sbtn onclick=forgot()>Send reset email</button><a class=lgk href="#" onclick="AUTH='';MSG='';render();return false">← Back to sign in</a>`
     : AUTH === 'reset' ? `<h1>New password</h1><p class=lgs>Choose a strong password.</p>${pwf('pn1', 'New password', 'oninput="pwUpd()"')}${pwf('pn2', 'Confirm new password', 'oninput="pwUpd()" ' + en('reset'))}${pwBox()}<div id=lge role=alert></div><button class=sbtn onclick=reset()>Save password</button>`
-    : AUTH === 'register' ? `<h1>Create account</h1><p class=lgs style="line-height:1.5">Your registration will be reviewed by an administrator. You will get an email when it is approved.</p><label>Full name<input id=rn autocomplete=name></label><label>Email address<input id=re type=email autocomplete=email></label><label>Username<input id=ru placeholder="e.g. j.smith" autocomplete=username></label>${pwf('pn1', 'Password', 'oninput="pwUpd()" autocomplete=new-password')}${pwf('pn2', 'Confirm password', 'oninput="pwUpd()" autocomplete=new-password ' + en('register'))}${pwBox()}<div id=rge role=alert></div><button class=sbtn onclick=register()>Request access</button><a class=lgk href="#" onclick="AUTH='';MSG='';render();return false">← Back to sign in</a>`
+    : AUTH === 'register' ? `<h1>Create account</h1><p class=lgs style="line-height:1.5">Your registration will be reviewed by an administrator. You will get an email when it is approved.</p><label>First name<input id=rf autocomplete=given-name oninput="ruUpd()"></label><label>Last name<input id=rl autocomplete=family-name oninput="ruUpd()"></label><label>Email address<input id=re type=email autocomplete=email></label><label>Username (made automatically)<input id=ru readonly placeholder="e.g. g.pencheva" style="opacity:.8"></label><p class=lgs style="margin:0;line-height:1.5">Your initial password will be <b>password</b>. You will receive it by email once your registration is approved, and you will choose a new one at your first login.</p><div id=rge role=alert></div><button class=sbtn onclick=register()>Request access</button><a class=lgk href="#" onclick="AUTH='';MSG='';render();return false">← Back to sign in</a>`
     : `<h1>Sign in</h1><label>Username or email<input id=lu autocomplete=username value="${esc(LU)}" oninput="LU=this.value" ${en('login')}></label>${pwf('lp', 'Password', 'autocomplete=current-password ' + en('login'))}${m}<div id=lge role=alert></div><button class=sbtn onclick=login()>Sign in</button><a class=lgk href="#" onclick="AUTH='forgot';MSG='';render();return false">Forgot your password?</a><button class=rgb onclick="AUTH='register';MSG='';render()">Register</button>`;
   return `<div class=lg><aside class=lgl><div class=lgb>${mark('mg', 34)}<b>Q-SMART</b></div><div class=lgm><div class=lgw>${LOGO}</div><div class=lgt>${(h => `<h2 data-noi18n>${esc(h[0])}<br>${esc(h[1])}<br><em>${esc(h[2])}</em></h2>`)(tr('Customer|Service|Analytics').split('|'))}<p>Quality. Performance. Improvement.</p></div></div></aside><section class=lgr><div class=lgf>${f}<div class=lgl10>${LANGSEL()}</div></div></section></div>`;
 };
@@ -23,11 +23,11 @@ async function login() {
   const r = await api('/api/login', { username: $('#lu').value, password: $('#lp').value });
   if (r.ok) { MSG = ''; LU = ''; welAgain((await r.json()).username); await boot(); if (ME && location.hash !== '#dash') location.hash = 'dash'; } else lerr('#lge', await errOf(r, 'Could not sign in'));   // a new sign-in may show the welcome again
 }
+// username = first letter of the first name + "." + last name (the server makes the same one, this is just the preview)
+const plainName = t => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+function ruUpd() { const f = plainName($('#rf').value), l = plainName($('#rl').value); $('#ru').value = f && l ? f[0] + '.' + l : ''; }
 async function register() {
-  const p = $('#pn1').value;
-  if (!pwOk(p)) return lerr('#rge', 'The password does not meet the requirements');
-  if (p !== $('#pn2').value) return lerr('#rge', 'The two passwords do not match');
-  const r = await api('/api/register', { name: $('#rn').value, email: $('#re').value, username: $('#ru').value, password: p });
+  const r = await api('/api/register', { firstName: $('#rf').value, lastName: $('#rl').value, email: $('#re').value });
   if (!r.ok) return lerr('#rge', await errOf(r, 'Could not register'));
   AUTH = ''; MSG = 'Registration received! It is pending approval by an administrator. We emailed you a confirmation.'; render();
 }
@@ -61,7 +61,7 @@ function gGo(id, ev) {
   if (COL) { if (route === first) { FLY = FLY === id ? null : id; FLYY = y; render(); } else { PENDFLY = { id, y }; location.hash = first; } return; }
   OG = id; if (route === first) render(); else location.hash = first;
 }
-function tgG(id, ev) { if (COL) { FLY = FLY === id ? null : id; FLYY = ev.currentTarget.getBoundingClientRect().top; } else OG = (gOpen({ id }) ? '' : id); render(); }
+function tgG(id, ev) { if (COL) { const first = groupsFor().find(g => g.id === id).items[0][0]; FLY = id; FLYY = ev.currentTarget.getBoundingClientRect().top; if (first !== route) { location.hash = first; return; } } else OG = (gOpen({ id }) ? '' : id); render(); }
 const NAVH = () => groupsFor().map(g => { const act = groupOf(route) === g.id, open = gOpen(g);
   return `<div class="grp ${open ? 'open' : ''} ${act ? 'act' : ''}"><button class=gh onclick="${COL ? `gGo('${g.id}',event)` : `tgG('${g.id}',event)`}" title="${g.name}"><i onclick="gGo('${g.id}',event)" title="Open ${g.items[0][1]}">${IC[g.icon]}</i><span>${g.name}</span><em>›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}</div>`; }).join('');
 document.addEventListener('click', e => { if ((FLY || UMN) && !e.target.closest('.fly,.gh,.av2')) { FLY = null; UMN = false; render(); } });
