@@ -35,9 +35,25 @@ const AUTO0 = [
 ].map((c, i) => ({ id: 'ac' + (i + 1), desc: '', weight: 1, enabled: true, system: true, ...c }));
 const hashN = s => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
 
+// "Gabriela Georgieva" -> ["Gabriela", "Georgieva"]: first word is the first name, the rest the last name
+const splitName = n => { const p = String(n || '').trim().split(/\s+/); return [p[0] || '', p.slice(1).join(' ')]; };
+// every user gets the same fields in the same order (adds first/last name and missing defaults; nothing else is changed or removed)
+const USER_ORDER = ['username', 'name', 'firstName', 'lastName', 'email', 'role', 'team', 'title', 'desc', 'languages', 'skills', 'phone', 'start', 'active', 'hash', 'mustChange'];
+function normUsers(db) {
+  let dirty = false;
+  db.users.forEach(u => {
+    const before = JSON.stringify(u), [f, l] = splitName(u.name);
+    const full = { title: '', desc: '', languages: [], skills: [], phone: '', start: '', active: true, mustChange: false, ...u, firstName: u.firstName || f, lastName: u.lastName !== undefined ? u.lastName : l, email: u.email || '' };
+    const out = {}; USER_ORDER.forEach(k => { if (full[k] !== undefined) out[k] = full[k]; }); Object.keys(full).forEach(k => { if (!(k in out)) out[k] = full[k]; });
+    Object.keys(u).forEach(k => delete u[k]); Object.assign(u, out);
+    if (JSON.stringify(u) !== before) dirty = true;
+  });
+  return dirty;
+}
+
 // returns true when something was created or changed (so the caller saves the file)
 function ensureBootstrap(db) {
-  let dirty = false;
+  let dirty = normUsers(db);
   if (db.boot !== 3 && db.boot !== 5) { dirty = ensureV3(db) || dirty; }
   if (db.boot === 5) return dirty;
   db.oldTeams = db.oldTeams || {};

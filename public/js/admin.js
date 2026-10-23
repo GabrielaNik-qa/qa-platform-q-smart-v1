@@ -78,9 +78,9 @@ PG.teams = function () {
 
 // ---------- users (admin): add, rename, move, deactivate, delete
 let UF = { q: '', team: '', role: '', st: 'active', sk: '', lg: '' };
-const fmName = v => { const d = FM.d; if (FM.isNew) { if (!d._u) { d.username = uname(v); const u = $('#fu'); if (u) u.value = d.username; } if (!d._e) { d.email = emailOf(v); const e = $('#fe'); if (e) e.value = d.email; } } };
+const fmName = () => { const d = FM.d, v = ((d.firstName || '') + ' ' + (d.lastName || '')).trim(); if (FM.isNew) { if (!d._u) { d.username = uname(v); const u = $('#fu'); if (u) u.value = d.username; } if (!d._e) { d.email = emailOf(v); const e = $('#fe'); if (e) e.value = d.email; } } };
 const USER_FIELDS = isNew => [
-  { k: 'name', l: 'Full name', req: 1, on: isNew ? 'fmName' : '' },
+  { k: 'firstName', l: 'First name', req: 1, on: isNew ? 'fmName' : '' }, { k: 'lastName', l: 'Last name', req: 1, on: isNew ? 'fmName' : '' },
   ...(isNew ? [{ k: 'username', l: 'Username', id: 'fu', hint: 'Suggested from the name. Letters, numbers, dots.', on: 'FM.d._u=1;void' }] : []),
   { k: 'email', l: 'Email', t: 'email', id: 'fe', on: isNew ? 'FM.d._e=1;void' : '' },
   { k: 'role', l: 'Role', t: 'select', o: Object.entries(ROLE), re: 1, hint: 'Admins, QA specialists, team leads and trainers are placed in the Administration team automatically.' },
@@ -90,7 +90,7 @@ const USER_FIELDS = isNew => [
   { k: 'languages', l: 'Languages', t: 'picker', kind: 'languages' }, { k: 'skills', l: 'Skills', t: 'picker', kind: 'skills' }, { k: 'desc', l: 'Description', t: 'textarea', rows: 2 },
   ...(isNew ? [] : [{ k: 'active', l: 'Active account', t: 'checkbox', hint: 'Inactive people cannot log in and disappear from the pick lists; their history stays.' }])
 ];
-const addUser = () => { openForm({ title: 'Add a user', fields: USER_FIELDS(true), d: { name: '', username: '', email: '', role: 'agent', team: workTeams()[0] ? workTeams()[0].id : '', workspaces: WSP[0] ? [WSP[0].id] : [], title: '', phone: '', start: '', languages: [], skills: [], desc: '' }, yes: 'Create user',
+const addUser = () => { openForm({ title: 'Add a user', fields: USER_FIELDS(true), d: { firstName: '', lastName: '', username: '', email: '', role: 'agent', team: workTeams()[0] ? workTeams()[0].id : '', workspaces: WSP[0] ? [WSP[0].id] : [], title: '', phone: '', start: '', languages: [], skills: [], desc: '' }, yes: 'Create user',
   extra: () => '<p class=mu style="margin:0">The new user gets the temporary password <b class=mono>password</b> and must choose a new one at the first login.</p>',
   save: async d => { const r = await api('/api/users', d); if (!r.ok) return errOf(r, 'Could not create the user'); await load(); toast('User created. Temporary password: password'); } }); FM.isNew = true; };
 const editUser = un => { const u = USR.find(x => x.username === un); openForm({ title: 'Edit ' + u.name, fields: USER_FIELDS(false), d: u,
@@ -163,7 +163,7 @@ async function saveSys() {
   SET = await r.json(); SYS = false; render(); toast('System settings saved');
 }
 async function saveProfile() {
-  const r = await api('/api/profile', { name: $('#apn').value, email: $('#ape').value, languages: ACD.languages, skills: ACD.skills, desc: $('#apd').value }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save your profile'), true);
+  const r = await api('/api/profile', { firstName: $('#apf').value, lastName: $('#apl').value, email: $('#ape').value, languages: ACD.languages, skills: ACD.skills, desc: $('#apd').value }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save your profile'), true);
   ME = await r.json(); render(); toast('Profile saved');
 }
 async function chPw() {
