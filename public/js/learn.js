@@ -42,7 +42,7 @@ const delArticle = id => { const a = KB.articles.find(x => x.id === id); ask('De
 const treeHtml = () => { const row = (f, d) => { const arts = artsIn(f.id), rd = arts.filter(isRead).length, req = reqApp(f.req); return `<div class="kt ${KBS.f === f.id && !KBS.q ? 'on' : ''}" style="padding-left:${10 + d * 16}px" onclick="KBS.f='${f.id}';KBS.a='';KBS.q='';render()">${fIcon(f)}<span class=kn>${esc(f.name)}</span>${req ? '<span title="Required reading" style="color:var(--bad)">●</span>' : ''}<small class=mu>${arts.length ? rd + '/' + arts.length : ''}</small></div>${kids(f.id).map(c => row(c, d + 1)).join('')}`; };
   return `<div class="kt ${!KBS.f && !KBS.q ? 'on' : ''}" onclick="KBS.f='';KBS.a='';KBS.q='';render()"><span class=fic style="background:var(--sunk);color:var(--tx)" aria-hidden="true">${IC.stack}</span><span class=kn>All articles</span><small class=mu>${KB.articles.length}</small></div>${kids('').map(f => row(f, 0)).join('')}`; };
 const artCard = a => { const f = fById(a.folder); return `<div class="card clk akc" onclick="KBS.a='${a.id}';render()"><div class=row><b>${esc(a.title)}</b><span>${isRead(a) ? '<span class="pill ok">✓ Read</span>' : isReq(a) ? '<span class="pill bad">Required</span>' : ''}</span></div><div style="margin:6px 0">${chips(a.topics)}</div><small class=mu>${f ? esc(f.name) : 'Top level'} · updated ${f_(a.updated)}${a.quiz ? ' · lesson test' : ''}</small></div>`; };
-const f_ = d => new Date(d).toLocaleDateString('en-GB');
+const f_ = d => new Date(d).toLocaleDateString(I18N.locale());
 function kbList() {
   let l = KB.articles; const q = KBS.q.toLowerCase().split(/\s+/).filter(Boolean);
   if (q.length) l = l.filter(a => { const h = (a.title + ' ' + (a.topics || []).join(' ') + ' ' + a.body + ' ' + (fById(a.folder) || {}).name).toLowerCase(); return q.every(w => h.includes(w)); });
@@ -151,7 +151,7 @@ const delQuiz = id => ask('Delete this quiz?', 'The quiz and all results are rem
 async function autoQuiz(kind) {
   const days = kind === 'monthly' ? 30 : 7, arts = KB.articles.filter(a => Date.now() - new Date(a.updated) < days * 864e5);
   if (!arts.length) return toast('No article was added or updated in the last ' + days + ' days', true);
-  const d = new Date(); QZE.kind = kind; QZE.articles = arts.map(a => a.id); QZE.title = QZE.title || (kind === 'monthly' ? 'Monthly quiz ' + d.toLocaleString('en-GB', { month: 'long', year: 'numeric' }) : 'Weekly quiz ' + iso(d));
+  const d = new Date(); QZE.kind = kind; QZE.articles = arts.map(a => a.id); QZE.title = QZE.title || (kind === 'monthly' ? tr('Monthly quiz') + ' ' + d.toLocaleString(I18N.locale(), { month: 'long', year: 'numeric' }) : tr('Weekly quiz') + ' ' + iso(d));
   QZE.due = QZE.due || ds(kind === 'monthly' ? 14 : 5); await aiQs('quiz');
 }
 async function saveQuiz(publish) {
@@ -178,8 +178,8 @@ PG.quiz = function () {
 };
 
 // ---------------------------------------------------------------- monthly newsletter
-const monthName = m => new Date(m + '-01').toLocaleString('en-GB', { month: 'long', year: 'numeric' });
-const newIssue = () => { const m = iso(new Date()).slice(0, 7); NWE = { id: '', month: m, title: 'Monthly update ' + monthName(m), intro: '', items: [], published: false }; render(); };
+const monthName = m => new Date(m + '-01').toLocaleString(I18N.locale(), { month: 'long', year: 'numeric' });
+const newIssue = () => { const m = iso(new Date()).slice(0, 7); NWE = { id: '', month: m, title: tr('Monthly update') + ' ' + monthName(m), intro: '', items: [], published: false }; render(); };
 const editIssue = id => { NWE = JSON.parse(JSON.stringify(KB.newsletters.find(x => x.id === id))); render(); };
 function nwAuto() { const m = NWE.month, ar = KB.articles.filter(a => (a.updated || '').slice(0, 7) === m || (a.created || '').slice(0, 7) === m); if (!ar.length) return toast('No article was added or changed in ' + monthName(m), true); NWE.items = [...NWE.items.filter(i => i.title || i.text), ...ar.filter(a => !NWE.items.some(i => i.aid === a.id)).map(a => ({ title: (a.created || '').slice(0, 7) === m ? 'New: ' + a.title : 'Updated: ' + a.title, text: '', aid: a.id }))]; render(); toast(ar.length + ' article(s) added from ' + monthName(m)); }
 async function saveIssue(pub) { const e = NWE; if (pub !== undefined) e.published = pub; const r = await api(e.id ? '/api/kb/newsletters/' + e.id : '/api/kb/newsletters', e, e.id ? 'PUT' : 'POST'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true); NWE = null; await load(); render(); toast(e.published ? 'Newsletter published. Everyone was notified.' : 'Saved as draft'); }

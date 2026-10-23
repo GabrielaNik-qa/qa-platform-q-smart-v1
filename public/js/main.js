@@ -11,7 +11,7 @@ const LG = () => {
     : AUTH === 'reset' ? `<h1>New password</h1><p class=lgs>Choose a strong password.</p>${pwf('pn1', 'New password', 'oninput="pwUpd()"')}${pwf('pn2', 'Confirm new password', 'oninput="pwUpd()" ' + en('reset'))}${pwBox()}<div id=lge role=alert></div><button class=sbtn onclick=reset()>Save password</button>`
     : AUTH === 'register' ? `<h1>Create account</h1><p class=lgs style="line-height:1.5">Your registration will be reviewed by an administrator. You will get an email when it is approved.</p><label>Full name<input id=rn autocomplete=name></label><label>Email address<input id=re type=email autocomplete=email></label><label>Username<input id=ru placeholder="e.g. j.smith" autocomplete=username></label>${pwf('pn1', 'Password', 'oninput="pwUpd()" autocomplete=new-password')}${pwf('pn2', 'Confirm password', 'oninput="pwUpd()" autocomplete=new-password ' + en('register'))}${pwBox()}<div id=rge role=alert></div><button class=sbtn onclick=register()>Request access</button><a class=lgk href="#" onclick="AUTH='';MSG='';render();return false">← Back to sign in</a>`
     : `<h1>Sign in</h1><label>Username or email<input id=lu autocomplete=username value="${esc(LU)}" oninput="LU=this.value" ${en('login')}></label>${pwf('lp', 'Password', 'autocomplete=current-password ' + en('login'))}${m}<div id=lge role=alert></div><button class=sbtn onclick=login()>Sign in</button><a class=lgk href="#" onclick="AUTH='forgot';MSG='';render();return false">Forgot your password?</a><button class=rgb onclick="AUTH='register';MSG='';render()">Register</button>`;
-  return `<div class=lg><aside class=lgl><div class=lgb>${mark('mg', 34)}<b>Q-SMART</b></div><div class=lgm><div class=lgw>${WAVE}</div><div class=lgt><h2>Quality<br>Assurance<br><em>Platform</em></h2><p>Call center quality assurance</p></div></div></aside><section class=lgr><div class=lgf>${f}</div></section></div>`;
+  return `<div class=lg><aside class=lgl><div class=lgb>${mark('mg', 34)}<b>Q-SMART</b></div><div class=lgm><div class=lgw>${WAVE}</div><div class=lgt>${(h => `<h2 data-noi18n>${esc(h[0])}<br>${esc(h[1])}<br><em>${esc(h[2])}</em></h2>`)(tr('Quality|Assurance|Platform').split('|'))}<p>Call center quality assurance</p></div></div></aside><section class=lgr><div class=lgf>${f}<div class=lgl10>${LANGSEL()}</div></div></section></div>`;
 };
 const lerr = (id, m) => { const e = $(id); if (e) e.innerHTML = `<small class=lgerr>${esc(m)}</small>`; };
 async function login() {
@@ -34,7 +34,7 @@ async function reset() {
   const r = await api('/api/reset', { username: q.get('u'), token: q.get('reset'), password: p });
   if (r.ok) { history.replaceState(null, '', '/'); AUTH = ''; MSG = 'Password changed. Please sign in.'; render(); } else lerr('#lge', await errOf(r, 'Reset failed'));
 }
-async function out() { await api('/api/logout', {}); welAgain(); ME = null; MSG = ''; ENT = null; EDITID = ''; KBE = null; WEL = null; render(); }
+async function out() { await api('/api/logout', {}); welAgain(); try { sessionStorage.removeItem(LPICK); } catch (e) { /* private window */ } ME = null; MSG = ''; ENT = null; EDITID = ''; KBE = null; WEL = null; render(); }
 
 // ---------------------------------------------------------------- sidebar (arrow button is fixed, double-click opens AND closes it)
 function applySb() {
@@ -137,7 +137,8 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) poll
 
 async function boot() {
   const r = await api('/api/me'); ME = r.ok ? await r.json() : null;
+  if (ME) userLang();                                           // the person's own language, before anything is drawn
   if (ME && !ME.mustChange) await load();
   PREVU = UN(); render(); maybeWelcome();
 }
-applyTheme(); boot();
+I18N.start(); applyTheme(); boot();

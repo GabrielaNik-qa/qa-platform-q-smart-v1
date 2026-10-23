@@ -14,8 +14,8 @@
   --ok:#15803D;--wn:#9A6700;--hot:#C2410C;--bad:#C9251B;                                    /* pass, warning, low, fail (all readable as text) */
   --sb:#171717;--st:#B9B9B4;--sbw:264px;                                                    /* menu colour, menu text, menu width */
   --focus:#171717;--ring:rgba(255,107,0,.28);
-  --font:'Barlow',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-  --font-d:'Barlow Condensed','Barlow',system-ui,sans-serif;                                /* display: titles and big numbers */
+  --font:'Barlow','Fira Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --font-d:'Barlow Condensed','Fira Sans Extra Condensed','Barlow','Fira Sans',system-ui,sans-serif;                                /* display: titles and big numbers */
   --font-m:'JetBrains Mono',ui-monospace,Consolas,monospace;
   --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:20px;--s6:24px;--s8:32px;                      /* 4 px spacing grid */
   --r-s:8px;--r-m:10px;--r-l:14px;
@@ -382,7 +382,7 @@ body.auth .sb{display:none}body.auth main{padding:0}
 @media(max-width:1180px){.lgl::after,.lgl::before{display:none}}
 .lgb{display:flex;align-items:center;gap:12px;position:relative;z-index:1}.lgb b{letter-spacing:.28em;font:700 22px var(--font-d);color:#fff;padding:0}
 .lgm{margin:auto 0;display:grid;gap:40px;position:relative;z-index:1}
-.lgt h2{font:700 50px/.98 var(--font-d);text-transform:uppercase;letter-spacing:.01em;margin:0 0 14px}
+.lgt h2{font:700 50px/.98 var(--font-d);text-transform:uppercase;letter-spacing:.01em;margin:0 0 14px;overflow-wrap:break-word;max-width:100%}
 .lgt h2 em{font-style:normal;color:var(--brand)}
 .lgt p{margin:0;color:#B9B9B4;font-size:15px;letter-spacing:.03em}
 .lgr{flex:1;background:#F7F7F5;color:#171717;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -437,3 +437,11 @@ body.auth .sb{display:none}body.auth main{padding:0}
 }
 @media(max-width:760px){.wgrid>*{grid-column:span 12!important}}
 @media(max-width:520px){.g2{grid-template-columns:1fr}.big{font-size:32px}.toasts{bottom:16px}}
+
+/* languages: sign-in screen picker; debug mode (?i18n=debug) outlines text that has no translation yet */
+.lgl10{margin-top:22px;display:flex;justify-content:center}
+.lgl10 .sg{height:auto}
+.lgl10 .ibx{min-height:36px}
+.i18n-debug .i18n-miss{outline:2px dotted #e11d48;outline-offset:1px}
+:lang(bg) .lgt h2,:lang(fr) .lgt h2{font-size:44px}
+.sg,.seg{max-width:100%;overflow-x:auto;scrollbar-width:none}   /* longer Bulgarian / French labels scroll instead of being cut off on a phone */

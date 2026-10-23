@@ -50,6 +50,12 @@ My account > Appearance still offers the other colour themes (Sport is the defau
   account (`prefs` in `data.json`), so they are the same on every browser and never affect another person.
   The list of messages that may be hidden is in `public/js/prefs.js`.
 
+## Languages (English, Български, Français)
+Pick the language on the sign-in screen or in My account > Language. The whole app switches at once, and the choice is saved
+with each person's account (`prefs.lang` in `data.json`). People with no saved language get English. Names, comments, articles
+and other things people typed are not translated. The translations are in `public/js/i18n/bg.js` and `fr.js`, and the glossary
+and rules are in `docs/i18n-glossary.md`. Open the app with `?i18n=debug` to outline any text that has no translation yet.
+
 ## Folders
 `server.js` (accounts, teams, reviews) · `routes-work.js` (tasks, coaching, calibration) · `routes-learning.js` (knowledge base, quizzes) ·
 `bootstrap.js` (starting teams, test users, skills, workspaces) · `routes-setup.js` (skills, workspaces, root causes, Auto QA categories) · `routes-autoqa.js` / `autoqa.js` (Auto QA) · `scorecard.js` (scoring rules) · `ai.js` · `public/` (the web app:

@@ -146,3 +146,18 @@ test('saving never leaves a half-written file behind, and the change is in the a
   const log = (await (await as('t.admin')).get('/api/audit')).json;
   assert.ok(log.some(x => x.a === 'Changed own pop-up and confirmation settings' && x.u === 'q.alpha'));
 });
+
+test('language: saved with each person, kept after signing in again, never changes another person', async () => {
+  const q = await as('q.alpha'), b = await as('q.beta');
+  assert.equal(q.login.json.prefs.lang, undefined);                                           // nothing chosen yet = English
+  assert.equal((await q.put('/api/prefs', { lang: 'xx' })).status, 400);                     // only en, bg and fr exist
+  const r = await q.put('/api/prefs', { lang: 'bg' });
+  assert.equal(r.status, 200); assert.equal(r.json.prefs.lang, 'bg');
+  assert.equal((await q.get('/api/me')).json.prefs.lang, 'bg');
+  assert.equal((await as('q.alpha')).login.json.prefs.lang, 'bg');                           // a new sign-in brings it back
+  assert.equal((await b.get('/api/me')).json.prefs.lang, undefined);                          // the other person is untouched
+  assert.equal((await q.put('/api/prefs', { defaults: true })).json.prefs.lang, 'bg');        // "Restore default settings" keeps the language
+  assert.equal((await q.put('/api/prefs', { lang: 'fr', info: false })).json.prefs.lang, 'fr');
+  assert.equal(db().users.find(u => u.username === 'q.alpha').prefs.lang, 'fr');
+  assert.equal((db().users.find(u => u.username === 'q.beta').prefs || {}).lang, undefined);
+});

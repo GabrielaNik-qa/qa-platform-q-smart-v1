@@ -88,11 +88,14 @@ const pwBad = p => {
 const validEmail = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
 // pop-up preferences of one person: tips they switched off and whether routine confirmations are asked (errors and safeguards are never stored here)
 const PREF_ID = /^[a-z][a-z0-9.-]{1,39}$/;
+const LANGS = ['en', 'bg', 'fr'];
 const cleanPrefs = p => {
   p = p && typeof p === 'object' ? p : {};
   const off = {};
   Object.entries(p.off && typeof p.off === 'object' && !Array.isArray(p.off) ? p.off : {}).slice(0, 100).forEach(([k, v]) => { if (PREF_ID.test(k)) off[k] = String(v || '').slice(0, 30); });
-  return { info: p.info !== false, confirm: p.confirm !== false, off };
+  const out = { info: p.info !== false, confirm: p.confirm !== false, off };
+  if (LANGS.includes(p.lang)) out.lang = p.lang;                  // the language of the app (My account > Language); nothing saved = English
+  return out;
 };
 const pub = u => ({ username: u.username, name: u.name, email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {}, prefs: cleanPrefs(u.prefs) });
 // skills and languages can only be picked from the catalog (Admin > Skills); unknown names are dropped, spelling is normalised
@@ -184,7 +187,8 @@ app.post('/api/password/first', authed, (req, res) => {   // the pop-up every ne
 app.put('/api/prefs', need(), (req, res) => {
   const db = load(), u = userBy(db, req.session.user.username), b = req.body || {};
   if (!u) return res.status(401).json({ error: 'login required' });
-  const p = b.defaults ? cleanPrefs({}) : cleanPrefs(u.prefs);
+  const p = b.defaults ? cleanPrefs({ lang: (u.prefs || {}).lang }) : cleanPrefs(u.prefs);   // "Restore default settings" keeps the chosen language
+  if (b.lang !== undefined) { if (!LANGS.includes(b.lang)) return bad(res, 'Unknown language'); p.lang = b.lang; }
   if (typeof b.info === 'boolean') p.info = b.info;
   if (typeof b.confirm === 'boolean') p.confirm = b.confirm;
   if (b.clear) p.off = {};

@@ -18,7 +18,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => '&#' + c.ch
 // a text as a JavaScript string inside onclick="..." (apostrophes, quotes and backslashes in names are all safe)
 const jsq = s => esc(JSON.stringify(String(s == null ? '' : s)));
 const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
-const f = d => d.toLocaleDateString('en-GB'), fdt = d => new Date(d).toLocaleString('en-GB');
+const f = d => d.toLocaleDateString(I18N.locale()), fdt = d => new Date(d).toLocaleString(I18N.locale());   // dates follow the chosen language
 const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const ds = n => { const d = new Date(); d.setDate(d.getDate() + n); return iso(d); };
 const ini = n => String(n || '?').split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
@@ -146,6 +146,22 @@ async function setPrefs(patch, okMsg, o) {
   if (!r.ok) { if (r.status !== 401) toast(await errOf(r, 'Could not save this setting. Please try again.'), true); return false; }
   ME = await r.json(); render(); if (okMsg) toast(okMsg, false, o); return true;
 }
+
+// ---------------------------------------------------------------- language (i18n.js): saved with the account, the sign-in screen uses the last one of this browser
+// A person who has never chosen one gets English, unless they picked a language on the sign-in screen just before signing in.
+const LPICK = 'qa_lang_picked';
+function setLang(code) {
+  I18N.set(code); try { sessionStorage.setItem(LPICK, '1'); } catch (e) { /* private window */ }
+  if (ME) setPrefs({ lang: I18N.lang }); else render();
+}
+function userLang() {
+  if (MYP().lang) return I18N.set(MYP().lang);
+  let picked = false; try { picked = sessionStorage.getItem(LPICK) === '1'; } catch (e) { /* private window */ }
+  if (!picked || I18N.lang === 'en') return I18N.set('en');
+  api('/api/prefs', { lang: I18N.lang }, 'PUT').then(r => r.ok ? r.json() : null).then(j => { if (j) ME = j; });
+}
+// the language buttons: native names (flags only as a small extra), the current one is marked for screen readers too
+const LANGSEL = () => `<div class=sg role=group aria-label="${esc(tr('Language'))}" data-noi18n style="width:fit-content;flex-wrap:wrap">${I18N.LANGS.map(l => `<button type=button class="ibx ${I18N.lang === l.code ? 'on' : ''}" aria-pressed="${I18N.lang === l.code}" lang="${l.code}" onclick="setLang('${l.code}')">${l.name}</button>`).join('')}</div>`;
 
 // ---------------------------------------------------------------- theme, accent colour, sounds
 // named themes: the accent colour and the menu colour (light / dark mode is chosen separately)
