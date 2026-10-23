@@ -7,7 +7,7 @@ const isStaffR = () => ME && STAFFR.includes(ME.role);
 // ---- the menu: main groups, each with its own icon and a drop-down of pages
 const GROUPS = [
   { id: 'home', name: 'Home', icon: 'g_home', items: [['dash', 'Dashboard'], ['autoqa', 'AutoQA'], ['tasks', 'Tasks']] },
-  { id: 'quality', name: 'Quality', icon: 'g_quality', items: [['calls', 'Call Reviews'], ['entry', 'QA Entry'], ['flags', 'Quick Flags'], ['disputes', 'Disputes']] },
+  { id: 'quality', name: 'Quality', icon: 'g_quality', items: [['calls', 'Reviews'], ['entry', 'QA Entry'], ['flags', 'Quick Flags'], ['disputes', 'Disputes']] },
   { id: 'scorecards', name: 'Scorecards', icon: 'g_sc', items: [['sco', 'Scorecards'], ['scat', 'Categories'], ['roots', 'Root causes'], ['aqcats', 'Auto QA categories']] },
   { id: 'analytics', name: 'Analytics', icon: 'g_analytics', items: [['agents', 'Agents'], ['team', 'Team Review'], ['cats', 'Category Stats']] },
   { id: 'coaching', name: 'Coaching', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration']] },
@@ -30,11 +30,11 @@ const lead = e => `<b class=mono style="color:var(--ac)">${esc(e.id)}</b> <small
 
 // jump to Call Reviews with some filters already set (used by the dashboard cards)
 function goCalls(o = {}) {
-  Q = ''; FS = ''; FF = ''; FSC = o.sc || null; FA = o.agent || ''; FT = o.agent ? teamOf(o.agent) : (o.team || T || ''); PN = 1;
+  Q = ''; FS = ''; FF = ''; FC = o.ch || ''; FSC = o.sc || null; FA = o.agent || ''; FT = o.agent ? teamOf(o.agent) : (o.team || T || ''); PN = 1;
   if (P === 'year') { FP = 'custom'; F1 = ds(-365); F2 = ds(0); } else if (P === 'custom') { FP = 'custom'; F1 = DF; F2 = DT; } else FP = P;
   KQ = true; if (location.hash === '#calls') render(); else location.hash = 'calls';
 }
-function viewHist() { Q = ''; FS = ''; FF = ''; FSC = null; FT = ''; FA = ''; PN = 1; KQ = true; if (location.hash === '#calls') render(); else location.hash = 'calls'; }
+function viewHist() { Q = ''; FS = ''; FF = ''; FC = ''; FSC = null; FT = ''; FA = ''; PN = 1; KQ = true; if (location.hash === '#calls') render(); else location.hash = 'calls'; }
 const goPage = h => { location.hash = h; };
 
 const PG = {

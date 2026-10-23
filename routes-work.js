@@ -156,7 +156,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     const lead = str(b.lead, 60); if (!lead) throw new Error('Enter the lead ID');
     if (!DAY.test(b.date || '')) throw new Error('Choose the date');
     const link = v => /^https?:///i.test(String(v || '').trim()) ? str(v, 500) : '';
-    return { type: b.type === 'green' ? 'green' : 'red', agent: a.username, tid: a.team, lead, date: b.date, cp: str(b.cp, 80), lk: link(b.lk), rl: link(b.rl), cm: str(b.cm, 1000) };
+    return { type: b.type === 'green' ? 'green' : 'red', ch: ['call', 'chat', 'email', 'other'].includes(b.ch) ? b.ch : 'call', agent: a.username, tid: a.team, lead, date: b.date, cp: str(b.cp, 80), lk: link(b.lk), rl: link(b.rl), cm: str(b.cm, 1000) };
   };
   app.get('/api/qflags', need(), (req, res) => { const u = req.session.user; res.json(load().qflags.filter(f => u.role !== 'agent' || f.agent === u.username)); });
   app.post('/api/qflags', need(...EDIT), (req, res) => {
