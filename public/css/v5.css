@@ -225,3 +225,15 @@ label:not(.rad):not([style*="display:flex"])>small{display:block;margin-top:4px}
 .fly.umn a{display:flex;gap:10px;align-items:center}.fly.umn a svg{stroke:currentColor;width:16px;height:16px}
 .sb.co .thc1 .ti{display:flex!important}
 .sb.co .fly a{justify-content:flex-start;padding:8px 12px}
+/* ===== sidebar on laptop screens: the profile row is always visible at the bottom; only the menu scrolls when space is short ===== */
+@media(min-width:801px){
+  .sb{overflow:hidden}
+  #br,#fz{flex:none}
+  #n{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#ffffff30 transparent;margin:0 -4px;padding:0 4px}
+  .gh{padding:7px 10px}.gh i{width:32px;height:32px}
+  .sub{margin:2px 0 6px 26px}.sub a{padding:6px 10px}
+  .ft{gap:8px;padding-top:10px}.thm button{padding:7px 0}.usr{padding:6px 8px}
+}
+@media(min-width:801px) and (max-height:760px){
+  .brand{padding-bottom:6px}.gh{padding:5px 10px}.gh i{width:30px;height:30px}.sub a{padding:5px 10px;font-size:14px}
+}
