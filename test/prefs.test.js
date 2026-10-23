@@ -46,7 +46,7 @@ test('only routine actions are in the confirmation list (no deletes of records, 
 
 // ---- the "Are you sure?" pop-up of the real page (core.js)
 function page(prefs) {
-  const ctx = vm.createContext({ console, URLSearchParams, location: { hash: '', search: '' }, localStorage: { getItem: () => null, setItem() {} }, PREFMSG, Response, fetch: async () => ({ ok: true, status: 200, json: async () => ({}) }) });
+  const ctx = vm.createContext({ console, URLSearchParams, innerWidth: 1440, innerHeight: 900, location: { hash: '', search: '' }, localStorage: { getItem: () => null, setItem() {} }, PREFMSG, Response, fetch: async () => ({ ok: true, status: 200, json: async () => ({}) }) });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../public/js/core.js'), 'utf8'), ctx, { filename: 'core.js' });
   vm.runInContext('var render = () => {};', ctx);
   vm.runInContext(`ME = { username: 'tester', role: 'qa', prefs: ${JSON.stringify(prefs)} };`, ctx);

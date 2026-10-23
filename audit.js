@@ -1,7 +1,7 @@
 // Audit log: remembers who changed what (every successful create / change / delete, plus sign-ins). Passwords are never stored.
 // Lives in its own file (audit.json) so data.json stays small. Only admins can read it.
 const fs = require('fs'), path = require('path');
-const FILE = process.env.AUDIT_FILE ? path.resolve(process.env.AUDIT_FILE) : path.join(__dirname, 'audit.json'), MAX = 5000;
+const FILE = process.env.AUDIT_FILE ? path.resolve(process.env.AUDIT_FILE) : path.join(__dirname, 'audit.json'), MAX = 5000;   // AUDIT_FILE = another file, used by the tests
 let LOG = [];
 try { LOG = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) { LOG = []; }
 let timer = null;

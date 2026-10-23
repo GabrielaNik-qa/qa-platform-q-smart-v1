@@ -21,5 +21,9 @@ const user = { languages: [], skills: [], phone: '', start: '', desc: '', title:
   mustChange: password === 'password' || rest.includes('--must-change') };
 delete user.ag;
 db.users = db.users.filter(u => u.username !== user.username); db.users.push(user);
+// QA, team leads and trainers only see the teams and scorecards of their workspaces: like the app, put them in the first one when they are in none
+// (admins see everything; agents belong to a workspace through their team)
+const ws = Array.isArray(db.workspaces) ? db.workspaces : [];
+if (role !== 'agent' && role !== 'admin' && ws.length && !ws.some(w => (w.staff || []).includes(user.username))) { ws[0].staff = ws[0].staff || []; ws[0].staff.push(user.username); console.log('Added to the workspace "' + ws[0].name + '"'); }
 fs.writeFileSync(F, JSON.stringify(db, null, 2));
 console.log('Saved user ' + username + ' (' + role + ')' + (user.email ? ' <' + user.email + '>' : '') + (team ? ' in team ' + team : '') + (password === 'password' ? ' - must change the password at first login' : ''));
