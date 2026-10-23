@@ -262,3 +262,27 @@ label:not(.rad):not([style*="display:flex"])>small{display:block;margin-top:4px}
 .wfc.in{position:static;font-weight:500}
 .wdfoot{display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--bd);padding-top:12px}
 .wundo{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:120;display:flex;gap:14px;align-items:center;padding:10px 12px 10px 18px;border-radius:12px;background:#0f1b2d;color:#fff;box-shadow:0 8px 24px #0005;font-size:14px}.wundo button{border:0;background:#ffffff1c;color:#7dd3fc;font:inherit;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer}
+
+/* ===== new sections (reports, planning, performance, compliance & CX, admin) ===== */
+.fchips{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px}
+.fchip{display:inline-flex!important;align-items:center;gap:4px;padding:0 4px 0 12px;border-radius:9px;background:color-mix(in srgb,var(--bd) 55%,transparent);font-size:13px;color:var(--mu);cursor:pointer}.fchip.set{background:color-mix(in srgb,var(--ac) 14%,transparent);color:var(--ac)}
+.fchip select{border:0!important;background:transparent!important;color:var(--tx);font-weight:600;padding:7px 4px!important;margin:0!important;width:auto!important;display:inline-block!important;cursor:pointer}
+.fchips>input[type=date]{height:34px}
+.rbg{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start}@media(max-width:1100px){.rbg{grid-template-columns:1fr}}
+.rbp{display:grid;gap:10px;position:sticky;top:12px}.rbp select{width:100%}.rbp label{font-size:12px;font-weight:600}
+.rbn{font:600 20px Outfit,sans-serif;border:0!important;background:transparent!important;padding:2px 0!important;width:min(520px,100%)}
+.rbsum{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}.rbsum div{padding:10px 14px;border-radius:10px;background:var(--bg);min-width:120px}.rbsum small{display:block}.rbsum b{font-size:20px;font-weight:600}
+.rbbars{display:grid;gap:6px;margin:6px 0}.rbb{display:grid;grid-template-columns:minmax(120px,220px) 1fr 70px;gap:10px;align-items:center;font-size:13px}.rbb span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.rbb .bar{margin:0;height:10px}.rbb b{text-align:right}
+.rbsvg text{font-family:Outfit,sans-serif}
+.rsg{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-bottom:18px}.rsc{margin:0}
+.wlb{display:flex;gap:2px;align-items:flex-end;height:30px}.wlb i{display:block;width:8px;border-radius:2px;background:var(--ac)}
+.calleg{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:10px;font-size:13px}.calleg span{display:inline-flex;gap:6px;align-items:center}.calleg i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.calg{padding:0;overflow:hidden}.calh,.calb{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}.calh b{padding:10px;font-size:12px;color:var(--mu);border-bottom:1px solid var(--bd)}
+.cald{min-height:104px;padding:6px;border-right:1px solid var(--bd);border-bottom:1px solid var(--bd);display:grid;gap:3px;align-content:start}.cald.out{background:color-mix(in srgb,var(--bd) 25%,transparent)}.cald.today{background:color-mix(in srgb,var(--ac) 8%,transparent)}.cald.today>b{color:var(--ac)}.cald>b{font-size:12px}
+.calit{display:block;font-size:11px;padding:2px 6px;border-radius:5px;color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.calit:hover{background:color-mix(in srgb,var(--c) 26%,transparent)}
+.glg{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:16px}.glc{margin:0;display:grid;gap:6px}.glv{display:flex;align-items:baseline;gap:10px;margin-top:6px}.glv b{font-size:26px;font-weight:600}
+.kdc{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--bd)}.kdb{font-size:26px;line-height:1}
+.crit.cpb{background:color-mix(in srgb,#8b5cf6 16%,transparent);color:#8b5cf6}
+.rvtool{color:var(--mu)!important}
+.fchip select{field-sizing:content;max-width:220px;text-overflow:ellipsis}
+.wg .rbsvg{max-height:300px}

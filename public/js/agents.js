@@ -179,9 +179,9 @@ PG.agents = function () {
       + `${kpi('Pass Rate', n ? Math.round(pc) + '%' : '—', n ? scol(pc, u.team) : '', `${passed} passed / ${n - passed} failed`, n && pp != null ? agDelta(pc - pp, '%', pl) : '')}`
       + `${kpi(AG.ch ? 'Total ' + CHP[AG.ch] : 'Total Reviews', n, '', `${n} scored`, n && d.prev.length ? agDelta((n - d.prev.length) / d.prev.length * 100, '%', pl) : '')}`
       + `${kpi('Red Flags', red, 'var(--bad)', '', '', `<span style="color:var(--bad)">${IC.flag}</span>`)}${kpi('Green Flags', green, 'var(--ok)', '', '', `<span style="color:var(--ok)">${IC.flag}</span>`)}</div>`;
-    const tabs = [['perf', 'Performance', AIC.perf, null], ['calls', 'Reviews & Trends', AIC.calls, n], ['flags', 'Flags', AIC.flag, d.flags.length], ['o2o', 'One-to-One', AIC.o2o, d.o2o.length], ['sim', 'Simulations', AIC.sim, d.sims.length]];
+    const tabs = [['perf', 'Performance', AIC.perf, null], ['calls', 'Reviews & Trends', AIC.calls, n], ['flags', 'Flags', AIC.flag, d.flags.length], ['o2o', 'One-to-One', AIC.o2o, d.o2o.length], ['sim', 'Simulations', AIC.sim, d.sims.length], ['growth', 'Growth', svg('<path d="M3 17l6-6 4 4 8-8M14 7h7v7"/>', 15), (CO.pips || []).filter(p => p.agent === u.username && pipOpen(p)).length + (CO.goals || []).filter(g => g.scope === 'agent' && g.target === u.username).length]];
     if (!tabs.some(t => t[0] === AG.tab)) AG.tab = 'perf';
-    const body = { perf: agPerf, calls: agCallsTab, flags: agFlagsTab, o2o: agO2oTab, sim: agSimTab }[AG.tab](u, d);
+    const body = { perf: agPerf, calls: agCallsTab, flags: agFlagsTab, o2o: agO2oTab, sim: agSimTab, growth: agGrowthTab }[AG.tab](u, d);
     return hd + filt + head2 + kp + `<section class="card agtabs"><div class=agtb>${tabs.map(([k, nm, ic, c]) => `<button class="${AG.tab === k ? 'on' : ''}" onclick="AG.tab='${k}';render()">${ic} ${nm}${c == null ? '' : ` <span class=bg>${c}</span>`}</button>`).join('')}</div><div class=agbody>${body}</div></section>`;
   } finally { THR = null; }
 };
@@ -209,3 +209,14 @@ function agReport() {
 }
 
 const agCh = v => { AG.ch = v; AG.pn = 1; render(); };
+
+// ---- Growth tab: everything from Performance and Compliance & CX about this agent
+function agGrowthTab(u) {
+  const m = todayS().slice(0, 7), gl = (CO.goals || []).filter(g => (g.month || m) === m && (g.scope === 'all' || (g.scope === 'team' && g.target === u.team) || (g.scope === 'agent' && g.target === u.username)));
+  const pl = (CO.pips || []).filter(p => p.agent === u.username), kd = (CO.kudos || []).filter(k => k.to === u.username), cm = (CO.complaints || []).filter(c => c.agent === u.username), sv = (CO.surveys || []).filter(s => s.agent === u.username).map(s => +s.score).filter(Boolean);
+  return `<div class=agsts>${agStat(gl.filter(g => goalProgress(g).st === 'met').length + '/' + gl.length, 'Goals met this month', '#10b981')}${agStat(pl.filter(pipOpen).length, 'Active improvement plans', '#f59e0b')}${agStat(kd.length, 'Kudos received', '#a855f7')}${agStat(sv.length ? avg(sv).toFixed(2) : '—', 'CSAT (' + sv.length + ' answers)', '#3b82f6')}</div>`
+    + `<h3>Goals — ${monthName(m)}</h3>${gl.map(g => { const p = goalProgress(g); return agRow(g.scope === 'agent' ? '🎯' : '👥', esc(g.title || GMET[g.metric][0]) + ' <small>(' + esc(gWho(g)) + ')</small>', `${gFmt(g, p.v)} of ${gFmt(g, p.tg)}`, pill(...GST[p.st]), "goPage('goals')"); }).join('') || '<p class=mu>No goals this month</p>'}`
+    + `<h3 style="margin-top:22px">Improvement plans</h3>${pl.map(p => agRow('📋', esc(p.title || 'Improvement plan'), `${p.start || '—'} → ${p.end || '—'} · ${(p.goals || []).filter(x => x.done).length}/${(p.goals || []).length} goals`, pill(...PIPST[p.status || 'active']), `PIPV='${p.id}';goPage('pips')`)).join('') || `<p class=mu>None${canPip() ? ` — <a href="javascript:void(0)" class=agl onclick="pipForm();setTimeout(()=>{FM.d.agent='${esc(u.username)}';render()},50)">start one</a>` : ''}</p>`}`
+    + `<h3 style="margin-top:22px">Kudos</h3>${kd.slice(0, 6).map(k => agRow(k.badge || '⭐', esc(k.byName || ''), esc(k.text || ''), `<small>${fdt(k.at)}</small>`)).join('') || '<p class=mu>No kudos yet</p>'}`
+    + (ME.role !== 'agent' ? `<h3 style="margin-top:22px">Complaints <span class=bg>${cm.length}</span></h3>${cm.slice(0, 6).map(c => agRow(IC.flag, esc(c.category || 'Complaint') + ' · ' + esc(c.customer || ''), esc(String(c.desc || '').slice(0, 90)), pill(...(CMST[c.status || 'new'])), `cmForm('${c.id}')`)).join('') || '<p class=mu>No complaints 🎉</p>'}` : '');
+}

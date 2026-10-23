@@ -1,0 +1,131 @@
+// Reports, Planning, Performance, Compliance & CX, Backups and the extra admin settings.
+// Most of these are simple lists of records ("collections") with the same four routes: list, add, change, delete.
+const fs = require('fs'), path = require('path');
+const RPT = require('./public/js/rpt-engine.js');
+module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify, userBy, mail, BASE }) => {
+  const EDIT = ['admin', 'qa', 'lead', 'trainer'], ALL = ['admin', 'qa', 'lead', 'trainer', 'agent'];
+  // who may read / write each collection; mine(u, x) = an agent may only see the records about themselves
+  const COLS = {
+    reports: { read: EDIT, write: EDIT, ownOnly: true },
+    goals: { read: ALL, write: ['admin', 'qa', 'lead'], mine: (u, x, db) => x.scope === 'agent' ? x.target === u.username : x.scope === 'team' ? x.target === (userBy(db, u.username) || {}).team : true },
+    pips: { read: ALL, write: ['admin', 'qa', 'lead', 'trainer'], mine: (u, x) => x.agent === u.username, agentFields: ['ack', 'agentNote'] },
+    kudos: { read: ALL, write: ALL, ownOnly: true },
+    risks: { read: EDIT, write: EDIT },
+    complaints: { read: EDIT, write: EDIT },
+    surveys: { read: ALL, write: ['admin', 'qa', 'lead'], mine: (u, x) => x.agent === u.username }
+  };
+  // cleans whatever the browser sends: only text, numbers, yes/no, lists and small objects are kept
+  const clean = (v, depth = 0) => {
+    if (v == null) return v; if (typeof v === 'string') return v.slice(0, 4000); if (typeof v === 'number') return Number.isFinite(v) ? v : 0; if (typeof v === 'boolean') return v;
+    if (Array.isArray(v)) return depth > 4 ? [] : v.slice(0, 300).map(x => clean(x, depth + 1));
+    if (typeof v === 'object') { if (depth > 4) return {}; const o = {}; Object.keys(v).slice(0, 60).forEach(k => { if (!/^[_$]/.test(k) && !['id', 'by', 'byName', 'at', 'updated'].includes(k)) o[k.slice(0, 40)] = clean(v[k], depth + 1); }); return o; }
+    return undefined;
+  };
+  const coll = (db, c) => { if (!Array.isArray(db[c])) db[c] = []; return db[c]; };
+  const canRead = (c, u) => COLS[c] && COLS[c].read.includes(u.role);
+  const canWrite = (c, u) => COLS[c] && COLS[c].write.includes(u.role);
+  const visible = (c, u, db) => coll(db, c).filter(x => u.role !== 'agent' || !COLS[c].mine || COLS[c].mine(u, x, db)).filter(x => c !== 'reports' || x.by === u.username || x.shared || u.role === 'admin');
+  const after = (db, c, x, me, isNew) => {                     // notifications that go with a new record
+    if (!isNew) return;
+    if (c === 'kudos' && x.to && x.to !== me.username) notify(db, x.to, 'kudos', `${me.name} gave you kudos${x.badge ? ' ' + x.badge : ''}: ${String(x.text || '').slice(0, 90)}`, {});
+    if (c === 'pips' && x.agent) notify(db, x.agent, 'pip', `${me.name} started an improvement plan with you: ${x.title || ''}`, {});
+    if (c === 'goals' && x.scope === 'agent' && x.target) notify(db, x.target, 'goal', `New goal for you: ${x.title || x.metric}`, {});
+    if (c === 'risks' && x.owner && x.owner !== me.username) notify(db, x.owner, 'risk', `${me.name} assigned a risk case to you: ${x.title || ''}`, {});
+  };
+  app.get('/api/c/:col', need(), (req, res) => { const c = req.params.col, u = req.session.user; if (!canRead(c, u)) return res.status(403).json({ error: 'not allowed' }); res.json(visible(c, u, load())); });
+  app.post('/api/c/:col', need(), (req, res) => {
+    const c = req.params.col, u = req.session.user, db = load(), b = req.body || {};
+    if (!canWrite(c, u)) return res.status(403).json({ error: 'Your role cannot add these' });
+    const list = Array.isArray(b.bulk) ? b.bulk.slice(0, 3000) : [b];                // bulk = an imported list (surveys)
+    if (JSON.stringify(list).length > 3e6) return bad(res, 'Too much data at once');
+    const out = list.map(x => ({ ...clean(x), id: c.slice(0, 1) + hex(5), by: u.username, byName: u.name, at: iso() }));
+    out.forEach(x => { coll(db, c).unshift(x); after(db, c, x, u, true); });
+    save(db); res.json(Array.isArray(b.bulk) ? { added: out.length } : out[0]);
+  });
+  app.put('/api/c/:col/:id', need(), (req, res) => {
+    const c = req.params.col, u = req.session.user, db = load(), x = coll(db, c).find(r => r.id === req.params.id);
+    if (!x) return res.status(404).json({ error: 'not found' });
+    const b = clean(req.body || {});
+    if (u.role === 'agent' && COLS[c] && COLS[c].agentFields && COLS[c].mine(u, x, db)) { COLS[c].agentFields.forEach(k => { if (b[k] !== undefined) x[k] = b[k]; }); x.updated = iso(); save(db); return res.json(x); }
+    if (!canWrite(c, u)) return res.status(403).json({ error: 'not allowed' });
+    if (COLS[c].ownOnly && x.by !== u.username && u.role !== 'admin') return res.status(403).json({ error: 'Only the person who made it can change it' });
+    Object.assign(x, b, { updated: iso() }); save(db); res.json(x);
+  });
+  app.delete('/api/c/:col/:id', need(), (req, res) => {
+    const c = req.params.col, u = req.session.user, db = load(), x = coll(db, c).find(r => r.id === req.params.id);
+    if (!x) return res.status(404).json({ error: 'not found' });
+    if (!canWrite(c, u) || (COLS[c].ownOnly && x.by !== u.username && u.role !== 'admin')) return res.status(403).json({ error: 'not allowed' });
+    db[c] = coll(db, c).filter(r => r !== x); save(db); res.json({ ok: 1 });
+  });
+
+  // ---------------------------------------------------------------- settings that admins (and for the planner QA) change on their own pages
+  const KEYS = { planner: ['admin', 'qa'], perm: ['admin'], integ: ['admin'], notifOff: ['admin'], mailtpl: ['admin'] };
+  app.put('/api/settings/x/:key', need(), (req, res) => {
+    const k = req.params.key, u = req.session.user; if (!KEYS[k]) return res.status(404).json({ error: 'unknown setting' }); if (!KEYS[k].includes(u.role)) return res.status(403).json({ error: 'not allowed' });
+    const db = load(); db.settings = { ...db.settings, [k]: clean((req.body || {}).value) }; save(db); res.json({ ...db.settings, oldTeams: db.oldTeams });
+  });
+
+  // ---------------------------------------------------------------- export centre: every Excel file that was made, ready to download again
+  app.get('/api/exports', need(...EDIT), (req, res) => { const u = req.session.user; res.json(coll(load(), 'exports').filter(x => u.role === 'admin' || x.by === u.username).map(({ rows, ...x }) => x)); });
+  app.get('/api/exports/:id', need(...EDIT), (req, res) => { const x = coll(load(), 'exports').find(r => r.id === req.params.id); if (!x) return res.status(404).json({ error: 'not found' }); res.json(x); });
+  app.delete('/api/exports/:id', need(...EDIT), (req, res) => { const db = load(); db.exports = coll(db, 'exports').filter(r => r.id !== req.params.id || (r.by !== req.session.user.username && req.session.user.role !== 'admin')); save(db); res.json({ ok: 1 }); });
+
+  // ---------------------------------------------------------------- scheduled reports: e-mailed by themselves (daily / weekly / monthly, at the chosen hour)
+  const reportData = db => {
+    const teamOf = un => (db.users.find(x => x.username === un) || {}).team || '';
+    return { ev: db.evaluations.map(e => ({ ...e, tm: teamOf(e.agent) || e.tid })), qf: db.qflags || [], tasks: db.tasks || [], surveys: db.surveys || [], complaints: db.complaints || [], users: db.users, teams: db.teams, pass: tm => { const v = (db.settings.teams || {})[tm]; return v == null || v === '' ? (+db.settings.pass || 85) : +v; } };
+  };
+  async function sendReport(db, r) {
+    const res = RPT.run(r.cfg || {}, reportData(db)), to = String((r.schedule || {}).to || '').split(/[,;\s]+/).filter(x => /@/.test(x));
+    if (!to.length) return 0;
+    const html = RPT.toHtml(res, r.name) + `<p style="font-family:sans-serif;font-size:12px;color:#888">Sent by Q-smart · <a href="${BASE}">open the app</a></p>`;
+    for (const t of to) await mail(t, 'Q-smart report: ' + r.name, `${r.name}\n${res.periodName} · ${res.n} records\nOpen ${BASE} to see the full report.`, 'report', { name: r.name, link: BASE }, html);
+    return to.length;
+  }
+  app.post('/api/c/reports/:id/send', need(...EDIT), async (req, res) => {
+    const db = load(), r = coll(db, 'reports').find(x => x.id === req.params.id); if (!r) return res.status(404).json({ error: 'not found' });
+    const n = await sendReport(db, r); if (!n) return bad(res, 'Add at least one e-mail address in "Send to"');
+    r.lastSent = iso(); save(db); res.json({ sent: n });
+  });
+  async function scheduler() {
+    try {
+      const db = load(), now = new Date(), today = now.toISOString().slice(0, 10); let changed = false;
+      for (const r of coll(db, 'reports')) {
+        const s = r.schedule || {}; if (!s.freq || s.freq === 'none' || now.getHours() < (+s.hour || 8) || String(r.lastSent || '').slice(0, 10) === today) continue;
+        if (s.freq === 'weekly' && now.getDay() !== (+s.weekday || 1)) continue;
+        if (s.freq === 'monthly' && now.getDate() !== (+s.day || 1)) continue;
+        if (await sendReport(db, r)) { r.lastSent = iso(); changed = true; }
+      }
+      if (changed) save(db);
+    } catch (e) { console.log('Scheduled reports problem:', e.message); }
+  }
+  setInterval(scheduler, 10 * 60 * 1000); setTimeout(scheduler, 20000);
+
+  // ---------------------------------------------------------------- backups & data (admins)
+  const BK = path.join(DIR, 'backups'), stamp = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/(\d{8})(\d{4})/, '$1-$2');
+  const okName = f => /^[\w.-]+\.json$/.test(f);
+  const backupNow = label => { fs.mkdirSync(BK, { recursive: true }); const f = `data-${stamp()}${label ? '-' + label : ''}.json`; fs.copyFileSync(FILE, path.join(BK, f)); return f; };
+  app.get('/api/backups', need('admin'), (req, res) => { fs.mkdirSync(BK, { recursive: true }); res.json(fs.readdirSync(BK).filter(okName).map(f => { const s = fs.statSync(path.join(BK, f)); return { f, size: s.size, at: s.mtime }; }).sort((a, b) => b.at - a.at)); });
+  app.post('/api/backups', need('admin'), (req, res) => res.json({ f: backupNow(str((req.body || {}).label, 20).replace(/[^\w-]/g, '')) }));
+  app.get('/api/backups/current/download', need('admin'), (req, res) => res.download(FILE, `q-smart-data-${stamp()}.json`));
+  app.get('/api/backups/:f', need('admin'), (req, res) => { const f = req.params.f; if (!okName(f) || !fs.existsSync(path.join(BK, f))) return res.status(404).json({ error: 'not found' }); res.download(path.join(BK, f)); });
+  app.delete('/api/backups/:f', need('admin'), (req, res) => { const f = req.params.f; if (okName(f)) fs.rmSync(path.join(BK, f), { force: true }); res.json({ ok: 1 }); });
+  const validData = d => d && Array.isArray(d.users) && Array.isArray(d.evaluations) && d.users.some(u => u.role === 'admin');
+  app.post('/api/backups/:f/restore', need('admin'), (req, res) => {
+    const f = req.params.f, p = path.join(BK, f); if (!okName(f) || !fs.existsSync(p)) return res.status(404).json({ error: 'not found' });
+    let d; try { d = JSON.parse(fs.readFileSync(p, 'utf8')); } catch (e) { return bad(res, 'That backup file is damaged'); }
+    if (!validData(d)) return bad(res, 'That file is not a Q-smart backup with an admin user');
+    const safety = backupNow('before-restore'); fs.copyFileSync(p, FILE); res.json({ ok: 1, safety });
+  });
+  app.post('/api/backups/upload/restore', need('admin'), (req, res) => {
+    const d = (req.body || {}).data; if (!validData(d)) return bad(res, 'That file is not a Q-smart backup with an admin user');
+    const safety = backupNow('before-restore'); fs.writeFileSync(FILE, JSON.stringify(d, null, 2)); res.json({ ok: 1, safety });
+  });
+  // the data saved inside seed.js becomes today's data (what "node seed.js" brings back)
+  app.post('/api/seed/refresh', need('admin'), (req, res) => {
+    const p = path.join(DIR, 'seed.js'); let s; try { s = fs.readFileSync(p, 'utf8'); } catch (e) { return bad(res, 'seed.js was not found'); }
+    const a = s.indexOf('const DATA = '), b = s.indexOf(';\n\nfunction restore'), b2 = s.indexOf(';\r\n\r\nfunction restore'), end = b >= 0 ? b : b2;
+    if (a < 0 || end < 0) return bad(res, 'seed.js does not have the expected layout');
+    fs.writeFileSync(p, s.slice(0, a) + 'const DATA = ' + JSON.stringify(load()) + s.slice(end)); res.json({ ok: 1, at: iso() });
+  });
+};

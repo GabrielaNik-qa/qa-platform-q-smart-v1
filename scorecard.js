@@ -49,7 +49,7 @@ function build(sc, ans) {
       const a = ['y', 'n', 'na'].includes(x[0]) ? x[0] : 'y';
       if (a !== 'na') { m += i.p; if (a === 'y') e += i.p; }
       if (a === 'n') { anyNo = true; if (i.k) critFail = true; }
-      return { t: i.t, p: i.p, k: !!i.k, a, cm: String(x[1] || '').slice(0, 300), rc: a === 'n' ? String(x[2] || '').slice(0, 60) : '' };   // rc = root cause (only kept for "No" answers)
+      return { t: i.t, p: i.p, k: !!i.k, cp: !!i.cp, a, cm: String(x[1] || '').slice(0, 300), rc: a === 'n' ? String(x[2] || '').slice(0, 60) : '' };   // rc = root cause (only kept for "No" answers)
     });
     if (critFail) e = 0;                       // critical item answered No -> category = 0 pts
     if (c.k && anyNo) zeroAll = true;          // critical category failed -> whole review = 0%
