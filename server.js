@@ -21,6 +21,7 @@ function save(db) {                                       // write a copy first,
   catch (e) { fs.writeFileSync(FILE, s); try { fs.unlinkSync(tmp); } catch (x) { /* nothing left to clean */ } }   // e.g. OneDrive briefly locks the file
 }
 function load() {
+  if (!fs.existsSync(FILE)) require('./seed').restore();      // a new folder starts with the data saved in seed.js
   const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : { users: [], evaluations: [] };
   let dirty = false;
   if (!Array.isArray(db.scorecards) || !db.scorecards.length) db.scorecards = [DEFAULT_SC];

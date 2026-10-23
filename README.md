@@ -7,7 +7,7 @@ one JSON file (`data.json`) as the database.
 ## Run it
 ```
 npm install express express-session bcryptjs nodemailer exceljs jszip mammoth
-node seed.js          # demo reviews, knowledge base, tasks ... and the test users
+node seed.js          # puts back all the saved data (users, reviews, knowledge base, tasks ...)
 node server.js        # http://localhost:3000   (set $env:PORT="3100" to use another port)
 ```
 Windows PowerShell: use `npm.cmd` instead of `npm` if scripts are blocked.
@@ -65,10 +65,10 @@ and rules are in `docs/i18n-glossary.md`. Open the app with `?i18n=debug` to out
 ## Team rules
 - Everyone belongs to a team and every team has a leader. Admins, QA, team leads and trainers are always in the **Administration** team; agents are in **B2B** or **B2C** (you can add or remove teams in Admin > Teams).
 - `node adduser.js` follows this: staff go to Administration automatically, an agent needs `--team=t-b2b` or `--team=t-b2c`.
-- After copying new files: restart the server, run `node seed.js` once for demo data, and press Ctrl+F5 in the browser.
+- After copying new files: restart the server, run `node seed.js` if you want the saved data back, and press Ctrl+F5 in the browser.
 
 ## Before you upload to GitHub
-The file `.gitignore` is already included. It tells Git to skip `data.json`, `audit.json`, `recordings/`, `node_modules/` and `.env`, so none of your data or settings leave your laptop. Anyone who downloads the project runs `npm install` and `node seed.js` to get a fresh copy with demo data.
+The file `.gitignore` is already included. It tells Git to skip `data.json`, `audit.json`, `recordings/`, `node_modules/` and `.env`, so none of your data or settings leave your laptop. Anyone who downloads the project runs `npm install` and `node seed.js` to get the saved data.
 
-## Reset demo data
-Admin > the gear (System Settings) > "Reset demo data" brings the made-up data back to its starting state. Your own users, teams, scorecards and reviews stay.
+## Reset data
+Admin > the gear (System Settings) > "Reset data" puts all data back to the copy saved in seed.js. The data from before is kept in data.backup.json.
