@@ -1,100 +1,132 @@
 // ===================== Widgets and dashboard views =====================
-// Every card on Home and AutoQA is a widget: drag it, resize it, rename it, give it its own team / period filter, remove it, add more.
+// Every card on Home and AutoQA is a widget. There is no special "edit mode":
+//   • hover a widget: ⠿ drag it, ⚙ settings (title, review type, team, period, width), ✕ remove (with Undo)
+//   • "+ Add widget" opens the gallery; "Display" opens a panel with the whole list (show/hide, order, width, view name, sharing)
+//   • every change is saved at once.
 // Views: "Standard" (your own version > the default of your role set by an admin > built in), plus named views:
-//   personal views (only you) and shared views (made by admins / QA, shown to the roles they choose, or to everyone).
+//   personal views (only you) and shared views (made by admins / QA, shown to chosen roles or to everyone).
 const WSZ = [12, 15, 20, 30, 40, 60], WLAB = { 12: '1/5', 15: '1/4', 20: '1/3', 30: '1/2', 40: '2/3', 60: 'Full width' }, LEG = { 3: 15, 4: 20, 6: 30, 12: 60 };
 const WREG = { dash: {}, autoqa: {} }, DEFL = { dash: {}, autoqa: {} };
-let WE = null, WPREV = '', WSET = null, WADD = false;     // WE = the view being edited, WPREV = role an admin previews, WSET = settings of one widget, WADD = widget gallery
-const wdef = (page, id, title, w, r, desc = '') => { WREG[page][id] = { title, w, r, desc }; };
+let WE = null, WPREV = '', WSET = null, WADD = null, WDISP = null, WUNDO = null;   // WSET = widget being set up, WADD / WDISP = page whose gallery / panel is open
+const wdef = (page, id, title, w, r, desc = '', grp = 'More') => { WREG[page][id] = { title, w, r, desc, grp }; };
 const wl = (...a) => a.map(([id, size, on = true]) => ({ k: id, id, size, on }));
 const wNorm = x => ({ ...x, k: x.k || x.id, size: x.k ? (WSZ.includes(x.size) ? x.size : 30) : (LEG[x.size] || (WSZ.includes(x.size) ? x.size : 30)) });   // old layouts (no k) used a 12-column grid
 const canShare = () => ['admin', 'qa'].includes(ME.role);
 const ROLESEL = [['all', 'Everyone'], ...Object.entries(ROLE)];
+const PERN = { week: 'Week', month: 'Month', year: 'Year', all: 'All time' };
 
 // ---- which widgets a view shows
 function stdLayout(page, role) {
   const reg = WREG[page], mine = (ME.layouts || {})[page], rl = ((SET.layouts || {})[page] || {})[role];
   return ((!WPREV && mine) ? mine : (rl || DEFL[page][role] || DEFL[page].all)).map(wNorm).filter(x => reg[x.id]);
 }
-const builtin = (page, role) => (DEFL[page][role] || DEFL[page].all).map(wNorm);
+const builtin = (page, role) => (DEFL[page][role] || DEFL[page].all).map(wNorm).filter(x => x.on !== false);
 const sharedViews = page => ((SET.views || {})[page] || []);
 const myViews = page => ((ME.views || {})[page] || []);
-// the views this person can pick: Standard, shared views for their role (admins and QA see every shared view), their own views
 const viewsFor = page => { const r = WPREV || ME.role; return [{ id: 'std', name: 'Standard', kind: 'std' }, ...sharedViews(page).filter(v => canShare() && !WPREV || v.roles.includes('all') || v.roles.includes(r)).map(v => ({ ...v, kind: 'shared' })), ...(WPREV ? [] : myViews(page).map(v => ({ ...v, kind: 'mine' })))]; };
 const curView = page => { const l = viewsFor(page), id = LS.get('qa_view_' + page, ''); return l.find(v => v.id === id) || l.find(v => v.kind === 'shared' && !canShare()) || l[0]; };
 const itemsOf = (page, v) => v.kind === 'std' ? stdLayout(page, WPREV || ME.role) : (v.items || []).map(wNorm).filter(x => WREG[page][x.id]);
+const canEditView = page => { const v = curView(page); return !WPREV && (v.kind !== 'shared' || canShare()); };
 const setView = (page, id) => { LS.set('qa_view_' + page, id); render(); };
 
-// ---- editing
-function wStart(page, fresh) {
-  const v = fresh ? { id: '', name: 'New view', kind: 'mine', items: [] } : curView(page);
-  WE = { page, vid: v.id, kind: v.kind, name: v.name, roles: [...(v.roles || [])], items: JSON.parse(JSON.stringify(fresh ? builtin(page, ME.role) : itemsOf(page, v))).filter(x => x.on !== false), save: WPREV && ME.role === 'admin' ? WPREV : 'me' };
-  render();
+// ---- saving: every change goes straight into the view you are looking at (you can undo the last one)
+async function wCommit(page, items, msg, patch = {}) {
+  const v = curView(page), before = { page, vid: v.id, items: itemsOf(page, v), name: v.name, roles: v.roles };
+  items = items.map(x => ({ ...x, on: x.on !== false }));
+  let req;
+  if (v.kind === 'std') { ME = { ...ME, layouts: { ...(ME.layouts || {}), [page]: items } }; req = api('/api/layout', { page, items }, 'PUT').then(async r => { if (r.ok) ME = await r.json(); return r; }); }
+  else if (v.kind === 'mine') { const views = myViews(page).map(x => x.id === v.id ? { ...x, ...patch, items } : x); ME = { ...ME, views: { ...(ME.views || {}), [page]: views } }; req = api('/api/views', { page, views }, 'PUT').then(async r => { if (r.ok) ME = await r.json(); return r; }); }
+  else { const views = sharedViews(page).map(x => x.id === v.id ? { ...x, ...patch, items } : x); SET = { ...SET, views: { ...(SET.views || {}), [page]: views } }; req = api('/api/shared-views', { page, views }, 'PUT').then(async r => { if (r.ok) SET = await r.json(); return r; }); }
+  WUNDO = { ...before, msg }; render(); undoBar(msg);
+  const r = await req; if (!r.ok) toast(await errOf(r, 'Could not save the change'), true);
 }
-const wCancel = () => { WE = null; WSET = null; WADD = false; render(); };
-const wIdx = k => WE.items.findIndex(x => x.k === k);
-function wMove(k, d) { const i = wIdx(k), j = i + d; if (j < 0 || j >= WE.items.length) return; [WE.items[i], WE.items[j]] = [WE.items[j], WE.items[i]]; render(); }
-const wSizeSet = (k, v) => { WE.items[wIdx(k)].size = +v; render(); };
-const wDel = k => { WE.items.splice(wIdx(k), 1); render(); };
-const wAdd = id => { const r = WREG[WE.page][id]; WE.items.push({ k: id + '-' + Math.random().toString(36).slice(2, 6), id, size: r.w, on: true }); WADD = false; render(); toast(r.title + ' added at the end'); };
-const wDrag = (ev, k) => ev.dataTransfer.setData('text/plain', k);
-function wDrop(ev, k) { ev.preventDefault(); const from = ev.dataTransfer.getData('text/plain'); if (!from || from === k) return render(); const x = WE.items.splice(wIdx(from), 1)[0]; WE.items.splice(wIdx(k), 0, x); render(); }
-function wReset() { WE.items = builtin(WE.page, WE.save === 'me' ? ME.role : WE.save).filter(x => x.on !== false); render(); toast('Built-in layout restored. Press Save to keep it.'); }
-const wRole = r => { const a = WE.roles; if (r === 'all') WE.roles = a.includes('all') ? [] : ['all']; else { WE.roles = a.filter(x => x !== 'all'); WE.roles = a.includes(r) ? WE.roles.filter(x => x !== r) : [...WE.roles, r]; } render(); };
-async function wSave() {
-  const e = WE, items = e.items.map(x => ({ ...x, on: true }));
-  if (e.kind === 'std') {
-    const r = e.save === 'me' ? await api('/api/layout', { page: e.page, items }, 'PUT') : await api('/api/layouts/' + e.save, { page: e.page, items }, 'PUT');
-    if (!r.ok) return toast(await errOf(r, 'Could not save the view'), true);
-    const j = await r.json(); if (e.save === 'me') ME = j; else SET = { ...SET, layouts: j.layouts };
-    WE = null; render(); return toast(e.save === 'me' ? 'Your Standard view is saved' : 'Standard view of ' + ROLE[e.save] + ' saved');
-  }
-  if (!e.name.trim()) return toast('Give the view a name', true);
-  const id = e.vid || 'v' + Date.now().toString(36), v = { id, name: e.name.trim(), items }, shared = canShare() && e.roles.length;
-  let mine = myViews(e.page).filter(x => x.id !== id), sh = sharedViews(e.page).filter(x => x.id !== id);
-  if (shared) sh = [...sh, { ...v, roles: e.roles, by: ME.name }]; else mine = [...mine, v];
-  const r1 = await api('/api/views', { page: e.page, views: mine }, 'PUT'); if (!r1.ok) return toast(await errOf(r1, 'Could not save the view'), true); ME = await r1.json();
-  if (canShare() && (shared || e.kind === 'shared')) { const r2 = await api('/api/shared-views', { page: e.page, views: sh }, 'PUT'); if (!r2.ok) return toast(await errOf(r2, 'Could not share the view'), true); SET = await r2.json(); }
-  LS.set('qa_view_' + e.page, id); WE = null; render(); toast(shared ? `View "${v.name}" saved and shared with ${e.roles.includes('all') ? 'everyone' : e.roles.map(r => ROLE[r]).join(', ')}` : `View "${v.name}" saved`);
-}
-const wDelView = () => ask('Delete this view?', `"${WE.name}" is removed${WE.kind === 'shared' ? ' for everybody it was shared with' : ''}. The Standard view stays.`, async () => {
-  const e = WE; if (e.kind === 'shared') { const r = await api('/api/shared-views', { page: e.page, views: sharedViews(e.page).filter(x => x.id !== e.vid) }, 'PUT'); if (r.ok) SET = await r.json(); }
-  else { const r = await api('/api/views', { page: e.page, views: myViews(e.page).filter(x => x.id !== e.vid) }, 'PUT'); if (r.ok) ME = await r.json(); }
-  WE = null; LS.set('qa_view_' + e.page, 'std'); render(); toast('View deleted');
-}, { yes: 'Yes, delete', no: 'Cancel', danger: true });
-async function wClearMine(page) { const r = await api('/api/layout', { page, reset: true, items: [] }, 'PUT'); if (r.ok) { ME = await r.json(); render(); toast('Back to the default view of your role'); } }
+function undoBar(msg) { if (!msg) return; let b = $('#wundo'); if (!b) { b = document.createElement('div'); b.id = 'wundo'; document.body.appendChild(b); } b.className = 'wundo'; b.innerHTML = `<span>${esc(msg)}</span><button onclick="wUndo()">Undo</button>`; clearTimeout(undoBar.t); undoBar.t = setTimeout(() => b.remove(), 6000); }
+async function wUndo() { const u = WUNDO; if (!u) return; WUNDO = null; const b = $('#wundo'); if (b) b.remove(); LS.set('qa_view_' + u.page, u.vid); await wCommit(u.page, u.items, '', u.vid === 'std' ? {} : { name: u.name, ...(u.roles ? { roles: u.roles } : {}) }); WUNDO = null; const b2 = $('#wundo'); if (b2) b2.remove(); toast('Change undone'); }
+const wGet = page => JSON.parse(JSON.stringify(itemsOf(page, curView(page))));
+const wIdxIn = (l, k) => l.findIndex(x => x.k === k);
+function wMove(page, k, d) { const l = wGet(page), i = wIdxIn(l, k), j = i + d; if (i < 0 || j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; wCommit(page, l, 'Widget moved'); }
+function wSizeSet(page, k, v) { const l = wGet(page); l[wIdxIn(l, k)].size = +v; wCommit(page, l, 'Width changed'); }
+function wShow(page, k, on) { const l = wGet(page); l[wIdxIn(l, k)].on = on; wCommit(page, l, on ? 'Widget shown' : 'Widget hidden'); }
+function wDel(page, k) { const l = wGet(page), x = l[wIdxIn(l, k)]; wCommit(page, l.filter(z => z.k !== k), `"${(x && x.title) || WREG[page][x.id].title}" removed`); }
+function wAdd(page, id) { const r = WREG[page][id], l = wGet(page); l.unshift({ k: id + '-' + Math.random().toString(36).slice(2, 6), id, size: r.w, on: true }); WADD = null; wCommit(page, l, r.title + ' added at the top'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+// drag and drop: grab the ⠿ handle of a card (or a row in the Display panel) and drop it on another one
+let WDRAG = null;
+const wGrip = (page, k) => `onmousedown="this.closest('[data-wk]').draggable=true" onmouseup="this.closest('[data-wk]').draggable=false"`;
+function wDragStart(ev, page, k) { WDRAG = { page, k }; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', k); }
+function wDropOn(ev, page, k) { ev.preventDefault(); ev.currentTarget.classList.remove('over'); const d = WDRAG; WDRAG = null; if (!d || d.page !== page || d.k === k) return; const l = wGet(page), x = l.splice(wIdxIn(l, d.k), 1)[0]; l.splice(wIdxIn(l, k), 0, x); wCommit(page, l, 'Widget moved'); }
+const wDnD = (page, k) => `data-wk="${k}" ondragstart="wDragStart(event,'${page}','${k}')" ondragend="this.draggable=false" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="wDropOn(event,'${page}','${k}')"`;
 
-// ---- the bar above the widgets: view tabs (normal) or the editing tools
-function wBar(page) {
-  const adm = ME.role === 'admin';
-  if (WE && WE.page === page) {
-    const std = WE.kind === 'std';
-    return `<div class=wbar><div class=wbr><b>${std ? 'Customizing the Standard view' : 'View name'}</b>${std ? '' : `<input class=wvn value="${esc(WE.name)}" oninput="WE.name=this.value" placeholder="View name">`}<button class="ib ibx" onclick="WADD=true;render()">${IC.plus} Add widget</button>`
-      + (std && adm ? `<label style="display:flex;gap:6px;align-items:center;font-size:13px">Save for<select onchange="WE.save=this.value"><option value=me ${WE.save === 'me' ? 'selected' : ''}>Only me</option>${Object.entries(ROLE).map(([k, v]) => `<option value=${k} ${WE.save === k ? 'selected' : ''}>Everyone who is ${v}</option>`).join('')}</select></label>` : '')
-      + `<span style="margin-left:auto;display:flex;gap:8px">${std ? `<button class=ib onclick="wReset()">Reset</button>` : WE.vid ? `<button class=ib style="color:var(--bad)" onclick="wDelView()">${IC.bin} Delete view</button>` : ''}<button class=ib onclick="wCancel()">Cancel</button><button class=btn onclick="wSave()">Save view</button></span></div>`
-      + (!std && canShare() ? `<div class=wbr><small>Show this view to</small>${ROLESEL.map(([k, n]) => `<button class="tkcp ${WE.roles.includes(k) ? 'on' : ''}" onclick="wRole('${k}')">${n}</button>`).join('')}<small class=mu>${WE.roles.length ? '' : 'Nobody else — a personal view'}</small></div>` : '')
-      + `<small class=mu>Drag a widget to move it. Use its toolbar to change the size, open ⚙ to rename it or give it its own team and period, ✕ to remove it.</small></div>`;
-  }
-  const l = viewsFor(page), cv = curView(page);
-  return `<div class=wvbar><div class=wvt>${l.map(v => `<button class="${v.id === cv.id ? 'on' : ''}" onclick="setView('${page}','${v.id}')" title="${v.kind === 'shared' ? 'Shared with ' + esc(v.roles.map(r => r === 'all' ? 'everyone' : ROLE[r]).join(', ')) + (v.by ? ' · by ' + esc(v.by) : '') : v.kind === 'mine' ? 'Only you see this view' : 'The standard view of your role'}">${v.kind === 'shared' ? TIC.team : ''}${esc(v.name)}</button>`).join('')}<button class=wvn2 onclick="wStart('${page}',1)" title="Make a new view">${IC.plus} New view</button></div>`
-    + `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${WPREV ? `<span class="pill wn">Previewing as ${ROLE[WPREV]}</span>` : ''}${adm ? `<select title="See the page as another role" onchange="WPREV=this.value==='me'?'':this.value;render()"><option value=me>View as: me</option>${Object.entries(ROLE).map(([k, v]) => `<option value=${k} ${WPREV === k ? 'selected' : ''}>View as: ${v}</option>`).join('')}</select>` : ''}${cv.kind === 'std' && (ME.layouts || {})[page] && !WPREV ? `<button class=ib onclick="wClearMine('${page}')">Reset</button>` : ''}${cv.kind !== 'shared' || canShare() ? `<button class="ib ibx" onclick="wStart('${page}')">${IC.pen} Customize</button>` : ''}</div></div>`;
+// ---- views: new, copy, rename, share, delete, admin default
+function wNewView(page, from) {
+  openForm({ title: 'New view', w: 520, yes: 'Create view', d: { name: '', from: from || 'current', roles: [] },
+    fields: [{ k: 'name', l: 'Name', req: 1, ph: 'e.g. Team leads, My agents, Chats' }, { k: 'from', l: 'Start from', t: 'select', o: [['current', 'A copy of the view I am looking at'], ['builtin', 'The standard widgets'], ['empty', 'An empty page (add your own widgets)']] }, ...(canShare() ? [{ k: 'roles', l: 'Also show it to (leave empty for a personal view)', t: 'multi', o: ROLESEL }] : [])],
+    save: async d => {
+      if (!d.name.trim()) return 'Give the view a name';
+      const id = 'v' + Date.now().toString(36), items = d.from === 'empty' ? [] : d.from === 'builtin' ? builtin(page, ME.role) : wGet(page), v = { id, name: d.name.trim(), items };
+      if (canShare() && (d.roles || []).length) { const r = await api('/api/shared-views', { page, views: [...sharedViews(page), { ...v, roles: d.roles, by: ME.name }] }, 'PUT'); if (!r.ok) return errOf(r, 'Could not create the view'); SET = await r.json(); }
+      else { const r = await api('/api/views', { page, views: [...myViews(page), v] }, 'PUT'); if (!r.ok) return errOf(r, 'Could not create the view'); ME = await r.json(); }
+      LS.set('qa_view_' + page, id); WDISP = page; toast(`View "${v.name}" created`);
+    } });
 }
-const wTb = (x, page) => `<div class=wtb><span class=wgrip title="Drag to move">⠿</span><button onclick="wMove('${x.k}',-1)" title="Move earlier">←</button><button onclick="wMove('${x.k}',1)" title="Move later">→</button><select onchange="wSizeSet('${x.k}',this.value)" title="Width">${WSZ.map(s => `<option value=${s} ${x.size === s ? 'selected' : ''}>${WLAB[s]}</option>`).join('')}</select>${page === 'dash' ? `<button onclick="WSET='${x.k}';render()" title="Title and filters">⚙</button>` : ''}<button onclick="wDel('${x.k}')" title="Remove">✕</button></div>`;
+async function wViewPatch(page, patch, msg) { const v = curView(page); if (v.kind === 'std') return; await wCommit(page, wGet(page), msg, patch); }
+async function wShare(page, r) {
+  const v = curView(page); let roles = [...(v.roles || [])];
+  if (r === 'all') roles = roles.includes('all') ? [] : ['all']; else { roles = roles.filter(x => x !== 'all'); roles = roles.includes(r) ? roles.filter(x => x !== r) : [...roles, r]; }
+  const items = wGet(page);
+  if (v.kind === 'mine' && roles.length) {            // a personal view becomes shared
+    const r1 = await api('/api/shared-views', { page, views: [...sharedViews(page), { id: v.id, name: v.name, items, roles, by: ME.name }] }, 'PUT'); if (!r1.ok) return toast(await errOf(r1, 'Could not share'), true); SET = await r1.json();
+    const r2 = await api('/api/views', { page, views: myViews(page).filter(x => x.id !== v.id) }, 'PUT'); if (r2.ok) ME = await r2.json(); render(); return toast('Shared');
+  }
+  if (v.kind === 'shared' && !roles.length) {         // nobody else: it becomes your personal view again
+    const r1 = await api('/api/views', { page, views: [...myViews(page), { id: v.id, name: v.name, items }] }, 'PUT'); if (!r1.ok) return toast(await errOf(r1, 'Could not save'), true); ME = await r1.json();
+    const r2 = await api('/api/shared-views', { page, views: sharedViews(page).filter(x => x.id !== v.id) }, 'PUT'); if (r2.ok) SET = await r2.json(); render(); return toast('Now a personal view');
+  }
+  wViewPatch(page, { roles }, 'Sharing changed');
+}
+const wDelView = page => { const v = curView(page); ask('Delete this view?', `"${v.name}" is removed${v.kind === 'shared' ? ' for everybody it was shared with' : ''}. The Standard view stays.`, async () => {
+  if (v.kind === 'shared') { const r = await api('/api/shared-views', { page, views: sharedViews(page).filter(x => x.id !== v.id) }, 'PUT'); if (r.ok) SET = await r.json(); }
+  else { const r = await api('/api/views', { page, views: myViews(page).filter(x => x.id !== v.id) }, 'PUT'); if (r.ok) ME = await r.json(); }
+  LS.set('qa_view_' + page, 'std'); WDISP = null; render(); toast('View deleted');
+}, { yes: 'Yes, delete', no: 'Cancel', danger: true }); };
+async function wRoleDefault(page, role) { if (!role) return; const r = await api('/api/layouts/' + role, { page, items: wGet(page) }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true); const j = await r.json(); SET = { ...SET, layouts: j.layouts }; toast(`This layout is now the Standard view of every ${ROLE[role]}`); }
+async function wResetStd(page) { const r = await api('/api/layout', { page, reset: true, items: [] }, 'PUT'); if (r.ok) { ME = await r.json(); render(); toast('Standard view reset to the default of your role'); } }
+
+// ---- the bar above the widgets
+function wBar(page) {
+  const l = viewsFor(page), cv = curView(page), ed = canEditView(page), adm = ME.role === 'admin';
+  return `<div class=wvbar><div class=wvt>${l.map(v => `<button class="${v.id === cv.id ? 'on' : ''}" onclick="setView('${page}','${v.id}')" title="${v.kind === 'shared' ? 'Shared with ' + esc(v.roles.map(r => r === 'all' ? 'everyone' : ROLE[r]).join(', ')) + (v.by ? ' · by ' + esc(v.by) : '') : v.kind === 'mine' ? 'Only you see this view' : 'The standard view of your role'}">${v.kind === 'shared' ? TIC.team : ''}${esc(v.name)}</button>`).join('')}<button class=wvn2 onclick="wNewView('${page}')" title="Make a new view">${IC.plus} New view</button></div>`
+    + `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${WPREV ? `<span class="pill wn">Previewing as ${ROLE[WPREV]}</span>` : ''}${adm ? `<select title="See the page as another role" onchange="WPREV=this.value==='me'?'':this.value;render()"><option value=me>View as: me</option>${Object.entries(ROLE).map(([k, v]) => `<option value=${k} ${WPREV === k ? 'selected' : ''}>View as: ${v}</option>`).join('')}</select>` : ''}`
+    + (ed ? `<button class="ib ibx" onclick="WADD='${page}';render()">${IC.plus} Add widget</button><button class="ib ibx" onclick="WDISP='${page}';render()">${TIC.list || IC.list} Display</button>` : cv.kind === 'shared' ? `<button class="ib ibx" onclick="wNewView('${page}')" title="Make your own copy you can change">${IC.plus} Make my own copy</button>` : '') + `</div></div>`;
+}
+const wTb = (x, page) => `<div class=wtb2><span class=wgrip title="Drag to move" ${wGrip(page, x.k)}>⠿</span><button onclick="WSET={page:'${page}',k:'${x.k}'};render()" title="Settings: title, filters, width">⚙</button><button onclick="wDel('${page}','${x.k}')" title="Remove this widget">✕</button></div>`;
 const wFilt = x => x.f && (x.f.t || x.f.p || x.f.c) ? `<span class=wfc title="This widget has its own filter">${[x.f.c ? CHP[x.f.c] : '', x.f.t ? tn(x.f.t) : '', x.f.p ? PERN[x.f.p] : ''].filter(Boolean).join(' · ')}</span>` : '';
 function wGrid(page, ctxOf) {
-  const ed = WE && WE.page === page, items = ed ? WE.items : itemsOf(page, curView(page)), reg = WREG[page];
-  if (!items.length) return `<div class=agem>This view has no widgets yet. ${ed ? '' : `<a href="javascript:void(0)" class=agl onclick="wStart('${page}')">Customize</a> it to add some.`}</div>`;
-  return `<div class=wgrid>${items.filter(x => x.on !== false).map(x => `<div class="wg w${x.size} ${ed ? 'edit' : ''}" ${ed ? `draggable=true ondragstart="wDrag(event,'${x.k}')" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="wDrop(event,'${x.k}')"` : ''}>${ed ? wTb(x, page) : ''}${wFilt(x)}${reg[x.id].r(typeof ctxOf === 'function' ? ctxOf(x) : ctxOf, x.size, x)}</div>`).join('')}</div>`;
+  const items = itemsOf(page, curView(page)).filter(x => x.on !== false), reg = WREG[page], ed = canEditView(page);
+  if (!items.length) return `<div class="agem wempty"><b>This view has no widgets yet.</b>${ed ? `<br><button class=btn style="margin-top:12px" onclick="WADD='${page}';render()">${IC.plus} Add a widget</button>` : ''}</div>`;
+  return `<div class=wgrid>${items.map(x => `<div class="wg w${x.size} ${ed ? 'ed' : ''}" ${ed ? wDnD(page, x.k) : ''}>${ed ? wTb(x, page) : ''}${wFilt(x)}${reg[x.id].r(typeof ctxOf === 'function' ? ctxOf(x) : ctxOf, x.size, x)}</div>`).join('')}</div>`;
 }
-// widget gallery and widget settings pop-ups
-const WADDM = () => { const reg = WREG[WE.page]; return OVL(`<div class=mh><div><h2>Add a widget</h2><small>Pick a card for this view. You can add the same widget more than once with different filters.</small></div>${X('WADD=false;render()')}</div><div class=mb><div class=wgal>${Object.entries(reg).map(([id, r]) => `<button class=wgi onclick="wAdd('${id}')"><b>${esc(r.title)}</b><small>${esc(r.desc || '')}</small><span class=tkch>${WLAB[r.w]}</span>${WE.items.some(x => x.id === id) ? '<span class="tkch" style="--c:var(--ok)">on this view</span>' : ''}</button>`).join('')}</div></div>`, 'WADD=false;render()', 820, 60); };
-const PERN = { week: 'Week', month: 'Month', year: 'Year', all: 'All time' };
-const WSETM = () => { const x = WE.items[wIdx(WSET)]; if (!x) { WSET = null; return ''; } const r = WREG[WE.page][x.id], fl = x.f || {};
-  return OVL(`<div class=mh><div><h2>Widget settings</h2><small>${esc(r.title)}</small></div>${X('WSET=null;render()')}</div><div class=mb><div class=form style="max-width:none"><label>Title<input value="${esc(x.title || '')}" placeholder="${esc(r.title)}" oninput="WE.items[wIdx('${x.k}')].title=this.value"></label>
-<label>Review type<select onchange="wF('${x.k}','c',this.value)"><option value="">Same as the page filter</option>${CHS.map(k => `<option value=${k} ${fl.c === k ? 'selected' : ''}>${CHP[k]}</option>`).join('')}</select></label>
-<div class=eg2><label>Team<select onchange="wF('${x.k}','t',this.value)"><option value="">Same as the page filter</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${t.id}" ${fl.t === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label><label>Period<select onchange="wF('${x.k}','p',this.value)"><option value="">Same as the page filter</option>${Object.entries(PERN).map(([k, n]) => `<option value=${k} ${fl.p === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
-<label>Width<select onchange="WE.items[wIdx('${x.k}')].size=+this.value">${WSZ.map(s => `<option value=${s} ${x.size === s ? 'selected' : ''}>${WLAB[s]}</option>`).join('')}</select></label></div><div style="display:flex;justify-content:flex-end"><button class=btn onclick="WSET=null;render()">Done</button></div></div>`, 'WSET=null;render()', 520, 60); };
-const wF = (k, key, v) => { const x = WE.items[wIdx(k)]; x.f = { ...(x.f || {}), [key]: v }; };
+
+// ---- gallery, widget settings, Display panel
+const WADDM = () => { const page = WADD, reg = WREG[page], on = wGet(page), grps = [...new Set(Object.values(reg).map(r => r.grp))];
+  return OVL(`<div class=mh><div><h2>Add a widget</h2><small>Click a card to put it at the top of this view. You can add the same widget twice with different filters.</small></div>${X('WADD=null;render()')}</div><div class=mb>${grps.map(gn => `<div class=cap style="margin-top:4px">${esc(gn.toUpperCase())}</div><div class=wgal>${Object.entries(reg).filter(([, r]) => r.grp === gn).map(([id, r]) => `<button class=wgi onclick="wAdd('${page}','${id}')"><b>${esc(r.title)}</b><small>${esc(r.desc || '')}</small><span style="display:flex;gap:6px;flex-wrap:wrap"><span class=tkch>${WLAB[r.w]}</span>${on.some(x => x.id === id) ? '<span class="tkch" style="--c:var(--ok)">✓ on this view</span>' : ''}</span></button>`).join('')}</div>`).join('')}</div>`, 'WADD=null;render()', 860, 60); };
+const WSETM = () => { const { page, k } = WSET, l = wGet(page), x = l[wIdxIn(l, k)]; if (!x) { WSET = null; return ''; } const r = WREG[page][x.id], fl = x.f || {}, dash = page === 'dash';
+  return OVL(`<div class=mh><div><h2>Widget settings</h2><small>${esc(r.title)}</small></div>${X('WSET=null;render()')}</div><div class=mb><div class=form style="max-width:none">
+<label>Title<input id=wst value="${esc(x.title || '')}" placeholder="${esc(r.title)}"></label>
+${dash ? `<label>Review type<select id=wsc><option value="">Same as the page filter</option>${CHS.map(c => `<option value=${c} ${fl.c === c ? 'selected' : ''}>${CHP[c]}</option>`).join('')}</select></label>
+<div class=eg2><label>Team<select id=wstm><option value="">Same as the page filter</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${t.id}" ${fl.t === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label><label>Period<select id=wsp><option value="">Same as the page filter</option>${Object.entries(PERN).map(([p, n]) => `<option value=${p} ${fl.p === p ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>` : ''}
+<label>Width<select id=wsw>${WSZ.map(s => `<option value=${s} ${x.size === s ? 'selected' : ''}>${WLAB[s]}</option>`).join('')}</select></label></div>
+<div style="display:flex;justify-content:flex-end;gap:8px"><button class=ib onclick="WSET=null;render()">Cancel</button><button class=btn onclick="wSetSave()">Save</button></div></div>`, 'WSET=null;render()', 520, 60); };
+function wSetSave() { const { page, k } = WSET, l = wGet(page), x = l[wIdxIn(l, k)], v = id => ($('#' + id) || {}).value || ''; x.title = v('wst').trim() || undefined; x.size = +v('wsw') || x.size; if (page === 'dash') x.f = { c: v('wsc'), t: v('wstm'), p: v('wsp') }; WSET = null; wCommit(page, l, 'Widget settings saved'); }
+const WDISPM = () => { const page = WDISP, v = curView(page), l = wGet(page), reg = WREG[page], adm = ME.role === 'admin';
+  return `<div class=wdov onclick="if(event.target==this){WDISP=null;render()}"><aside class=wdp><div class=mh><div><h2>Display</h2><small>${esc(v.name)} view · changes are saved at once</small></div>${X('WDISP=null;render()')}</div><div class=mb>`
+    + (v.kind === 'std' ? `<p class=mu style="margin:0">This is your <b>Standard</b> view. Make a <a href="javascript:void(0)" class=agl onclick="WDISP=null;wNewView('${page}')">new view</a> to keep several layouts.</p>`
+      : `<label>View name<input value="${esc(v.name)}" onchange="wViewPatch('${page}',{name:this.value.trim()||'My view'},'View renamed')"></label>`)
+    + (v.kind !== 'std' && canShare() ? `<div><b style="font-size:12px">Who sees this view</b><div class=tkchips style="margin-top:6px">${ROLESEL.map(([r, n]) => `<button class="tkcp ${(v.roles || []).includes(r) ? 'on' : ''}" onclick="wShare('${page}','${r}')">${n}</button>`).join('')}</div><small class=mu>${(v.roles || []).length ? '' : 'Only you — a personal view'}</small></div>` : '')
+    + `<div class=row><b>Widgets (${l.length})</b><button class="ib ibx" onclick="WADD='${page}';render()">${IC.plus} Add widget</button></div><small class=mu>Drag the rows to change the order. Untick to hide a widget without deleting it.</small>`
+    + `<div class=wdl>${l.map(x => `<div class=wdr ${wDnD(page, x.k)}><span class=wgrip ${wGrip(page, x.k)} title="Drag">⠿</span><input type=checkbox ${x.on !== false ? 'checked' : ''} onchange="wShow('${page}','${x.k}',this.checked)" title="Show / hide"><span class=wdn>${esc(x.title || reg[x.id].title)}${wFilt(x).replace('wfc', 'wfc in')}</span><select onchange="wSizeSet('${page}','${x.k}',this.value)" title="Width">${WSZ.map(s => `<option value=${s} ${x.size === s ? 'selected' : ''}>${WLAB[s]}</option>`).join('')}</select><button class=ic onclick="WSET={page:'${page}',k:'${x.k}'};render()" title="Settings">⚙</button><button class=ic onclick="wDel('${page}','${x.k}')" title="Remove">✕</button></div>`).join('') || '<p class=mu>No widgets yet.</p>'}</div>`
+    + `<div class=wdfoot>${v.kind === 'std' ? ((ME.layouts || {})[page] ? `<button class=ib onclick="wResetStd('${page}')">Reset to my role's default</button>` : '') : `<button class=ib onclick="WDISP=null;wNewView('${page}')">Duplicate</button><button class=ib style="color:var(--bad)" onclick="wDelView('${page}')">${IC.bin} Delete view</button>`}${adm ? `<select onchange="wRoleDefault('${page}',this.value);this.value=''"><option value="">Use as Standard view for…</option>${Object.entries(ROLE).map(([r, n]) => `<option value=${r}>Everyone who is ${n}</option>`).join('')}</select>` : ''}</div></div></aside></div>`;
+};
+const wF = () => {};   // (kept for old links)
 
 // ---------------------------------------------------------------- Home dashboard widgets
 const kp = (t, v, s, c, b, act) => `<div class="card clk kpc" onclick="${act}"><small>${t}</small><div class=big style="color:${c}">${v}</div>${b == null ? '' : bar(b, c)}<small>${s}</small></div>`;
@@ -156,3 +188,7 @@ PG.dash = function () {
       + wBar('dash') + wGrid('dash', ctxOf);
   } finally { THR = null; }
 };
+
+// the groups of the widget gallery
+const WGRP = { kpi_total: 'Numbers', kpi_avg: 'Numbers', kpi_pass: 'Numbers', kpi_fail: 'Numbers', kpi_trend: 'Numbers', kpi_flags: 'Numbers', kpi_disputes: 'Numbers', channels: 'Charts', distribution: 'Charts', teams: 'Charts', strong: 'Categories', needs: 'Categories', top: 'People', low: 'People', last5: 'Lists', attention: 'Lists', qflags: 'Lists', targets: 'Lists', tasks: 'Work', todo: 'Work', coach_new: 'Work' };
+Object.entries(WGRP).forEach(([id, g]) => { if (WREG.dash[id]) WREG.dash[id].grp = g; });

@@ -237,3 +237,28 @@ label:not(.rad):not([style*="display:flex"])>small{display:block;margin-top:4px}
 @media(min-width:801px) and (max-height:760px){
   .brand{padding-bottom:6px}.gh{padding:5px 10px}.gh i{width:30px;height:30px}.sub a{padding:5px 10px;font-size:14px}
 }
+
+/* ===== narrow screens ===== */
+@media(max-width:1100px){.sbt{display:none}}                       /* the sidebar stays compact, so its arrow button is not needed */
+#narrow{display:none}
+@media(max-width:760px){
+  body:not(.auth) #narrow{display:flex;position:fixed;inset:0;z-index:200;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:32px;text-align:center;background:var(--sb);color:#e8eef9}
+  body:not(.auth) #narrow h2{margin:6px 0 0;font-size:22px;color:#fff}body:not(.auth) #narrow p{margin:0;max-width:360px;line-height:1.55;color:#c9d4e5}
+  body:not(.auth) #narrow .nrot{color:#3ecfa6;margin-top:10px;animation:nrot 2.4s ease-in-out infinite}
+  body:not(.auth) .sb,body:not(.auth) #m,body:not(.auth) .sbt{display:none!important}
+}
+@keyframes nrot{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+/* ===== widgets without an edit mode: hover toolbar, Display panel, undo ===== */
+.wg.ed{position:relative}.wg.ed.over{outline:2px dashed var(--ac);outline-offset:3px;border-radius:14px}
+.wtb2{position:absolute;top:8px;right:8px;z-index:3;display:flex;gap:2px;padding:2px;border-radius:9px;background:var(--pn);border:1px solid var(--bd);box-shadow:0 2px 8px #0002;opacity:0;transition:opacity .12s}
+.wg.ed:hover .wtb2,.wg.ed:focus-within .wtb2{opacity:1}
+.wtb2 button,.wtb2 .wgrip{background:none;border:0;color:var(--mu);cursor:pointer;padding:3px 8px;border-radius:7px;font:inherit;font-size:13px}.wtb2 button:hover{background:var(--bg);color:var(--tx)}.wtb2 .wgrip{cursor:grab}
+.wg.ed:hover .wfc{right:110px}
+.wempty{border:2px dashed var(--bd);border-radius:14px}
+.wdov{position:fixed;inset:0;z-index:70;background:#0004}
+.wdp{position:absolute;top:0;right:0;bottom:0;width:min(440px,100%);background:var(--pn);border-left:1px solid var(--bd);display:flex;flex-direction:column;box-shadow:-8px 0 30px #0003}.wdp .mb{overflow:auto;display:grid;gap:12px;align-content:start}
+.wdl{display:grid;gap:6px}.wdr{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg)}.wdr.over{border-color:var(--ac)}
+.wdr .wgrip{cursor:grab;color:var(--mu)}.wdn{flex:1;min-width:0;font-size:13px;font-weight:600;display:flex;gap:6px;align-items:center;flex-wrap:wrap}.wdr select{padding:3px 4px;font-size:12px}
+.wfc.in{position:static;font-weight:500}
+.wdfoot{display:flex;gap:8px;flex-wrap:wrap;border-top:1px solid var(--bd);padding-top:12px}
+.wundo{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:120;display:flex;gap:14px;align-items:center;padding:10px 12px 10px 18px;border-radius:12px;background:#0f1b2d;color:#fff;box-shadow:0 8px 24px #0005;font-size:14px}.wundo button{border:0;background:#ffffff1c;color:#7dd3fc;font:inherit;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer}

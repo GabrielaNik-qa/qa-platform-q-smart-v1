@@ -39,7 +39,9 @@ let ENT = null, ENT0 = '', EDITID = '', SE = null;
 let SKL = { skills: [], languages: [], counts: { skills: {}, languages: {} } }, WSP = [], RCS = [], CATLIB = [], ACAT = [], AQC = [], AQI = { ai: false };
 let AUD = [], TASKS = [], TPLS = [], SESS = [], CALS = [], KB = { folders: [], articles: [], reads: {}, newsletters: [], attempts: [] }, QZ = [], QATT = [], PROG = [], AIS = { enabled: false };
 // misc preferences
-let TI = 0, COL = LS.get('qa_col', false), SND = LS.get('qa_sound', 'on') === 'on', SNDS = LS.get('qa_snd_style', 'beep'), VOL = LS.get('qa_vol', 50);
+// COLP = the sidebar setting you chose; COL = what is shown (on screens 1100px wide or less the sidebar is always compact)
+let COLP = LS.get('qa_col', false), COL = COLP || innerWidth <= 1100;
+let TI = 0, SND = LS.get('qa_sound', 'on') === 'on', SNDS = LS.get('qa_snd_style', 'beep'), VOL = LS.get('qa_vol', 50);
 let THM = LS.get('qa_theme', 'system');
 let CH = [['c', "Hi, I'm interested, but honestly your price is too high."]];
 const RP = ["I need to think about it.", "Your competitor is cheaper.", "Okay, what happens next?"];
