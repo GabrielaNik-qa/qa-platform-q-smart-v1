@@ -203,3 +203,12 @@ label:not(.rad):not([style*="display:flex"])>small{display:block;margin-top:4px}
 .trk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}.trk div{padding:10px;border-radius:10px;background:var(--bg)}.trk small{display:block}.trk b{font-size:20px;font-weight:600}
 .trc{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:13px;border-bottom:1px dashed color-mix(in srgb,var(--bd) 70%,transparent)}
 .trp{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:10px}
+
+/* ===== review types (call / chat / email / other) ===== */
+.cht{display:inline-flex;gap:4px;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;color:var(--c);background:color-mix(in srgb,var(--c) 14%,transparent);white-space:nowrap}.cht svg{stroke:currentColor}
+.chchips{display:flex;gap:8px;flex-wrap:wrap}
+.chchip{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:99px;padding:7px 14px;font:inherit;font-size:13px;cursor:pointer}.chchip svg{stroke:var(--c)}.chchip:hover{border-color:var(--c)}
+.chchip.on{background:var(--c);border-color:var(--c);color:#fff}.chchip.on svg{stroke:#fff}.chchip b{font-weight:600}.chchip .chav{color:inherit;opacity:.85}
+.chseg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.chseg button{display:inline-flex;gap:8px;align-items:center;justify-content:center;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit;font-weight:600;cursor:pointer}.chseg button svg{width:16px;height:16px;stroke:var(--c)}
+.chseg button.on{border-color:var(--c);color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent)}
+.txbox{white-space:pre-wrap;max-height:340px;overflow:auto;padding:12px 14px;border-radius:10px;background:var(--bg);font-size:13px;line-height:1.55}

@@ -45,6 +45,11 @@ function load() {
   return db;
 }
 const link = v => /^https?:\/\//i.test(String(v || '')) ? String(v).slice(0, 300) : '';
+// a review is about one kind of conversation; old reviews without a type are calls
+const CHANNELS = ['call', 'chat', 'email', 'other'], CHN = { call: 'call', chat: 'chat', email: 'email', other: 'conversation' };
+const chOf = v => CHANNELS.includes(v) ? v : 'call';
+// the extra fields of chats, emails and other conversations (a call keeps its recording link and file)
+const chFields = (b, ch) => ch === 'call' ? { cl: '', tx: '', subj: '', chn: '' } : { cl: link(b.cl), tx: str(b.tx, 20000), subj: ch === 'email' ? str(b.subj, 200) : '', chn: ch === 'other' ? str(b.chn, 40) : '' };
 const bad = (res, msg) => res.status(400).json({ error: msg });
 const str = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
 const list = (v, n = 20, m = 40) => (Array.isArray(v) ? v : String(v || '').split(',')).map(x => str(x, m)).filter(Boolean).slice(0, n);
@@ -406,15 +411,16 @@ app.post('/api/evaluations', need('admin', 'qa'), (req, res) => {
   if (!au) return bad(res, 'Choose an agent');
   const id = leadId(b.id);
   if (!id || id.length > 60) return bad(res, 'Enter the lead ID (up to 60 characters)');
-  if (!DAY.test(b.dt || '')) return bad(res, 'Choose the call date');
+  if (!DAY.test(b.dt || '')) return bad(res, 'Choose the date');
+  const ch = chOf(b.ch);
   let r; try { r = build(sc, b.a); } catch (err) { return bad(res, 'The answers do not match the scorecard'); }
   const ev = {
     rid: 'r' + hex(6), id, agent: au.username, agn: au.name, tid: au.team, d: evDate(b.dt), sc: r.sc, cs: r.cs, scid: sc.id, scn: sc.name, st: 'ok',
     fl: FLAGS.includes(b.fl) ? b.fl : '', cp: str(b.cp, 80), cm: str(b.cm, 1000),
-    lk: link(b.lk), rl: link(b.rl), rv: req.session.user.name, by: req.session.user.username, seen: null
+    lk: link(b.lk), rl: ch === 'call' ? link(b.rl) : '', ch, ...chFields(b, ch), rv: req.session.user.name, by: req.session.user.username, seen: null
   };
   db.evaluations.unshift(ev);
-  notify(db, au.username, 'review', `You received a new call review for Lead #${id} (score ${r.sc}%)`, { rid: ev.rid, lead: id });
+  notify(db, au.username, 'review', `You received a new ${CHN[ch]} review for Lead #${id} (score ${r.sc}%)`, { rid: ev.rid, lead: id });
   save(db); res.json(ev);
 });
 
@@ -436,7 +442,7 @@ app.put('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
     ev.agent = au.username; ev.agn = au.name; ev.tid = au.team;
   }
   if (b.dt !== undefined) {
-    if (!DAY.test(b.dt)) return bad(res, 'Choose the call date');
+    if (!DAY.test(b.dt)) return bad(res, 'Choose the date');
     if (lday(new Date(ev.d)) !== b.dt) ev.d = evDate(b.dt);
   }
   if (b.fl !== undefined) ev.fl = FLAGS.includes(b.fl) ? b.fl : '';
@@ -444,6 +450,7 @@ app.put('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
   if (b.cm !== undefined) ev.cm = str(b.cm, 1000);
   if (b.lk !== undefined) ev.lk = link(b.lk);
   if (b.rl !== undefined) ev.rl = link(b.rl);
+  if (b.ch !== undefined) { ev.ch = chOf(b.ch); Object.assign(ev, chFields(b, ev.ch)); if (ev.ch !== 'call') ev.rl = ''; }
   if (ev.sc !== oldSc) notify(db, ev.agent, 'review', `Your review for Lead #${ev.id} was updated (score ${ev.sc}%)`, { rid: ev.rid, lead: ev.id });
   save(db); res.json(ev);
 });
@@ -532,7 +539,8 @@ const cleanSC = b => {
     return { n, k: !!c.k, it };
   });
   if (total !== 100) throw new Error('Total points must equal 100 (currently ' + total + ')');
-  return { name, desc: str(b.desc, 200), cats };
+  const chs = (Array.isArray(b.chs) ? b.chs : []).filter(c => CHANNELS.includes(c));     // the kinds of conversation this scorecard is used for
+  return { name, desc: str(b.desc, 200), chs: chs.length ? [...new Set(chs)] : ['call'], cats };
 };
 app.get('/api/scorecards', need(), (req, res) => { const db = load(), s = scopeOf(db, req.session.user); res.json(db.scorecards.filter(c => !s || s.sc.has(c.id))); });
 app.post('/api/scorecards', need('admin'), (req, res) => {

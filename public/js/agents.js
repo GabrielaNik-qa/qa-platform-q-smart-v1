@@ -1,6 +1,6 @@
 // ===================== Agents: one place for everything about an agent (reviews, categories, flags, disputes, one-to-ones, coaching, tasks, simulations) =====================
 // The page only READS what the other sections already store, so every number here matches Call Reviews, Quick Flags, Disputes, One-to-One, Coaching, Tasks and the Call Simulator.
-let AG = { q: '', t: '', agent: '', p: 'month', f: ds(-30), to: ds(0), sc: '', tab: 'perf', sk: 'd', sd: -1, pn: 1, ps: 10 };
+let AG = { q: '', t: '', agent: '', p: 'month', f: ds(-30), to: ds(0), sc: '', ch: '', tab: 'perf', sk: 'd', sd: -1, pn: 1, ps: 10 };
 let SIMS = [];
 
 const AIC = {
@@ -49,12 +49,12 @@ function agData(u) {
   const rc = agRange(AG.p), rp = agRange(AG.p, 1), mine = EV.filter(e => e.agent === u.username), inCur = mine.filter(e => agIn(e, rc)), inPrev = mine.filter(e => agIn(e, rp));
   const scs = {}; inCur.forEach(e => { const k = e.scid || ''; (scs[k] = scs[k] || { id: k, n: e.scn || 'Scorecard', l: [] }).l.push(e); });
   if (AG.sc && !scs[AG.sc]) AG.sc = '';
-  const ok = e => !AG.sc || (e.scid || '') === AG.sc, cur = inCur.filter(ok), prev = inPrev.filter(ok);
+  const ok = e => (!AG.sc || (e.scid || '') === AG.sc) && (!AG.ch || chOf(e) === AG.ch), cur = inCur.filter(ok), prev = inPrev.filter(ok);
   const team = EV.filter(e => e.tm === u.team && agIn(e, rc) && ok(e)), teamPrev = EV.filter(e => e.tm === u.team && agIn(e, rp) && ok(e));
   const flags = cur.filter(e => e.fl), disp = cur.filter(e => e.dp);
   const ses = SESS.filter(s => s.agents.includes(u.username)), inR = s => { const d = new Date(s.date + 'T12:00:00'); return d >= rc[0] && d < rc[1]; };
   const sims = SIMS.filter(s => s.agent === u.username && agIn({ d: new Date(s.date) }, rc));
-  return { rc, rp, mine, inCur, cur, prev, team, teamPrev, scs: Object.values(scs), flags, disp, o2o: ses.filter(s => s.kind === 'o2o' && inR(s)).sort((a, b) => b.date.localeCompare(a.date)), coach: ses.filter(s => s.kind !== 'o2o' && inR(s)).sort((a, b) => b.date.localeCompare(a.date)), sims, tasks: TASKS.filter(t => t.assignee === u.username && !t.archived) };
+  return { rc, rp, mine, inCur, chBase: inCur.filter(e => !AG.sc || (e.scid || '') === AG.sc), cur, prev, team, teamPrev, scs: Object.values(scs), flags, disp, o2o: ses.filter(s => s.kind === 'o2o' && inR(s)).sort((a, b) => b.date.localeCompare(a.date)), coach: ses.filter(s => s.kind !== 'o2o' && inR(s)).sort((a, b) => b.date.localeCompare(a.date)), sims, tasks: TASKS.filter(t => t.assignee === u.username && !t.archived) };
 }
 
 // ---- charts
@@ -100,10 +100,10 @@ function agTbl() {
   const a = (AG.pn - 1) * AG.ps, pg = l.slice(a, a + AG.ps), ar = k => k === AG.sk ? (AG.sd > 0 ? '▲' : '▼') : '↕';
   const th = (k, t) => `<th style="cursor:pointer" onclick="agSort('${k}')">${t} <span style="opacity:${k === AG.sk ? 1 : .4}">${ar(k)}</span></th>`;
   THR = PT(u.team);
-  const out = `<div class=sc><table class=ct><tr>${th('id', 'LEAD ID')}${th('cp', 'CAMPAIGN')}${th('d', 'DATE')}${th('sc', 'SCORE')}<th>FLAG</th><th>STATUS</th><th style="text-align:right">ACTIONS</th></tr>`
-    + pg.map(e => `<tr><td><a href="javascript:void(0)" class=mono style="color:var(--ac);font-weight:600;text-decoration:none" onclick="om('view','${e.rid}')">${esc(e.id)}</a></td><td>${esc(cpn(e).slice(11) || 'general')}</td><td>${f(e.d)}</td><td><b class=mono style="color:${scol(e.sc, e.tm)}">${Math.round(e.sc)}%</b></td><td>${e.fl ? `<span class="fgv ${e.fl}" title="${e.fl} flag">${IC.flag}</span>` : '<span class=mu>—</span>'}</td><td>${e.st === 'disputed' ? pill('Disputed', 'wn') : pill('Completed', 'ok')}</td><td style="text-align:right;white-space:nowrap">${e.rec || /^https?:\/\//.test(e.rl || '') ? `<button class=ic onclick="ply('${e.rid}')" title="Play recording">${IC.play}</button>` : ''}<button class=ic onclick="om('view','${e.rid}')" title="View">${IC.eye}</button></td></tr>`).join('')
-    + (pg.length ? '' : `<tr><td colspan=7 class=mu style="padding:22px;text-align:center">No calls match</td></tr>`) + `</table></div>`
-    + `<div class=agpg><small>${n ? `Showing ${a + 1} to ${Math.min(a + AG.ps, n)} of ${n} calls` : 'No calls'}</small><div style="display:flex;gap:6px"><button class=pb ${AG.pn <= 1 ? 'disabled' : ''} onclick="agPage(${AG.pn - 1})">Previous</button><button class=pb ${AG.pn >= pc ? 'disabled' : ''} onclick="agPage(${AG.pn + 1})">Next</button></div></div>`;
+  const out = `<div class=sc><table class=ct><tr>${th('id', 'LEAD ID')}<th>TYPE</th>${th('cp', 'CAMPAIGN')}${th('d', 'DATE')}${th('sc', 'SCORE')}<th>FLAG</th><th>STATUS</th><th style="text-align:right">ACTIONS</th></tr>`
+    + pg.map(e => `<tr><td><a href="javascript:void(0)" class=mono style="color:var(--ac);font-weight:600;text-decoration:none" onclick="om('view','${e.rid}')">${esc(e.id)}</a></td><td>${chTag(chOf(e))}</td><td>${esc(cpn(e).slice(11) || 'general')}</td><td>${f(e.d)}</td><td><b class=mono style="color:${scol(e.sc, e.tm)}">${Math.round(e.sc)}%</b></td><td>${e.fl ? `<span class="fgv ${e.fl}" title="${e.fl} flag">${IC.flag}</span>` : '<span class=mu>—</span>'}</td><td>${e.st === 'disputed' ? pill('Disputed', 'wn') : pill('Completed', 'ok')}</td><td style="text-align:right;white-space:nowrap">${e.rec || /^https?:\/\//.test(e.rl || '') ? `<button class=ic onclick="ply('${e.rid}')" title="Play recording">${IC.play}</button>` : ''}<button class=ic onclick="om('view','${e.rid}')" title="View">${IC.eye}</button></td></tr>`).join('')
+    + (pg.length ? '' : `<tr><td colspan=8 class=mu style="padding:22px;text-align:center">No reviews match</td></tr>`) + `</table></div>`
+    + `<div class=agpg><small>${n ? `Showing ${a + 1} to ${Math.min(a + AG.ps, n)} of ${n} reviews` : 'No reviews'}</small><div style="display:flex;gap:6px"><button class=pb ${AG.pn <= 1 ? 'disabled' : ''} onclick="agPage(${AG.pn - 1})">Previous</button><button class=pb ${AG.pn >= pc ? 'disabled' : ''} onclick="agPage(${AG.pn + 1})">Next</button></div></div>`;
   THR = null; return out;
 }
 const agRt = () => { const t = $('#agtb'); if (t) t.innerHTML = agTbl(); };
@@ -128,8 +128,8 @@ function agPerf(u, d) {
   return `<div class=agg2><div><h3>Category Performance — Agent vs Team</h3>${radar}</div><div><h3>Category Breakdown</h3>${brk}</div></div><div style="margin-top:22px"><h3>Agent vs Team Average Comparison</h3>${cmp}</div>`;
 }
 function agCallsTab(u, d) {
-  THR = PT(u.team); const ch = d.cur.length ? agChart(d.cur, d.rc, PT(u.team)) : `<div class="agem">No calls in ${esc(agLabel())}</div>`; THR = null;
-  return `<h3>Score Evolution — ${agTitle()}</h3>${ch}<div class=agtool><div class="sx agsearch" style="width:300px"><span>${IC.search}</span><input placeholder="Search lead ID or campaign…" value="${esc(AG.q)}" oninput="agQ(this)"></div><a href="javascript:void(0)" class=agl onclick="goCalls({agent:'${esc(u.username)}'})">Open in Call Reviews ›</a></div><div id=agtb>${agTbl()}</div>`;
+  THR = PT(u.team); const ch = d.cur.length ? agChart(d.cur, d.rc, PT(u.team)) : `<div class="agem">No reviews in ${esc(agLabel())}</div>`; THR = null;
+  return `<h3>Score Evolution — ${agTitle()}</h3>${ch}<div class=agtool><div class="sx agsearch" style="width:300px"><span>${IC.search}</span><input placeholder="Search lead ID or campaign…" value="${esc(AG.q)}" oninput="agQ(this)"></div><a href="javascript:void(0)" class=agl onclick="goCalls({agent:'${esc(u.username)}',ch:AG.ch})">Open in Reviews ›</a></div><div id=agtb>${agTbl()}</div>`;
 }
 function agFlagsTab(u, d) {
   const r = d.flags.filter(e => e.fl === 'red').length, g = d.flags.length - r;
@@ -171,15 +171,15 @@ PG.agents = function () {
       + (isAg ? '' : `<label>Team<select onchange="agSet('t',this.value)"><option value="">All Teams</option>${TEAMS.filter(t => !t.system && opts.some(a => a.team === t.id)).map(t => `<option value="${t.id}" ${t.id === AG.t ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label><label>Agent<select onchange="agSet('agent',this.value)">${inTeam.map(a => `<option value="${esc(a.username)}" ${a.username === AG.agent ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>`)
       + `<label>Period<div class="sg agsg">${per.map(([k, nm]) => `<button class="${AG.p === k ? 'on' : ''}" onclick="agSet('p','${k}')">${nm}</button>`).join('')}<button class="${AG.p === 'custom' ? 'on' : ''}" onclick="agSet('p','custom')" title="Choose dates">${AIC.cal}</button></div></label></div>`
       + (AG.p === 'custom' ? `<div class=agcust><label>From <input type=date value="${AG.f}" onchange="AG.f=this.value;render()"></label><label>To <input type=date value="${AG.to}" onchange="AG.to=this.value;render()"></label></div>` : '')
-      + (d.scs.length ? `<div class=agscw><div class=cap style="margin:14px 0 8px">SCORECARD FILTER <span style="letter-spacing:0;text-transform:none">(${d.scs.length} scorecard${d.scs.length === 1 ? '' : 's'})</span></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="agch ${AG.sc ? '' : 'on'}" onclick="agSet('sc','')">All <b>(${d.inCur.length})</b></button>${d.scs.map(s => { const v = avg(s.l.map(e => e.sc)); return `<button class="agch ${AG.sc === s.id ? 'on' : ''}" onclick="agSet('sc','${esc(s.id)}')" title="${esc(s.n)}">${AIC.card}<span class=agcn>${esc(s.n)}</span><b>(${s.l.length})</b><b style="color:${scol(v, u.team)}">${Math.round(v)}%</b></button>`; }).join('')}</div></div>` : ''));
+      + (chChips(d.chBase, AG.ch, 'agCh') ? `<div class=agscw><div class=cap style="margin:14px 0 8px">REVIEW TYPE <span style="letter-spacing:0;text-transform:none">— average of every type, or all together</span></div>${chChips(d.chBase, AG.ch, 'agCh')}</div>` : '') + (d.scs.length ? `<div class=agscw><div class=cap style="margin:14px 0 8px">SCORECARD FILTER <span style="letter-spacing:0;text-transform:none">(${d.scs.length} scorecard${d.scs.length === 1 ? '' : 's'})</span></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="agch ${AG.sc ? '' : 'on'}" onclick="agSet('sc','')">All <b>(${d.inCur.length})</b></button>${d.scs.map(s => { const v = avg(s.l.map(e => e.sc)); return `<button class="agch ${AG.sc === s.id ? 'on' : ''}" onclick="agSet('sc','${esc(s.id)}')" title="${esc(s.n)}">${AIC.card}<span class=agcn>${esc(s.n)}</span><b>(${s.l.length})</b><b style="color:${scol(v, u.team)}">${Math.round(v)}%</b></button>`; }).join('')}</div></div>` : ''));
     const sel = AG.sc ? (d.scs.find(s => s.id === AG.sc) || {}).n : '';
     const head2 = card('', `<div class=row style="flex-wrap:wrap;gap:14px"><div style="display:flex;gap:16px;align-items:center"><span class=av style="width:52px;height:52px;font-size:18px;margin:0">${esc(ini(u.name))}</span><div><b style="font-size:22px">${esc(u.name)}</b><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">${teamLink(u.team)}<small>${n} review${n === 1 ? '' : 's'} • ${esc(agLabel())}</small>${sel ? `<span class=agsct>${AIC.card} ${esc(sel)}</span>` : ''}</div></div></div>${agWave}</div>`);
     const kp = `<div class=agkp>${kpi('Avg Score', n ? Math.round(a) + '%' : '—', n ? scol(a, u.team) : '', agLabel(), n && pa != null ? agDelta(a - pa, ' pts', pl) : '')}`
       + `${kpi('Team Avg', ta != null ? Math.round(ta) + '%' : '—', '', esc(team ? team.name : '—'), diff == null ? '' : `<small class="agd ${Math.abs(diff) < .05 ? '' : diff > 0 ? 'up' : 'dn'}">${Math.abs(diff) < .05 ? '= on par with team' : (diff > 0 ? '↑ ' : '↓ ') + Math.abs(diff).toFixed(1) + ' pts ' + (diff > 0 ? 'above' : 'below') + ' team'}</small>`)}`
       + `${kpi('Pass Rate', n ? Math.round(pc) + '%' : '—', n ? scol(pc, u.team) : '', `${passed} passed / ${n - passed} failed`, n && pp != null ? agDelta(pc - pp, '%', pl) : '')}`
-      + `${kpi('Total Calls', n, '', `${n} scored`, n && d.prev.length ? agDelta((n - d.prev.length) / d.prev.length * 100, '%', pl) : '')}`
+      + `${kpi(AG.ch ? 'Total ' + CHP[AG.ch] : 'Total Reviews', n, '', `${n} scored`, n && d.prev.length ? agDelta((n - d.prev.length) / d.prev.length * 100, '%', pl) : '')}`
       + `${kpi('Red Flags', red, 'var(--bad)', '', '', `<span style="color:var(--bad)">${IC.flag}</span>`)}${kpi('Green Flags', green, 'var(--ok)', '', '', `<span style="color:var(--ok)">${IC.flag}</span>`)}</div>`;
-    const tabs = [['perf', 'Performance', AIC.perf, null], ['calls', 'Calls & Trends', AIC.calls, n], ['flags', 'Flags', AIC.flag, d.flags.length], ['o2o', 'One-to-One', AIC.o2o, d.o2o.length], ['sim', 'Simulations', AIC.sim, d.sims.length]];
+    const tabs = [['perf', 'Performance', AIC.perf, null], ['calls', 'Reviews & Trends', AIC.calls, n], ['flags', 'Flags', AIC.flag, d.flags.length], ['o2o', 'One-to-One', AIC.o2o, d.o2o.length], ['sim', 'Simulations', AIC.sim, d.sims.length]];
     if (!tabs.some(t => t[0] === AG.tab)) AG.tab = 'perf';
     const body = { perf: agPerf, calls: agCallsTab, flags: agFlagsTab, o2o: agO2oTab, sim: agSimTab }[AG.tab](u, d);
     return hd + filt + head2 + kp + `<section class="card agtabs"><div class=agtb>${tabs.map(([k, nm, ic, c]) => `<button class="${AG.tab === k ? 'on' : ''}" onclick="AG.tab='${k}';render()">${ic} ${nm}${c == null ? '' : ` <span class=bg>${c}</span>`}</button>`).join('')}</div><div class=agbody>${body}</div></section>`;
@@ -201,9 +201,11 @@ function agReport() {
       + `<h2>Strengths</h2><ul>${strong.map(li).join('') || '<li>No data</li>'}</ul><h2>Focus areas</h2><ul>${weak.map(li).join('') || '<li>All categories are above the pass rate</li>'}</ul>`
       + `<h2>Categories: agent vs team</h2><table><tr><th>Category</th><th>Agent</th><th>Team</th></tr>${rows.map(r => `<tr><td>${esc(r.c)}</td><td>${Math.round(r.a)}%</td><td>${r.t == null ? '—' : Math.round(r.t) + '%'}</td></tr>`).join('')}</table>`
       + `<h2>Coaching, one-to-ones and simulations</h2><p>${d.o2o.length} one-to-one, ${d.coach.length} coaching/training, ${d.sims.length} simulator sessions, ${d.disp.length} disputes in this period.</p>`
-      + `<h2>Recent calls</h2><table><tr><th>Lead</th><th>Date</th><th>Score</th></tr>${[...d.cur].sort((x, y) => y.d - x.d).slice(0, 12).map(e => `<tr><td>${esc(e.id)}</td><td>${f(e.d)}</td><td>${e.sc}%</td></tr>`).join('')}</table>`
+      + `<h2>Recent reviews</h2><table><tr><th>Lead</th><th>Date</th><th>Score</th></tr>${[...d.cur].sort((x, y) => y.d - x.d).slice(0, 12).map(e => `<tr><td>${esc(e.id)}</td><td>${f(e.d)}</td><td>${e.sc}%</td></tr>`).join('')}</table>`
       + `<p><small>Summary built from the platform data. The written AI commentary will be added once the AI key is connected.</small></p>`;
     const w = window.open('', '_blank'); if (!w) return toast('Please allow pop-ups to create the PDF', true);
     w.document.write(h); w.document.close(); setTimeout(() => w.print(), 400);
   } finally { THR = null; }
 }
+
+const agCh = v => { AG.ch = v; AG.pn = 1; render(); };

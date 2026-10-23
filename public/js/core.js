@@ -29,6 +29,7 @@ let route = location.hash.slice(1) || 'dash';
 // dashboard filters (T = team id, '' = all teams)
 let P = 'all', T = '', DF = ds(-30), DT = ds(0);
 // call reviews filters (FT = team id, FA = agent username, '' = all)
+let FC = '';                                     // review type filter of Call Reviews ('' = all types)
 let Q = '', FT = '', FA = '', FP = 'month', F1 = ds(-30), F2 = ds(0), FS = '', FSC = null, FF = '', SK = 'd', SD = -1, PS = 10, PN = 1, KQ = false;
 // overlays: review popup, notifications, account, system settings, resolve dispute, confirm, player, generic form
 let MD = null, NO = false, NU = 0, AC = null, SYS = false, RSV = null, CFM = null, PLY = null, DRF = '', FM = null;
@@ -68,6 +69,10 @@ const IC = {
   search: svg('<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>'),
   dl: svg('<path d="M12 3v12M7 10l5 5 5-5M4 21h16"/>'),
   play: svg('<path d="M7 4l13 8-13 8z"/>'),
+  ch_call: svg('<path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L8.1 9.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.4c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z"/>', 14),
+  ch_chat: svg('<path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>', 14),
+  ch_email: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>', 14),
+  ch_other: svg('<circle cx="12" cy="12" r="9"/><path d="M8 12h.01M12 12h.01M16 12h.01"/>', 14),
   link: svg('<path d="M10 13a5 5 0 007.5.5l3-3a5 5 0 00-7-7l-1.7 1.7M14 11a5 5 0 00-7.5-.5l-3 3a5 5 0 007 7l1.7-1.7"/>'),
   bell: svg('<path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 01-3.4 0"/>', 18),
   clock: svg('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
@@ -262,3 +267,16 @@ function pwUpd() {
   const p = a.value, one = x => `<li class="${x[1] ? 'ok' : ''}">${x[1] ? '✓' : '○'} ${x[0]}</li>`;
   l.innerHTML = PWR.map(r => one([r[0], r[1](p)])).join('') + (b ? one(['Both passwords match', !!b.value && b.value === p]) : '');
 }
+
+// ---------------------------------------------------------------- review types: a review can be about a call, a chat, an email or another conversation
+// (old reviews have no type: they are calls). Every scorecard says which types it is used for (chs; old scorecards: calls).
+const CHS = ['call', 'chat', 'email', 'other'];
+const CHN = { call: 'Call', chat: 'Chat', email: 'Email', other: 'Other' }, CHP = { call: 'Calls', chat: 'Chats', email: 'Emails', other: 'Other' };
+const CHC = { call: 'var(--ac)', chat: '#8b5cf6', email: '#f59e0b', other: '#14b8a6' };
+const chOf = e => (e && e.ch) || 'call';
+const scChs = s => (s && s.chs && s.chs.length) ? s.chs : ['call'];
+const chTag = (ch, short) => `<span class=cht style="--c:${CHC[ch]}" title="${CHN[ch]}">${IC['ch_' + ch]}${short ? '' : ' ' + CHN[ch]}</span>`;
+// "All types / Calls / Chats / Emails / Other" buttons with how many reviews and their average; only types that have reviews are shown
+const chChips = (list, cur, fn) => { const c = k => list.filter(e => !k || chOf(e) === k); const used = CHS.filter(k => c(k).length);
+  return used.length < 2 && !cur ? '' : `<div class=chchips>${['', ...used].map(k => { const l = c(k), a = avg(l.map(e => e.sc)); return `<button class="chchip ${cur === k ? 'on' : ''}" style="--c:${k ? CHC[k] : 'var(--ac)'}" onclick="${fn}('${k}')">${k ? IC['ch_' + k] : ''}${k ? CHP[k] : 'All types'} <b>(${l.length})</b>${l.length ? `<b class=chav>${a.toFixed(0)}%</b>` : ''}</button>`; }).join('')}</div>`; };
+const chSel = (cur, on) => `<select onchange="${on}"><option value="">All types</option>${CHS.map(k => `<option value=${k} ${cur === k ? 'selected' : ''}>${CHP[k]}</option>`).join('')}</select>`;
