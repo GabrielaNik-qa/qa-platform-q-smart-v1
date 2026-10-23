@@ -7,10 +7,10 @@ const en = fn => `onkeydown='if(event.key=="Enter")${fn}()'`;
 const pwf = (id, label, extra = '') => `<label>${label}<div class=pw><input id=${id} type=password ${extra}><button type=button class=eye onclick="tp('${id}')" aria-label="Show or hide password">${EYE}</button></div></label>`;
 const LG = () => {
   const m = MSG ? `<small style="color:#0f9b72">${esc(MSG)}</small>` : '';
-  const f = AUTH === 'forgot' ? `<h1>Reset your password</h1><p class=lgs style="margin-top:-6px;line-height:1.5">Enter your email address or username: we will send you a link to choose a new password.</p><label>Email address or username<input class=wh id=lu placeholder="Enter your email" ${en('forgot')}></label>${m}<div id=lge></div><button class=sbtn onclick=forgot()>Send Reset Email</button><a class=lgk href="#" onclick="AUTH='';MSG='';render();return false">← Back to login</a>`
-    : AUTH === 'reset' ? `<h1>New password</h1><p class=lgs>Choose a strong password.</p>${pwf('pn1', 'New password', 'oninput="pwUpd()"')}${pwf('pn2', 'Confirm new password', 'oninput="pwUpd()" ' + en('reset'))}${pwBox()}<div id=lge></div><button class=sbtn onclick=reset()>Save password</button>`
-    : AUTH === 'register' ? `<h1>Create account</h1><p class=lgs style="margin-top:-6px;line-height:1.5">Your registration will be reviewed by an administrator. You will get an email when it is approved.</p><label>Full name<input id=rn></label><label>Email address<input id=re type=email></label><label>Username<input id=ru placeholder="e.g. j.smith" autocomplete=username></label>${pwf('pn1', 'Password', 'oninput="pwUpd()"')}${pwf('pn2', 'Confirm password', 'oninput="pwUpd()" ' + en('register'))}${pwBox()}<div id=rge></div><button class=sbtn onclick=register()>Request access</button><a class=lgk href="#" onclick="AUTH='';MSG='';render();return false">← Back to login</a>`
-    : `<h1 style="margin-bottom:8px">Sign in</h1><label>Username or email<input id=lu autocomplete=username value="${esc(LU)}" oninput="LU=this.value" ${en('login')}></label>${pwf('lp', 'Password', en('login'))}${m}<div id=lge></div><button class=sbtn onclick=login()>Sign In</button><a class=lgk href="#" onclick="AUTH='forgot';MSG='';render();return false">Forgot your password?</a><button class=rgb onclick="AUTH='register';MSG='';render()">Register</button>`;
+  const f = AUTH === 'forgot' ? `<h1>Reset your password</h1><p class=lgs style="margin-top:-6px;line-height:1.5">Enter your email address or username: we will send you a link to choose a new password.</p><label>Email address or username<input class=wh id=lu placeholder="Enter your email" ${en('forgot')}></label>${m}<div id=lge role=alert></div><button class=sbtn onclick=forgot()>Send Reset Email</button><a class=lgk href="#" onclick="AUTH='';MSG='';render();return false">← Back to login</a>`
+    : AUTH === 'reset' ? `<h1>New password</h1><p class=lgs>Choose a strong password.</p>${pwf('pn1', 'New password', 'oninput="pwUpd()"')}${pwf('pn2', 'Confirm new password', 'oninput="pwUpd()" ' + en('reset'))}${pwBox()}<div id=lge role=alert></div><button class=sbtn onclick=reset()>Save password</button>`
+    : AUTH === 'register' ? `<h1>Create account</h1><p class=lgs style="margin-top:-6px;line-height:1.5">Your registration will be reviewed by an administrator. You will get an email when it is approved.</p><label>Full name<input id=rn></label><label>Email address<input id=re type=email></label><label>Username<input id=ru placeholder="e.g. j.smith" autocomplete=username></label>${pwf('pn1', 'Password', 'oninput="pwUpd()"')}${pwf('pn2', 'Confirm password', 'oninput="pwUpd()" ' + en('register'))}${pwBox()}<div id=rge role=alert></div><button class=sbtn onclick=register()>Request access</button><a class=lgk href="#" onclick="AUTH='';MSG='';render();return false">← Back to login</a>`
+    : `<h1 style="margin-bottom:8px">Sign in</h1><label>Username or email<input id=lu autocomplete=username value="${esc(LU)}" oninput="LU=this.value" ${en('login')}></label>${pwf('lp', 'Password', en('login'))}${m}<div id=lge role=alert></div><button class=sbtn onclick=login()>Sign In</button><a class=lgk href="#" onclick="AUTH='forgot';MSG='';render();return false">Forgot your password?</a><button class=rgb onclick="AUTH='register';MSG='';render()">Register</button>`;
   return `<div class=lg><aside class=lgl><div class=lgb>${mark('mg', 34)}<b>Q-SMART</b></div><div class=lgm><div class=lgw>${WAVE}</div><div class=lgt><h2>Quality Assurance<br>Platform</h2><p>Call Center Quality Assurance</p></div></div></aside><section class=lgr><div class=lgf>${f}</div></section></div>`;
 };
 const lerr = (id, m) => { const e = $(id); if (e) e.innerHTML = `<small style="color:#dc2626">${esc(m)}</small>`; };
@@ -74,12 +74,76 @@ function render() {
   document.body.classList.toggle('auth', !ME);
   if (!ME) { $('#m').innerHTML = LG(); $('#n').innerHTML = ''; $('#br').innerHTML = ''; $('#fz').innerHTML = ''; return; }
   applySb();
+  const fk = focusKey();
   $('#m').innerHTML = (PG[route] || PG.dash)() + overlays();
   $('#br').innerHTML = `<div class=brand onclick="location.hash='dash'" title="Go to Home">${mark('mg2', 36)}<div><b>Q-SMART</b><small>QA Platform</small></div></div>`;
   $('#n').innerHTML = NAVH();
   $('#fz').innerHTML = FOOT();
   $$('.chat').forEach(c => { c.scrollTop = c.scrollHeight; });
+  a11y($('#m')); refocus(fk);
 }
+
+// ---------------------------------------------------------------- accessibility (the page area and pop-ups only - the sidebar is left as it is)
+//  - icon-only buttons get a name and a tooltip (Edit, Delete ...); fields without a label are named after their table row and column, or their first choice
+//  - clickable cards, rows and column headers can be reached with Tab and opened with Enter or Space
+//  - Esc closes the top pop-up (in a text field the first Esc only leaves the field, so typed text is not lost by accident)
+//  - after the page is redrawn the keyboard focus goes back to the same control (or into the pop-up that just opened)
+let ICN = null;
+const icName = h => {
+  if (!ICN) { const t = document.createElement('template'); ICN = new Map([[IC.pen, 'Edit'], [IC.bin, 'Delete'], [IC.eye, 'View'], [IC.x, 'Close'], [IC.dl, 'Download'], [IC.plus, 'Add'], [IC.check, 'Mark as done'], [IC.link, 'Open link'], [IC.play, 'Play recording'], [IC.flag, 'Flag'], [IC.more, 'More actions'], [IC.zip, 'Export as ZIP'], [IC.chev, 'Back'], [IC.search, 'Search'], [IC.up, 'Upload'], [IC.gear, 'Settings']].map(([s, n]) => { t.innerHTML = s; return [t.innerHTML, n]; })); }
+  return ICN.get(h.trim()) || '';
+};
+const cellName = el => {
+  const td = el.closest('td'), tr = el.closest('tr'), tb = el.closest('table'); if (!td || !tr || !tb) return '';
+  const h = tb.rows[0] && tb.rows[0].cells[td.cellIndex], first = tr.cells[0] !== td ? tr.cells[0].textContent.trim() : '';
+  return [first, h && h.tagName === 'TH' ? h.textContent.trim() : ''].filter(Boolean).join(' – ').slice(0, 80);
+};
+const hasName = el => el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') || el.title || (el.closest('label') && el.closest('label').textContent.trim()) || (el.id && document.querySelector(`label[for="${el.id}"]`));
+function a11y(root) {
+  if (!root) return;
+  root.querySelectorAll('button').forEach(b => { if (!b.textContent.trim() && !b.title && !b.getAttribute('aria-label')) { const n = icName(b.innerHTML); if (n) { b.title = n; b.setAttribute('aria-label', n); } } });
+  root.querySelectorAll('select, input:not([type=hidden]):not([placeholder]), textarea:not([placeholder])').forEach(el => {
+    if (hasName(el)) return;
+    const n = cellName(el) || (el.type === 'file' ? 'Choose a file' : el.tagName === 'SELECT' && el.options[0] ? el.options[0].text : '');
+    if (n) el.setAttribute('aria-label', n);
+  });
+  root.querySelectorAll('[onclick]:not(button):not(a):not(input):not(select):not(textarea):not(label):not(option):not([tabindex])').forEach(el => {
+    if (el.classList.contains('ov') || el.closest('button, a') || /^\s*event\.stopPropagation\(\);?\s*$/.test(el.getAttribute('onclick'))) return;
+    el.tabIndex = 0;
+    if (!/^(TH|TD|TR)$/.test(el.tagName) && !el.querySelector('button, a, input, select, textarea')) el.setAttribute('role', 'button');
+  });
+  root.querySelectorAll('.ov > .md:not([role])').forEach(d => { d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true'); const h = d.querySelector('h2'); if (h) d.setAttribute('aria-label', h.textContent.trim().slice(0, 80)); });
+}
+const FATTR = ['onclick', 'oninput', 'onchange'];
+const focusKey = () => {
+  const a = document.activeElement, m = $('#m'); if (!a || a === document.body || !m || !m.contains(a)) return null;
+  if (a.id) return { id: a.id };
+  const at = FATTR.find(x => a.getAttribute(x)); return at ? { tag: a.tagName.toLowerCase(), at, v: a.getAttribute(at) } : null;
+};
+let OPENER = null;                                    // the control that opened the pop-up: it gets the focus back when the pop-up closes
+function refocus(k) {
+  const a = document.activeElement; if (a && a !== document.body) return;
+  const find = x => x ? (x.id ? document.getElementById(x.id) : $$('#m ' + x.tag + '[' + x.at + ']').find(y => y.getAttribute(x.at) === x.v)) : null;
+  let el = find(k);
+  const md = $$('#m .ov > .md').pop();
+  if (md && !(el && md.contains(el))) { if (k && !OPENER) OPENER = k; md.tabIndex = -1; el = md; }
+  else if (!md && OPENER) { el = find(OPENER) || el; OPENER = null; }
+  if (!el || !el.focus) return;
+  el.focus({ preventScroll: true });
+  if (el.setSelectionRange && /^(text|search|email|url|tel)$/.test(el.type)) try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) {}
+}
+addEventListener('keydown', e => {
+  const t = e.target;
+  if (e.key === 'Escape') {
+    if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) { if (!t.closest('.pal')) t.blur(); return; }
+    const ov = $$('#m .ov').sort((x, y) => (parseInt(y.style.zIndex) || 0) - (parseInt(x.style.zIndex) || 0))[0];
+    if (ov) { e.preventDefault(); ov.click(); }                                     // the same as clicking next to the pop-up
+    return;
+  }
+  if ((e.key === 'Enter' || e.key === ' ') && t && t.matches && t.matches('[tabindex="0"][onclick]:not(button):not(a):not(input):not(select):not(textarea)') && !e.repeat) { e.preventDefault(); t.click(); }
+});
+// parts of a page that are redrawn on their own (search results, lists) get the same treatment
+if (window.MutationObserver) { let q = false; new MutationObserver(() => { if (q) return; q = true; requestAnimationFrame(() => { q = false; a11y($('#m')); }); }).observe(document.getElementById('m'), { childList: true, subtree: true }); }
 
 // ---------------------------------------------------------------- router: warns before leaving an unsaved form, reloads data on every tab change
 let SKIPH = false;

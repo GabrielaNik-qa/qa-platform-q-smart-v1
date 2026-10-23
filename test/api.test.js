@@ -4,7 +4,8 @@ const fs = require('fs'), os = require('os'), path = require('path'), { spawn } 
 const bcrypt = require('bcryptjs');
 const { DATA } = require('../seed');
 
-const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qsmart-test-')), FILE = path.join(DIR, 'data.json');
+// a folder whose name starts with "." on purpose: the app often runs inside .claude\worktrees\..., and downloads must work there too
+const DIR = fs.mkdtempSync(path.join(os.tmpdir(), '.qsmart-test-')), FILE = path.join(DIR, 'data.json');
 const PORT = 3300 + Math.floor(Math.random() * 600), BASE = 'http://localhost:' + PORT;
 const hash = bcrypt.hashSync('password', 4);
 const db0 = JSON.parse(JSON.stringify(DATA));
@@ -18,7 +19,7 @@ const readDb = () => JSON.parse(fs.readFileSync(FILE, 'utf8'));
 
 let srv;
 test.before(async () => {
-  srv = spawn(process.execPath, ['server.js'], { cwd: path.join(__dirname, '..'), env: { ...process.env, PORT, DATA_FILE: FILE, AUDIT_FILE: path.join(DIR, 'audit.json'), RECORDINGS_DIR: path.join(DIR, 'rec'), SMTP_HOST: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  srv = spawn(process.execPath, ['server.js'], { cwd: path.join(__dirname, '..'), env: { ...process.env, PORT, DATA_FILE: FILE, AUDIT_FILE: path.join(DIR, 'audit.json'), RECORDINGS_DIR: path.join(DIR, 'rec'), BACKUPS_DIR: path.join(DIR, 'backups'), SMTP_HOST: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
   await new Promise((ok, no) => { srv.stdout.on('data', d => /Running on/.test(d) && ok()); srv.on('exit', c => no(new Error('server exited ' + c))); setTimeout(() => no(new Error('server did not start')), 15000); });
 });
 test.after(() => { srv && srv.kill(); fs.rmSync(DIR, { recursive: true, force: true }); });
@@ -116,6 +117,78 @@ test('a saved Excel export can only be opened again by the person who made it (o
   assert.strictEqual((await adm.get('/api/exports/' + id)).status, 200);
   const qa3 = client(); await qa3.login('t.qa2');   // t.qa2 is a trainer now (previous test) - still staff, but not the owner
   assert.strictEqual((await qa3.get('/api/exports/' + id)).status, 404);
+});
+
+// a real (tiny) Word file with two "Heading 1" paragraphs
+async function wordFile() {
+  const JSZip = require('jszip'), W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main', R = 'http://schemas.openxmlformats.org/package/2006/relationships';
+  const p = (t, h) => `<w:p>${h ? '<w:pPr><w:pStyle w:val="Heading1"/></w:pPr>' : ''}<w:r><w:t>${t}</w:t></w:r></w:p>`, z = new JSZip();
+  z.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
+  z.file('_rels/.rels', `<?xml version="1.0"?><Relationships xmlns="${R}"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+  z.file('word/_rels/document.xml.rels', `<?xml version="1.0"?><Relationships xmlns="${R}"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`);
+  z.file('word/styles.xml', `<?xml version="1.0"?><w:styles xmlns:w="${W}"><w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/></w:style></w:styles>`);
+  z.file('word/document.xml', `<?xml version="1.0"?><w:document xmlns:w="${W}"><w:body>${p('Refund policy', 1)}${p('Refunds within 14 days.')}${p('Escalation steps', 1)}${p('Escalate &amp; inform the lead.')}</w:body></w:document>`);
+  return (await z.generateAsync({ type: 'nodebuffer' })).toString('base64');
+}
+
+test('importing a Word file (without the AI) splits it into articles at its headings', async () => {
+  const qa = client(); await qa.login('t.qa');
+  const r = await qa.post('/api/kb/import', { fileB64: await wordFile(), filename: 'policy.docx' });
+  assert.strictEqual(r.status, 200);
+  assert.deepStrictEqual(r.json.articles.map(a => a.title), ['Refund policy', 'Escalation steps']);
+  assert.strictEqual(r.json.articles[1].body, 'Escalate & inform the lead.');
+});
+
+test('importing an HTML page drops its scripts and splits it at its headings', async () => {
+  const qa = client(); await qa.login('t.qa');
+  const html = '<h1>Hold</h1><p>Max 2 minutes &amp;lt;b&amp;gt;</p><script>alert(1)</script><h2>Transfers</h2><p>Warm only.</p>';
+  const r = await qa.post('/api/kb/import', { fileB64: Buffer.from(html).toString('base64'), filename: 'page.html' });
+  assert.deepStrictEqual(r.json.articles.map(a => a.title), ['Hold', 'Transfers']);
+  assert.ok(!JSON.stringify(r.json).includes('alert(1)'));
+  assert.strictEqual(r.json.articles[0].body, 'Max 2 minutes &lt;b&gt;', 'encoded text is decoded only once');
+});
+
+test('survey answers (CSAT) need a date and a whole score from 1 to 5, also when imported in bulk', async () => {
+  const qa = client(); await qa.login('t.qa');
+  const ok = { date: '2026-10-20', agent: AGENT, score: 4, comment: 'fine' };
+  assert.strictEqual((await qa.post('/api/c/surveys', ok)).status, 200);
+  for (const wrong of [{ ...ok, score: 9 }, { ...ok, score: 0 }, { ...ok, score: 2.5 }, { ...ok, score: '5' }, { ...ok, date: '' }])
+    assert.strictEqual((await qa.post('/api/c/surveys', wrong)).status, 400, JSON.stringify(wrong));
+  const n = readDb().surveys.length;
+  assert.strictEqual((await qa.post('/api/c/surveys', { bulk: [ok, { ...ok, score: 7 }] })).status, 400, 'one wrong line stops the whole import');
+  assert.strictEqual(readDb().surveys.length, n, 'nothing was half-imported');
+  const id = readDb().surveys[0].id;
+  assert.strictEqual((await qa.put('/api/c/surveys/' + id, { score: 6 })).status, 400);
+  assert.strictEqual((await qa.put('/api/c/surveys/' + id, { score: 3 })).status, 200);
+});
+
+test('restoring an uploaded backup works (regression: it always answered "not found") and keeps a safety copy', async () => {
+  const adm = client(); await adm.login('t.admin');
+  assert.strictEqual((await adm.post('/api/backups/upload/restore', { data: { users: [{ username: 'x', role: 'agent' }], evaluations: [] } })).status, 400, 'a file without an admin is refused');
+  const before = readDb(), copy = JSON.parse(JSON.stringify(before));
+  copy.settings = { ...copy.settings, pass: 77 };
+  const r = await adm.post('/api/backups/upload/restore', { data: copy });
+  assert.strictEqual(r.status, 200);
+  assert.strictEqual(readDb().settings.pass, 77, 'the uploaded data is now the data');
+  assert.ok(fs.existsSync(path.join(DIR, 'backups', r.json.safety)), 'the data from before the restore was backed up');
+  assert.strictEqual((await adm.get('/api/settings')).json.pass, 77);
+  assert.strictEqual((await adm.post('/api/backups/upload/restore', { data: before })).status, 200);   // put it back for the next tests
+});
+
+test('the admin can download the current data and a saved backup (also when the app runs inside a "." folder)', async () => {
+  const adm = client(); await adm.login('t.admin');
+  const cur = await adm.get('/api/backups/current/download');
+  assert.strictEqual(cur.status, 200); assert.ok(Array.isArray(cur.json.users));
+  const made = await adm.post('/api/backups', { label: 'test' }); assert.strictEqual(made.status, 200);
+  const one = await adm.get('/api/backups/' + made.json.f);
+  assert.strictEqual(one.status, 200); assert.ok(Array.isArray(one.json.evaluations));
+});
+
+test('errors never show technical details (file paths) to the browser', async () => {
+  const r = await fetch(BASE + '/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{broken json' });
+  const t = await r.text();
+  assert.strictEqual(r.status, 400);
+  assert.ok(!/node_modules|[A-Z]:\\|at \w+ \(/.test(t), 'no stack trace in: ' + t.slice(0, 120));
 });
 
 test('the database file is always complete JSON and no temporary file is left behind', () => {

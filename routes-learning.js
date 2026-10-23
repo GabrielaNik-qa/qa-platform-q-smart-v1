@@ -188,6 +188,8 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   });
 
   // ---------------------------------------------------------------- AI import: paste text or upload a file -> draft articles you can edit before saving
+  // HTML -> text: scripts and styles are dropped, h1-h3 become "#" headings (where articles are split), the rest of the tags are removed
+  const htmlText = h => String(h).replace(/<(script|style)[\s\S]*?<\/\1>/gi, '').replace(/<\/(p|div|h[1-6]|li|br)>/gi, '\n').replace(/<h([1-3])[^>]*>/gi, (m, n) => '\n' + '#'.repeat(+n) + ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');   // &amp; last, so "&amp;lt;" stays "&lt;"
   app.get('/api/ai/status', need(), (req, res) => res.json({ enabled: ai.enabled(), model: ai.MODEL() }));
   app.post('/api/kb/import', need(...EDIT), async (req, res) => {
     const b = req.body || {}, db = load();
@@ -195,9 +197,10 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
       let text = String(b.text || ''), pdf = null; const fn = str(b.filename, 150), ext = (fn.match(/\.([a-z0-9]+)$/i) || [])[1] || '';
       if (b.fileB64) {
         const buf = Buffer.from(String(b.fileB64), 'base64');
-        if (/^docx$/i.test(ext)) { if (!mammoth) throw new Error('Word import needs one more package: run  npm.cmd install mammoth'); text = (await mammoth.extractRawText({ buffer: buf })).value; }
+        // Word is read as HTML (not plain text) so its headings survive and the document can be split into articles at them, like an HTML file
+        if (/^docx$/i.test(ext)) { if (!mammoth) throw new Error('Word import needs one more package: run  npm.cmd install mammoth'); text = htmlText((await mammoth.convertToHtml({ buffer: buf })).value); }
         else if (/^pdf$/i.test(ext)) pdf = buf.toString('base64');
-        else if (/^html?$/i.test(ext)) text = buf.toString('utf8').replace(/<(script|style)[\s\S]*?<\/\1>/gi, '').replace(/<\/(p|div|h[1-6]|li|br)>/gi, '\n').replace(/<h([1-3])[^>]*>/gi, (m, n) => '\n' + '#'.repeat(+n) + ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        else if (/^html?$/i.test(ext)) text = htmlText(buf.toString('utf8'));
         else text = buf.toString('utf8');
       }
       if (!text.trim() && !pdf) throw new Error('There is nothing to import. Paste some text or choose a file.');
