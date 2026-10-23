@@ -162,7 +162,7 @@ async function load() {
   if (['quiz', 'acad'].includes(route)) want.push(['qz', '/api/quizzes']);
   if (['kb', 'acad', 'coach'].includes(route) && ed) want.push(['pg', '/api/kb/progress']);
   if (['kb', 'quiz'].includes(route)) want.push(['ai', '/api/ai/status']);
-  want.push(['sk', '/api/skills'], ['rc', '/api/root-causes']);
+  want.push(['sk', '/api/skills'], ['rc', '/api/root-causes'], ['qf', '/api/qflags']);
   if (['users', 'teams', 'wsp', 'sco', 'skills', 'dash'].includes(route)) want.push(['ws', '/api/workspaces']);
   if (['sco', 'scat'].includes(route)) want.push(['cl', '/api/categories']);
   if (['autoqa', 'aqcats', 'aqlist', 'aqgaps', 'dash'].includes(route)) want.push(['ac', '/api/auto-cats']);
@@ -182,6 +182,7 @@ async function load() {
   if (R.tp) TPLS = JSON.parse(R.tp);
   if (R.se) SESS = JSON.parse(R.se);
   if (R.sm) SIMS = JSON.parse(R.sm);
+  if (R.qf) QF = JSON.parse(R.qf);
   if (R.au) AUD = JSON.parse(R.au);
   if (R.ca) CALS = JSON.parse(R.ca);
   if (R.kb) KB = JSON.parse(R.kb);

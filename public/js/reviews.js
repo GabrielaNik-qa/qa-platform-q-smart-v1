@@ -76,35 +76,4 @@ async function xp(l, name) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = name.replace(/\s+/g, '_') + '_' + iso(new Date()) + '.xlsx'; a.click();
 }
 
-// ===================== Quick Flags: every red / green flag (and disputes) in one place, with its own export =====================
-let XF = { f: 'any', t: '', a: '', p: 'all', q: '' };
-const XL = () => { const q = XF.q.toLowerCase(); return EV.filter(e => (XF.f === 'any' ? e.fl : e.fl === XF.f) && (!XF.t || e.tm === XF.t) && (!XF.a || e.agent === XF.a) && (XF.p === 'all' || (Date.now() - e.d) / 864e5 <= (XF.p === 'week' ? 7 : 30)) && (!q || String(e.id).toLowerCase().includes(q) || agn(e).toLowerCase().includes(q))).sort((a, b) => b.d - a.d); };
-const xfSet = (k, v) => { XF[k] = v; if (k === 't' && XF.a && teamOf(XF.a) !== v && v) XF.a = ''; if (k === 'a' && v) XF.t = teamOf(v); render(); };
-PG.flags = function () {
-  const l = XL(), all = EV, cnt = { any: all.filter(e => e.fl).length, red: all.filter(e => e.fl === 'red').length, green: all.filter(e => e.fl === 'green').length };
-  const tOpts = TEAMS.filter(t => !XF.a || t.id === teamOf(XF.a)), aOpts = AGENTS().filter(a => !XF.t || a.team === XF.t);
-  return head('Quick Flags', 'Every red and green flag in one place (disputes have their own page)', `<div style="display:flex;gap:8px;flex-wrap:wrap">${bellBtn()}<button class="ib ibx" onclick="xp(XL(),'Quick Flags')">${IC.dl} Export to Excel</button></div>`)
-    + card('', `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${[['any', 'All flags'], ['red', 'Red'], ['green', 'Green']].map(([k, n]) => `<button class="pb ${XF.f === k ? 'on' : ''}" onclick="xfSet('f','${k}')">${n} <b class=mono>${cnt[k]}</b></button>`).join('')}
-<select onchange="xfSet('t',this.value)"><option value="">All Teams</option>${tOpts.map(t => `<option value="${t.id}" ${t.id === XF.t ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>
-<select onchange="xfSet('a',this.value)"><option value="">All Agents</option>${aOpts.map(a => `<option value="${esc(a.username)}" ${a.username === XF.a ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
-<div class=sg>${[['week', 'Week'], ['month', 'Month'], ['all', 'All']].map(([k, n]) => `<button class="${XF.p === k ? 'on' : ''}" onclick="xfSet('p','${k}')">${n}</button>`).join('')}</div></div>`)
-    + card(`${l.length} flagged review${l.length === 1 ? '' : 's'}`, tbl(['Lead ID', 'Date', 'Agent', 'Team', 'Flag', 'Score', 'Comment', 'Reviewer'], l.map(e => [`<a href="javascript:void(0)" class=mono style="color:var(--ac);font-weight:600;text-decoration:none" onclick="om('view','${e.rid}')">${esc(e.id)}</a>`, f(e.d), ME.role !== 'agent' ? agLink(e.agent, agn(e), 'flags') : esc(agn(e)), `${teamLink(e.tm)}`, e.fl ? `<span class="fgv ${e.fl}">${IC.flag}</span> ${e.fl === 'red' ? 'Red' : 'Green'}` : '<small>—</small>', sp(e.sc, e.tm), `<span style="white-space:normal;display:inline-block;max-width:260px">${esc(e.cm || '')}</span>`, esc(e.rv || '—')])) || '<p class=mu>Nothing matches these filters</p>');
-};
-
-// ===================== Disputes: every call that was ever disputed, with its status =====================
-// Disputed = the agent disagreed and nobody has answered yet; Reviewed = QA answered, the conversation is going; Resolved = closed.
-let DS = { s: '', t: '', a: '', p: 'all' };
-const dispStatus = e => { const d = e.dp; if (!d) return ''; if (d.status === 'resolved') return 'resolved'; return d.msgs.some(m => m.r !== 'agent' && !m.sys) ? 'reviewed' : 'disputed'; };
-const dispPill = e => ({ disputed: pill('Disputed', 'bad'), reviewed: pill('Reviewed', 'wn'), resolved: pill('Resolved', 'ok') })[dispStatus(e)] || '';
-const dsSet = (k, v) => { DS[k] = v; if (k === 't' && DS.a && v && teamOf(DS.a) !== v) DS.a = ''; if (k === 'a' && v) DS.t = teamOf(v); render(); };
-const DL = () => EV.filter(e => e.dp && (!DS.s || dispStatus(e) === DS.s) && (!DS.t || e.tm === DS.t) && (!DS.a || e.agent === DS.a) && (DS.p === 'all' || (Date.now() - new Date(e.dp.at)) / 864e5 <= (DS.p === 'week' ? 7 : 30))).sort((a, b) => new Date(b.dp.at) - new Date(a.dp.at));
-PG.disputes = function () {
-  const all = EV.filter(e => e.dp), cnt = k => k ? all.filter(e => dispStatus(e) === k).length : all.length, l = DL();
-  const tOpts = TEAMS.filter(t => !t.system && (!DS.a || t.id === teamOf(DS.a))), aOpts = AGENTS().filter(a => !DS.t || a.team === DS.t);
-  return head('Disputes', 'Every call that was ever disputed and where it stands', `<div style="display:flex;gap:8px;flex-wrap:wrap">${bellBtn()}${staff() ? `<button class="ib ibx" onclick="xp(DL(),'Disputes')">${IC.dl} Export to Excel</button>` : ''}</div>`)
-    + card('', `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${[['', 'All'], ['disputed', 'Disputed'], ['reviewed', 'Reviewed'], ['resolved', 'Resolved']].map(([k, n]) => `<button class="pb ${DS.s === k ? 'on' : ''}" onclick="dsSet('s','${k}')">${n} <b class=mono>${cnt(k)}</b></button>`).join('')}
-${ME.role === 'agent' ? '' : `<select onchange="dsSet('t',this.value)"><option value="">All Teams</option>${tOpts.map(t => `<option value="${t.id}" ${t.id === DS.t ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select><select onchange="dsSet('a',this.value)"><option value="">All Agents</option>${aOpts.map(a => `<option value="${esc(a.username)}" ${a.username === DS.a ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select>`}
-<div class=sg>${[['week', 'Week'], ['month', 'Month'], ['all', 'All']].map(([k, n]) => `<button class="${DS.p === k ? 'on' : ''}" onclick="dsSet('p','${k}')">${n}</button>`).join('')}</div></div>`)
-    + card(`${l.length} disputed call${l.length === 1 ? '' : 's'}`, tbl(['Lead ID', 'Agent', 'Team', 'Disputed on', 'Score', 'Status', 'Last message', 'Outcome'], l.map(e => { const m = e.dp.msgs.filter(x => !x.sys).slice(-1)[0] || {}, r = e.dp.res;
-      return [`<a href="javascript:void(0)" class=mono style="color:var(--ac);font-weight:600;text-decoration:none" onclick="om('view','${e.rid}')">${esc(e.id)}</a>`, ME.role !== 'agent' ? agLink(e.agent, agn(e), 'flags') : esc(agn(e)), `${teamLink(e.tm)}`, f(new Date(e.dp.at)), sp(e.sc, e.tm), dispPill(e), `<span style="white-space:normal;display:inline-block;max-width:280px"><small class=mu>${esc(m.n || '')}:</small> ${esc((m.t || '').slice(0, 90))}</span>`, r ? `${r.outcome === 'kept' ? 'Score kept' : 'Score changed'}<br><small class=mu>${esc(r.by)} · ${f(new Date(r.at))}</small>` : '<small class=mu>—</small>']; })) || '<p class=mu>No disputes match these filters</p>');
-};
+// Quick Flags and Disputes are in flags.js

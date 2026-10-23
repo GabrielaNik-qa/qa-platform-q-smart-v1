@@ -31,10 +31,11 @@ input[type=password]::-webkit-credentials-auto-fill-button{visibility:hidden;dis
 .ic{border-radius:9px}.ic:hover{background:color-mix(in srgb,var(--ac) 12%,transparent)}.ic:active svg{opacity:.55}
 .ib svg{margin-right:4px}.ib:active svg{opacity:.55}
 /* widgets (Home) */
-.wgrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px}
-.wgrid>.w3{grid-column:span 3}.wgrid>.w4{grid-column:span 4}.wgrid>.w6{grid-column:span 6}.wgrid>.w12{grid-column:span 12}
-@media(max-width:1200px){.wgrid>.w3,.wgrid>.w4{grid-column:span 6}}
-@media(max-width:760px){.wgrid>*{grid-column:span 12!important}}
+.wgrid{display:grid;grid-template-columns:repeat(60,minmax(0,1fr));gap:14px}
+.wgrid>.w12{grid-column:span 12}.wgrid>.w15{grid-column:span 15}.wgrid>.w20{grid-column:span 20}.wgrid>.w30{grid-column:span 30}.wgrid>.w40{grid-column:span 40}.wgrid>.w60{grid-column:span 60}
+@media(max-width:1000px){.wgrid>.w12,.wgrid>.w15{grid-column:span 20}.wgrid>.w20{grid-column:span 30}}
+@media(max-width:900px){.wgrid>.w12,.wgrid>.w15,.wgrid>.w20{grid-column:span 30}.wgrid>.w30,.wgrid>.w40{grid-column:span 60}}
+@media(max-width:600px){.wgrid>*{grid-column:span 60!important}}
 .wg{position:relative;min-width:0}.wg>.card{margin:0;height:100%}
 .wg.edit{outline:2px dashed color-mix(in srgb,var(--ac) 55%,transparent);outline-offset:3px;border-radius:14px;cursor:grab}.wg.over{outline:2px solid var(--ac)}
 .wtb{position:absolute;top:-16px;right:8px;display:flex;gap:2px;background:var(--pn);border:1px solid var(--bd);border-radius:10px;padding:2px;z-index:5;box-shadow:0 2px 8px #0003}
@@ -138,3 +139,57 @@ mark{background:color-mix(in srgb,var(--ok) 30%,transparent);color:inherit;borde
 .rvcm{padding:12px 14px;border-radius:12px;background:var(--bg)}
 .card.hl{outline:2px solid var(--ac);outline-offset:3px;transition:outline .3s}
 @media(max-width:600px){.rvfacts{grid-template-columns:1fr}}
+.rvwarn{padding:10px 14px;border-radius:10px;background:color-mix(in srgb,var(--wn) 14%,transparent);color:var(--wn);font-size:13px}
+/* ===== Quick Flags + Disputes ===== */
+.fkp{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:14px}
+.fk{background:var(--pn);border:1px solid var(--bd);border-radius:14px;padding:16px 20px;display:grid;gap:6px}.fk>b{font:500 30px 'JetBrains Mono',monospace}.fk .row>span:first-child{font-weight:600;font-size:13px}.fk.clk:hover,.fk.on{border-color:var(--ac)}
+.fcap{display:block;font-size:12px;font-weight:600;margin-bottom:6px}.fcust{display:flex;gap:14px;margin-top:12px;flex-wrap:wrap}.fcust label{display:flex;gap:8px;align-items:center;font-size:12px;font-weight:600}
+.sg button .dotk{margin-right:5px}.sg button small{margin-left:4px;opacity:.7}
+.ftbl h3{display:flex;gap:10px;align-items:center}
+.qfbs{display:flex;gap:5px;flex-wrap:wrap}
+.qfb{display:inline-flex;gap:4px;align-items:center;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:600}.qfb svg{width:12px;height:12px;stroke:currentColor;fill:currentColor}
+.qfb.red{color:var(--bad);background:color-mix(in srgb,var(--bad) 15%,transparent)}.qfb.green{color:var(--ok);background:color-mix(in srgb,var(--ok) 15%,transparent)}.qfb.clk:hover{outline:1px solid currentColor}
+.ic.qfr svg,.ic.qfg svg{stroke:currentColor}.ic.qfr:hover{color:var(--bad)}.ic.qfg:hover{color:var(--ok)}
+.qfic{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;flex:none;color:var(--c);background:color-mix(in srgb,var(--c) 18%,transparent)}.qfic svg{stroke:currentColor;fill:currentColor}
+.flb{font-size:12px;display:block;margin-bottom:6px}
+.qft{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qft button{display:inline-flex;gap:8px;align-items:center;justify-content:center;padding:12px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit;font-weight:600;cursor:pointer}.qft button svg{stroke:currentColor}
+.qft button.red{border-color:var(--bad);color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}.qft button.green{border-color:var(--ok);color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}.qft button.on svg{fill:currentColor}
+/* ===== form labels: the label text, the red * and "(optional)" stay on ONE line; the field goes underneath ===== */
+label:not(.rad):not([style*="display:flex"]){display:block}
+label:not(.rad):not([style*="display:flex"])>:is(input:not([type=checkbox]):not([type=radio]),select,textarea,.sx,.pw){display:block;width:100%;margin-top:6px;box-sizing:border-box}
+label:not(.rad):not([style*="display:flex"])>:is(.sg,.pk,div){margin-top:6px}
+label:not(.rad):not([style*="display:flex"])>.sg{display:flex}
+label:not(.rad):not([style*="display:flex"])>small{display:block;margin-top:4px}
+.rq{margin-left:2px}
+.fcust label>input,.agcust label>input{display:inline-block;width:auto;margin:0}
+.agfilt label .sx,.agfilt label select{margin-top:0}
+/* ===== dashboard views ===== */
+.wvbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.wvt{display:flex;gap:4px;flex-wrap:wrap;padding:4px;border:1px solid var(--bd);border-radius:12px;background:var(--pn)}
+.wvt button{display:inline-flex;gap:6px;align-items:center;background:none;border:0;color:var(--mu);padding:7px 14px;border-radius:9px;font:inherit;cursor:pointer}.wvt button:hover{color:var(--tx)}.wvt button.on{background:var(--ac);color:#fff;font-weight:600}.wvt button.on svg{stroke:#fff}.wvt button svg{width:14px;height:14px}
+.wvt .wvn2{color:var(--ac)}
+.wbar{display:grid;gap:10px}.wbr{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.wvn{min-width:220px;font-weight:600}
+.wtb select{padding:2px 4px;font-size:12px;border:0;background:var(--bg)}.wgrip{cursor:grab;padding:0 4px;color:var(--mu);align-self:center}
+.wfc{position:absolute;top:10px;right:12px;z-index:2;font-size:11px;padding:2px 8px;border-radius:99px;background:color-mix(in srgb,var(--ac) 14%,var(--pn));color:var(--ac);font-weight:600}
+.wg.edit .wfc{top:22px}
+.wgal{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.wgi{display:grid;gap:6px;justify-items:start;text-align:left;padding:14px;border:1px solid var(--bd);border-radius:12px;background:var(--bg);color:var(--tx);font:inherit;cursor:pointer}.wgi:hover{border-color:var(--ac)}.wgi small{color:var(--mu)}
+.kpc{display:grid;gap:4px;align-content:start}.kpc .big{margin:4px 0}.kps{font-size:14px;margin-left:2px;color:inherit;opacity:.7}
+.wtk{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}.wtk div{text-align:center;padding:10px;border-radius:10px;background:var(--bg)}.wtk b{display:block;font-size:24px;font-weight:500}
+/* filter cards wrap nicely on narrow screens (Call Reviews, Quick Flags, Disputes) */
+.fl{display:flex!important;flex-wrap:wrap;gap:14px;align-items:flex-end}.fl>label{flex:1 1 170px;min-width:0}.fl>label:first-child{flex:2 1 260px}.fl>label:last-child{flex:0 0 auto}
+.fkp{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))!important}
+.ftbl td{white-space:nowrap}.ftbl td[style*="white-space:normal"]{min-width:220px}
+/* ===== QA Entry: compact ===== */
+.eg .card{padding:16px 18px;margin-bottom:12px}.eg .card h3{margin-bottom:10px}
+.eg2{gap:12px 16px}.eg input,.eg select{height:38px}.eg hr{margin:12px 0;border:0;border-top:1px solid var(--bd)}
+.eg .ir{padding:10px 0;margin-top:6px}.eg .ir textarea{margin-top:8px;min-height:34px;padding:7px 10px;font-size:13px}
+.eg .yn button{padding:6px 14px}
+/* ===== quick jump (Ctrl+K) ===== */
+.pal{padding:14px;display:grid;gap:10px}.pal .sx input{height:46px;font-size:16px;padding-right:56px}.pal .kb{top:12px}
+#pall{display:grid;gap:2px;max-height:56vh;overflow:auto}
+.palr{display:flex;gap:12px;align-items:center;text-align:left;padding:9px 12px;border:0;border-radius:10px;background:none;color:var(--tx);font:inherit;cursor:pointer}.palr:hover,.palr.on{background:color-mix(in srgb,var(--ac) 14%,transparent)}
+.palr small{display:block}.pali{width:30px;height:30px;display:grid;place-items:center;flex:none;border-radius:8px;background:var(--bg)}
+/* clearer numbers: big figures and score pills use the regular font with even-width digits (the mono "0" looked like an "8") */
+.big,.fk>b,.tkk>b,.agk .big,.agst b,.tkmss b,.wtk b{font-family:Outfit,system-ui,sans-serif!important;font-variant-numeric:tabular-nums;font-weight:600}
+.pill{font-family:Outfit,system-ui,sans-serif;font-variant-numeric:tabular-nums;font-weight:600}
