@@ -29,7 +29,7 @@ const agRange = (p, shift = 0) => {
   return shift ? null : [new Date(0), new Date(8.64e15)];
 };
 const agIn = (e, r) => !!r && e.d >= r[0] && e.d < r[1];
-const MON = d => d.toLocaleString('en-GB', { month: 'short' });
+const MON = d => d.toLocaleString(I18N.locale(), { month: 'short' });
 const agLabel = () => { const [a, b] = agRange(AG.p), e = new Date(b - 1); return { week: 'Week of ' + a.getDate() + ' ' + MON(a), month: MON(a) + ' ' + a.getFullYear(), q: 'Q' + (Math.floor(a.getMonth() / 3) + 1) + ' ' + a.getFullYear(), year: String(a.getFullYear()), all: 'All time', custom: f(a) + ' – ' + f(e) }[AG.p]; };
 const agPrevLabel = () => { const r = agRange(AG.p, 1); if (!r) return ''; const a = r[0]; return { week: 'last week', month: MON(a), q: 'Q' + (Math.floor(a.getMonth() / 3) + 1), year: String(a.getFullYear()), custom: 'previous period' }[AG.p]; };
 const agTitle = () => ({ week: 'Current Week', month: 'Current Month', q: 'Current Quarter', year: 'Current Year', all: 'All Time', custom: 'Selected Period' })[AG.p];
