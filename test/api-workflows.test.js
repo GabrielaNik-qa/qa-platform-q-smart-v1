@@ -98,13 +98,17 @@ test('a changed role takes effect at once', async () => {
   assert.strictEqual((await qa.get('/api/me')).json.role, 'trainer');
 });
 
-test('a password reset by the admin forces the new password pop-up on the open session', async () => {
+// (until October 2026 the open session itself could choose the new password; that session may be the reason for the reset, so it now ends)
+test('a password reset by the admin signs the person out everywhere, and the new password pop-up comes at the next sign-in', async () => {
   const adm = client(), ld = client(); await adm.login('t.admin'); await ld.login('t.lead');
   assert.strictEqual((await adm.post('/api/users/t.lead/reset')).status, 200);
-  const r = await ld.get('/api/tasks');
+  assert.strictEqual((await ld.get('/api/tasks')).status, 401, 'the session that was open is ended');
+  assert.strictEqual((await ld.post('/api/password/first', { next: 'Lead#Pass9' })).status, 401, 'and cannot choose the new password');
+  const again = client(); await again.login('t.lead');                                        // with the temporary password
+  const r = await again.get('/api/tasks');
   assert.strictEqual(r.status, 403); assert.strictEqual(r.json.mustChange, true);
-  const fresh = 'Lead#Pass9'; assert.strictEqual((await ld.post('/api/password/first', { next: fresh })).status, 200);
-  assert.strictEqual((await ld.get('/api/tasks')).status, 200);
+  const fresh = 'Lead#Pass9'; assert.strictEqual((await again.post('/api/password/first', { next: fresh })).status, 200);
+  assert.strictEqual((await again.get('/api/tasks')).status, 200);
 });
 
 test('a saved Excel export can only be opened again by the person who made it (or an admin)', async () => {

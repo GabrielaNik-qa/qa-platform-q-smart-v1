@@ -18,6 +18,7 @@ if (role === 'agent' && !team) { console.log('An agent must belong to a team. Ad
 const user = { languages: [], skills: [], phone: '', start: '', desc: '', title: '', active: true, ...old,
   username: username.toLowerCase(), name: rest.filter(x => !x.startsWith('--')).join(' ') || old.name || username,
   email: opt('email') !== undefined ? opt('email') : (old.email || ''), role, team, hash: bcrypt.hashSync(password, 10),
+  pwv: (old.pwv || 0) + 1,                                  // a new password: the sign-ins made with the old one end (the app checks this number)
   mustChange: password === 'password' || rest.includes('--must-change') };
 delete user.ag;
 db.users = db.users.filter(u => u.username !== user.username); db.users.push(user);

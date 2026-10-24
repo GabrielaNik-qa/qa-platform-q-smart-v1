@@ -35,7 +35,7 @@ function splitText(text, filename) {
   }
   if (cur) parts.push(cur);
   return parts.filter(p => p.body.trim() || p.title).map(p => {
-    const words = (p.title + ' ' + p.body).toLowerCase().match(/[a-zà-ÿ]{5,}/g) || [], freq = {};
+    const words = (p.title + ' ' + p.body).toLowerCase().match(/[a-zà-ÿ]{5,}/g) || [], freq = Object.create(null);   // a plain counter: "constructor" is just a word here
     words.forEach(w => { if (!STOP.has(w)) freq[w] = (freq[w] || 0) + 1; });
     const topics = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([w]) => w[0].toUpperCase() + w.slice(1));
     return cleanArticle({ title: p.title, folder: parts.length > 1 ? base : '', topics, body: p.body.trim() });

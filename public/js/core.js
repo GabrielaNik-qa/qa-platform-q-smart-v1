@@ -235,7 +235,7 @@ async function load() {
   if (route === 'cal' || (route === 'calendar' && ed)) want.push(['ca', '/api/calibrations']);
   // the new sections: their lists, plus what the Agents page and the dashboard show from them
   const CL = { rbuild: ['reports', 'surveys', 'complaints'], rsaved: ['reports', 'surveys', 'complaints'], goals: ['goals', 'surveys', 'kudos'], pips: ['pips'], kudos: ['kudos'], compliance: ['risks'], risks: ['risks'], complaints: ['complaints'], csat: ['surveys'], calendar: ['pips'], agents: ['goals', 'pips', 'kudos', 'surveys', 'complaints'], dash: ['goals', 'kudos', 'surveys', 'complaints'] };
-  (CL[route] || []).forEach(c => { if (ME && (!['reports', 'risks', 'complaints'].includes(c) || ed)) want.push(['c_' + c, '/api/c/' + c]); });
+  (Object.hasOwn(CL, route) ? CL[route] : []).forEach(c => { if (ME && (!['reports', 'risks', 'complaints'].includes(c) || ed)) want.push(['c_' + c, '/api/c/' + c]); });
   if (['rbuild', 'rsaved', 'goals', 'calendar', 'kudos', 'dash'].includes(route)) want.push(['tk', '/api/tasks']);
   if (route === 'calendar') want.push(['se', '/api/sessions']);
   if (route === 'rexp' && ed) want.push(['xp', '/api/exports']);

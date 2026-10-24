@@ -193,8 +193,19 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   });
 
   // ---------------------------------------------------------------- AI import: paste text or upload a file -> draft articles you can edit before saving
-  // HTML -> text: scripts and styles are dropped, h1-h3 become "#" headings (where articles are split), the rest of the tags are removed
-  const htmlText = h => String(h).replace(/<(script|style)[\s\S]*?<\/\1>/gi, '').replace(/<\/(p|div|h[1-6]|li|br)>/gi, '\n').replace(/<h([1-3])[^>]*>/gi, (m, n) => '\n' + '#'.repeat(+n) + ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');   // &amp; last, so "&amp;lt;" stays "&lt;"
+  // HTML -> text: scripts and styles are dropped, h1-h3 become "#" headings (where articles are split), the rest of the tags are removed.
+  // Everything here takes time in step with the size of the file: a crafted file (thousands of "<script" or "<h1" that never close) cannot keep the server busy.
+  const dropBlocks = h => {                                                  // <script>…</script> and <style>…</style> out; one never closed takes the rest of the file with it
+    const lo = h.toLowerCase(); let out = '', i = 0, s = lo.indexOf('<script'), t = lo.indexOf('<style');
+    for (;;) {
+      if (s >= 0 && s < i) s = lo.indexOf('<script', i);
+      if (t >= 0 && t < i) t = lo.indexOf('<style', i);
+      const a = s < 0 ? t : t < 0 ? s : Math.min(s, t); if (a < 0) return out + h.slice(i);
+      const e = lo.indexOf('</' + (a === s ? 'script' : 'style'), a); out += h.slice(i, a); if (e < 0) return out;
+      const g = lo.indexOf('>', e); i = g < 0 ? lo.length : g + 1;
+    }
+  };
+  const htmlText = h => dropBlocks(String(h)).replace(/<\/(p|div|h[1-6]|li|br)>/gi, '\n').replace(/<h([1-3])[^<>]*>/gi, (m, n) => '\n' + '#'.repeat(+n) + ' ').replace(/<[^<>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');   // &amp; last, so "&amp;lt;" stays "&lt;"
   app.get('/api/ai/status', need(), (req, res) => res.json({ enabled: ai.enabled(), model: ai.MODEL() }));
   app.post('/api/kb/import', need(...EDIT), async (req, res) => {
     if (aiBusy(req, res)) return;

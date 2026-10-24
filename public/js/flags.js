@@ -37,7 +37,7 @@ function xfTable() {
   const l = XL(), [a, z, pg] = pager(l.length, XF, 'xfSet');
   const badges = r => [...(r.ev && r.ev.fl ? [`<span class="qfb ${r.ev.fl}" title="Flag given in the QA review">${IC.flag} QA ${r.ev.fl === 'red' ? 'Red' : 'Green'}</span>`] : []), ...r.qf.map(f => `<span class="qfb ${f.type} clk" onclick="qfEdit('${f.id}')" title="${esc((f.cm || 'No comment') + ' — by ' + (f.byName || f.by) + ', ' + f.date)}">${IC.flag} ${f.type === 'red' ? 'Red' : 'Green'}</span>`)].join('') || '<span class=mu>—</span>';
   return card(`${XF.c ? CHN[XF.c] + ' reviews' : 'Conversations'} <span class=bg>${l.length}</span>`, `<div class=sc><table class=ct><tr><th>LEAD ID</th><th>TYPE</th><th>DATE</th><th>AGENT</th><th>TEAM</th><th>CAMPAIGN</th><th>QA SCORE</th><th>QUICK FLAGS</th><th style="text-align:right">ACTIONS</th></tr>`
-    + l.slice(a, z).map(r => { const pre = `{ch:'${r.ch}',agent:'${esc(r.agent)}',lead:'${esc(String(r.lead).replace(/'/g, ''))}',date:'${iso(r.d)}',cp:'${esc((r.ev ? r.ev.cp : (r.qf[0] || {}).cp || '').replace(/'/g, ''))}'`;
+    + l.slice(a, z).map(r => { const pre = `{ch:'${r.ch}',agent:${jsq(r.agent)},lead:${jsq(r.lead)},date:'${iso(r.d)}',cp:${jsq(r.ev ? r.ev.cp : (r.qf[0] || {}).cp || '')}`;   // jsq: lead IDs and campaigns with ' \ or line breaks keep working
       return `<tr><td>${r.ev ? leadA(r.lead, `om('view','${r.ev.rid}')`) : leadA(r.lead, `qfEdit('${r.qf[0].id}')`)}</td><td>${chTag(r.ch, 1)}</td><td>${f(r.d)}</td><td>${agCell(r.agent, an(r.agent) || r.agent)}</td><td>${teamLink(r.tm)}</td><td>${esc(r.cp)}</td><td>${r.ev ? `<b class=mono style="color:${scol(r.ev.sc, r.tm)}">${Math.round(r.ev.sc)}%</b>` : '<small class=mu>no review</small>'}</td><td><div class=qfbs>${badges(r)}</div></td>`
         + `<td style="text-align:right;white-space:nowrap"><button class="ic qfr" title="Add a red flag" onclick="qfNew(${pre},type:'red'})">${IC.flag}</button><button class="ic qfg" title="Add a green flag" onclick="qfNew(${pre},type:'green'})">${IC.flag}</button><button class=ic title="View" onclick="${r.ev ? `om('view','${r.ev.rid}')` : `qfEdit('${r.qf[0].id}')`}">${IC.eye}</button></td></tr>`; }).join('')
     + (l.length ? '' : `<tr><td colspan=9 class=mu style="text-align:center;padding:26px">Nothing matches these filters</td></tr>`) + `</table></div>${pg}`, 'ftbl');
@@ -52,7 +52,7 @@ PG.flags = function () {
 async function xfExport() {
   const l = XL(); if (!l.length) return toast('Nothing to export', true);
   const rows = [['Lead ID', 'Type', 'Date', 'Agent', 'Team', 'Campaign', 'QA Score', 'QA flag', 'Quick flags', 'Comments', 'Flagged by'], ...l.map(r => [String(r.lead), CHN[r.ch], iso(r.d), an(r.agent) || r.agent, tn(r.tm), r.cp, r.ev ? r.ev.sc : '', r.ev && r.ev.fl ? r.ev.fl : '', r.qf.map(x => x.type).join(', '), r.qf.map(x => x.cm).filter(Boolean).join(' | '), [...new Set(r.qf.map(x => x.byName || x.by))].join(', ')])];
-  const r = await api('/api/export/call-reviews', { rows, pf: 6, pt: 6, name: 'Quick Flags' }); if (!r.ok) return toast('Could not create the Excel file', true);
+  const r = await api('/api/export/call-reviews', { rows, pf: 6, pt: 6, dc: 2, name: 'Quick Flags' }); if (!r.ok) return toast('Could not create the Excel file', true);   // dc: the Date column
   const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = 'Quick_Flags_' + iso(new Date()) + '.xlsx'; a.click();
 }
 

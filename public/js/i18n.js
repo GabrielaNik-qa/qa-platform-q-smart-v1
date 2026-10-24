@@ -48,6 +48,7 @@
   function lookup(s, code) {
     const d = D[code]; if (!d) return null;
     if (d.exact.has(s)) return form(d.exact.get(s), null, code);
+    if (s.length > 1000) return null;   // patterns are short labels (the longest is under 400 characters with its values); a long text is something people typed, and matching it against every pattern would only freeze the page
     for (const p of d.pats) {
       const m = s.match(p.re); if (!m) continue;
       const vals = {}; let n = null;

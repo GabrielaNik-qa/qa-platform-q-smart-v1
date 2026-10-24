@@ -1,12 +1,13 @@
 // A tiny, safe Markdown renderer. It runs in the browser (articles) and on the server (ZIP export).
-// Everything is HTML-escaped first, so nobody can inject scripts through an article.
+// Everything is HTML-escaped first, so nobody can inject scripts through an article. The link text cannot contain "[": otherwise
+// a text of thousands of "[" makes the search start again at every one of them and the page (or the server) freezes.
 (function (g) {
   const esc = s => String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
   const inline = s => esc(s)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
     .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<i>$2</i>')
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    .replace(/\[([^[\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   function md(src) {
     const out = []; let list = null, code = false, para = [];
     const flushP = () => { if (para.length) { out.push('<p>' + inline(para.join(' ')) + '</p>'); para = []; } };

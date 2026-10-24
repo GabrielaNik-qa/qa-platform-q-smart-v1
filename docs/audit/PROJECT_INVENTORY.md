@@ -1,6 +1,6 @@
 # Q-SMART – Project inventory
 
-Audit date: 2026-10-24 · Branch: `q-smart-full-audit` · Starting commit: `a1da4aa` ("Translate the new sections into Bulgarian and French")
+Audit date: 2026-10-24 (round 1, and round 2 at maximum depth) · Branch: `q-smart-full-audit` · Starting commit: `a1da4aa` ("Translate the new sections into Bulgarian and French")
 
 ## Starting point (Git)
 
@@ -88,6 +88,12 @@ These use `node:test`, with no extra test framework. 9 files, 79 tests:
 - two API suites that start the real server on a temporary copy of the data
 
 There are no browser (end-to-end) tests, no linter and no build step.
+
+**After the audit:** 129 tests in 11 files. The audit added:
+- `test/security.test.js` (36 tests, a separate server with two workspaces)
+- `test/workflows-more.test.js` (14 workflow tests)
+
+One existing test now checks the stricter password-reset behaviour (see FUNCTIONAL_AUDIT.md).
 
 ## Current limitations (summary)
 

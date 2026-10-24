@@ -1,6 +1,6 @@
 # Q-SMART – SaaS readiness
 
-Audit date: 2026-10-24 · Target: contact centres with 50–500 agents, several independent customer companies
+Audit date: 2026-10-24 (rounds 1 and 2) · Target: contact centres with 50–500 agents, several independent customer companies
 
 **Verdict: not ready for paying customers yet.** The app works well for one organisation on one computer.
 Selling it to independent companies needs the four blockers below fixed first. All of them are architecture work, not bug fixes.
@@ -24,7 +24,9 @@ Selling it to independent companies needs the four blockers below fixed first. A
 |---|---|
 | Password hashing (bcrypt) | Ready |
 | New session id at sign-in, HttpOnly / SameSite cookies, 12-hour idle timeout | Ready (timeout added in this audit) |
-| Password-guessing limits per address and per account | Ready (per-account limit added in this audit) |
+| Sessions end when the password is changed or reset | Ready (added in round 2) |
+| Password-guessing limits per address and per account, also for "change password"; "forgot password" e-mails limited per account | Ready (added in this audit) |
+| E-mail verification at registration | Missing (part of R-2) |
 | Server-side role checks on every route | Ready (permission matrix in SECURITY_AUDIT.md) |
 | Workspace rules | Mostly ready. Some modules are still organisation-wide (R-6) |
 | **First password for new accounts** | **BLOCKER (R-2)**: every new, approved or reset account gets `password`, sent by e-mail. Replace with a one-time invitation / reset link |
@@ -82,13 +84,24 @@ This list is a technical view only. It is **not** legal advice and does not prov
   - A written incident-response and breach-notification procedure (GDPR: 72 hours).
   - A support contact for customers.
 
-## 7. Scalability
+## 7. Scalability (measured in round 2)
 
-For 500 agents, roughly 10,000 reviews a month would be normal. With the JSON file, every request reads and parses the whole file: today 880 KB, later tens of MB. Response times and memory use will grow until the app stalls. The SQLite move fixes this.
+Made-up data for 500 agents was put on a throw-away server, and requests were sent one at a time (no stress test):
 
-The front end also loads complete lists (all reviews, all tasks), so it will eventually need paging from the server.
+| Data | `data.json` | Every request (even the smallest) | Saving any change | Reviews list sent to an admin's browser |
+|---|---|---|---|---|
+| ≈ 3 months (3,000 reviews) | 18.5 MB | ≈ 0.1 s | ≈ 1.0 s | 9 MB |
+| ≈ 1 year (12,000 reviews) | 73 MB | ≈ 0.4 s | ≈ 1.7 s | 36 MB |
 
-## 8. Subscriptions and usage
+The server serves one request at a time, so with dozens of people working, these delays add up quickly. **The SQLite move (with indexes and server-side paging of the reviews list) is required before the target size.** A larger customer may later need PostgreSQL.
+
+## 8. Dependencies and supply chain
+
+- **Good:** all 256 locked packages come from the official npm registry with integrity hashes, and none runs an install script.
+- **Watch:** the Excel library (`exceljs`) looks unmaintained and brings 6 deprecated packages (R-22).
+- **Process:** before launch, add an automatic dependency check (Dependabot or `npm audit` in CI) and a licence review.
+
+## 9. Subscriptions and usage
 
 Not implemented: no plans, seat counts, billing or usage limits. No payment provider was added (out of scope). Write the requirements first: seats per company, AI usage per plan, and trial handling.
 
@@ -96,12 +109,12 @@ Not implemented: no plans, seat counts, billing or usage limits. No payment prov
 
 1. [ ] **SQLite migration** keeping all current data, with persistent sessions and transactions (R-3, R-4)
 2. [ ] **Tenants:** company id on every record; every route limited by the session's company; cross-company tests (R-1)
-3. [ ] **Invitation links instead of the default password** (R-2); stronger password rules; MFA for admins
+3. [ ] **Invitation links instead of the default password, and e-mail verification at registration** (R-2); stronger password rules; MFA for admins
 4. [ ] Remove the real data and hashes from `seed.js` in Git, check the repository is private, and change the two real passwords if it was ever public (R-5)
 5. [ ] Finish workspace rules for the remaining modules (R-6)
 6. [ ] Production settings: required `SECRET`, `NODE_ENV`, HSTS, health check, graceful shutdown, structured logs, error tracking
 7. [ ] Automatic encrypted off-site backups and a tested restore
-8. [ ] Retention and deletion rules, a DPA, a sub-processor list, an AI opt-out per customer
+8. [ ] Retention and deletion rules, a DPA, a sub-processor list, an AI opt-out per customer, self-hosted fonts (R-24), allowed report recipients (R-23)
 9. [ ] CSP after removing inline handlers; ESLint in the project
 10. [ ] Automated browser (end-to-end) tests for the main workflows
 11. [ ] **Independent penetration test** on the staging environment before the first paying customer

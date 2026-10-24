@@ -45,8 +45,10 @@
     return [];
   }
   // the value of one metric for a group of records
+  // with cat (a row or column per category) every number is about the same reviews: the ones in which that category was scored
   function metric(src, k, l, data, cat) {
     if (src === 'reviews') {
+      if (cat) l = l.filter(r => (r.e.cs || []).some(z => z.n === cat && z.m));
       const sc = cat ? l.map(r => { const c = (r.e.cs || []).find(z => z.n === cat); return c && c.m ? c.e / c.m * 100 : null; }).filter(v => v != null) : l.map(r => r.e.sc);
       const pass = l.filter(r => r.e.sc >= (data.pass ? data.pass(r.team) : 85)).length;
       return { count: cat ? sc.length : l.length, avg: r1(avg(sc)), pass: l.length ? r1(pass / l.length * 100) : null, fail: l.length ? r1(100 - pass / l.length * 100) : null, min: sc.length ? r1(Math.min(...sc)) : null, max: sc.length ? r1(Math.max(...sc)) : null, red: l.filter(r => r.e.fl === 'red').length, green: l.filter(r => r.e.fl === 'green').length, disputed: l.filter(r => r.e.dp).length }[k];

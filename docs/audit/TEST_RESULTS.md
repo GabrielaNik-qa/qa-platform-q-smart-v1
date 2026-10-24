@@ -1,54 +1,81 @@
 # Q-SMART – Test results
 
-Audit date: 2026-10-24 · Branch: `q-smart-full-audit`
+Audit dates: 2026-10-24 (round 1 and round 2, maximum depth) · Branch: `q-smart-full-audit`
 
 Environment:
 - Windows 11 Pro, PowerShell
 - Node.js v24.11.0, npm 11.6.1
 - Project folder inside OneDrive
 
-## Commands and results
+## Round 1
 
-| # | When | Command | Result |
-|---|---|---|---|
-| 1 | Baseline | `npm.cmd test` | **79 tests, 79 passed**, 0 failed, 0 skipped (15.4 s) |
-| 2 | Baseline | `npm.cmd audit` | 3 vulnerabilities: 1 high (`body-parser` < 2.4.0, DoS with compressed bodies), 2 moderate (`uuid` < 11.1.1 through `exceljs`) |
-| 3 | Baseline | Secret-pattern scan of all 25 Git revisions (Anthropic, AWS, GitHub and Slack key formats, private keys) | 0 hits |
-| 4 | Before fixes | `node --test test/security.test.js` (new file) | 13 tests: 1 passed (setup), **12 failed**, each for the expected reason (see SECURITY_AUDIT.md, "Evidence") |
-| 5 | After fixes | `node --test test/security.test.js` | **14 tests, 14 passed** (one test added for F-2) |
-| 6 | After fixes | `npm.cmd audit fix` (without `--force`) | `body-parser` 2.3.0 → 2.4.0 in `package-lock.json`. The installed copy then had to be reinstalled because the folder still held 2.3.0 |
-| 7 | Final | `npm.cmd test` | **93 tests, 93 passed**, 0 failed, 0 skipped, 0 cancelled |
-| 8 | Final | `node --check` on every `.js` file in the project root and `public/js` | 0 syntax errors |
-| 9 | Final | `npm.cmd audit` | 2 moderate (`uuid` through `exceljs`): see below |
-| 10 | Final | `git diff` review | Only intended files changed. No secrets, no test artifacts. `data.json` is untouched |
+| # | Command | Result |
+|---|---|---|
+| 1 | `npm.cmd test` (baseline) | **79 tests, 79 passed** (15.4 s) |
+| 2 | `npm.cmd audit` (baseline) | 3 vulnerabilities: 1 high (`body-parser` < 2.4.0), 2 moderate (`uuid` through `exceljs`) |
+| 3 | Secret-pattern scan of all 25 Git revisions | 0 hits |
+| 4 | `node --test test/security.test.js` before the fixes | 13 tests: 1 passed (setup), **12 failed**, each for the expected reason |
+| 5 | Same, after the fixes | 14 of 14 passed (one test added for F-2) |
+| 6 | `npm.cmd audit fix` (without `--force`) | `body-parser` 2.3.0 → 2.4.0 |
+| 7 | `npm.cmd test` | **93 of 93 passed** |
+| 8 | Browser walk (admin 49 pages, agent 17 pages, pop-ups on 21 pages) | 0 trap texts executed, 1 page error (F-2, fixed) |
 
-There is no linter, formatter or build step in the project. `node --check` and the existing test "every JavaScript file compiles" are the only static checks. ESLint is recommended (REMAINING_ISSUES.md).
+## Round 2 (maximum depth)
 
-## Remaining dependency advisories
+| # | Command / check | Result |
+|---|---|---|
+| 9 | History check: `data.json`, `audit.json`, `.env`, backups or recordings ever committed? | Never |
+| 10 | Real-password hashes in each historical `seed.js` | Only the latest version (`70a2ec9`) has them: 2 accounts. It also has a registration with a real-looking personal e-mail |
+| 11 | 21 new security tests before the fixes | **20 failed** for the expected reasons. 1 passed: the forwarded-address test, which covers the round-1 fix S-5 |
+| 12 | Markdown timing before / after | `md("[".repeat(200000))`: **17,557 ms → 1.2 ms** |
+| 13 | HTML import timing before / after (about 300 KB crafted file) | **14,004 ms → 23 ms** |
+| 14 | Prototype pollution probe (throw-away server) | After one `__proto__` layout: `/api/c/admin` and `/api/skills` answered **500** for admin and agent. Fixed: refused (400) |
+| 15 | Translation pattern timing (crafted 6,000-character text, Bulgarian + French) | Worst case 141 ms. The new test failed at 76 ms without the fix and passes with it |
+| 16 | `node --test test/workflows-more.test.js` (new) | **14 of 14 passed** on the first run (these confirm existing behaviour) |
+| 17 | Supply chain: `package-lock.json` (256 packages) | All from `registry.npmjs.org` with sha512 integrity. 0 install scripts. 6 deprecated packages, all through `exceljs` 4.4.0 (latest version). `npm outdated`: `nodemailer` 10.2.0 → 10.2.1 available (no advisory) |
+| 18 | Bounded scalability measurement (made-up data, throw-away server, one request at a time) | See below |
+| 19 | Final `npm.cmd test` | **129 tests, 129 passed**, 0 failed, 0 skipped, 0 cancelled (15.3 s) |
+| 20 | Final `node --check` on all 51 JavaScript files | 0 syntax errors |
+| 21 | Final `npm.cmd audit` | 2 moderate (`uuid` through `exceljs`): cannot be triggered here, see below |
+| 22 | Final `git diff` review | Only intended files. No secrets (only made-up test passwords inside the tests). `data.json` untouched |
 
-- **Package:** `uuid` < 11.1.1, moderate severity ("missing buffer bounds check in v3/v5/v6 when buf is provided"), pulled in by `exceljs` 4.4.0.
-- **Can it be triggered here?** No. `exceljs` only calls `uuid.v4()` without a buffer (`node_modules/exceljs/lib/xlsx/xform/sheet/cf-ext/cf-rule-ext-xform.js`).
-- **Why it was not fixed:** the only automatic fix downgrades `exceljs` to 3.4.0, a breaking change.
-- **Decision:** accepted. Re-check when `exceljs` releases an update.
+### Scalability measurement (item 18)
 
-## Browser tests (scripted, throw-away data copy on port 3199)
+| Made-up data | `data.json` | Smallest request (`/api/me`) | All reviews (admin) | Saving any small change |
+|---|---|---|---|---|
+| 521 people, 3,000 reviews (≈ 3 months for 500 agents) | 18.5 MB | 111 ms | 231 ms (9 MB answer) | **980 ms** |
+| 521 people, 12,000 reviews (≈ 1 year for 500 agents) | 73.3 MB | 384 ms | 700 ms (36 MB answer) | **1,732 ms** |
+
+The server handles one request at a time, so these delays add up for everybody. This is the measured reason for the planned SQLite move (R-3).
+
+### Browser re-test (round 2, new trap texts in about 30 more places)
 
 | Check | Result |
 |---|---|
-| All 49 pages as admin | Opened. No JavaScript errors, no broken text |
-| All 17 pages of the agent menu as agent | Opened. No JavaScript errors, no broken text |
-| View and edit pop-ups on 21 pages (including the review that holds trap text) | Opened, no errors |
-| Stored XSS traps in about 40 fields | **0 executed.** The trap text showed as plain text |
-| 12 staff/admin API calls made as an agent | 12 × 403 |
-| Agent's review list | Only their own review |
-| Dashboard vs report engine vs independent calculation | Identical: 153 reviews, 92.5% average, 87.6% pass rate |
-| Stored score vs answers (153 reviews) | 0 differences |
-| Call Simulator after fix F-1 | 1 good reply of 2 saved 50% (was always 0%) |
-| Improvement plans page | Crashed on a malformed plan (from the audit's own test data) → server check added (F-2). The page then opened without errors |
-| Width 375 px | The intended "screen too narrow" message, no sideways scrolling |
-| Width 768 px (29 pages) | No page wider than the screen |
+| Hostile shared view, **old** `widgets.js` | **3 traps executed**: view id (click), widget key (mouse-over), team name (on display). Proof of S-13 |
+| Same data, **fixed** `widgets.js` | 0 executed. The view still works and both widgets are drawn |
+| Admin: 48 pages, 122 pop-ups, ≈ 69,500 elements hovered or focused | 0 executed, 0 page errors, 0 broken text |
+| QA: 36 pages, 91 pop-ups, ≈ 48,300 elements | 0 executed, 0 errors. 12 admin calls refused (403); planner setting allowed |
+| Team lead: 32 pages, 87 pop-ups, ≈ 35,400 elements | 0 executed, 0 errors |
+| Agent: 17 pages, 23 pop-ups | 0 executed, 0 errors. Export centre and shared views refused, bulk import refused, only own reviews |
+| Ctrl+K search "O'Brien" | Opens Reviews with that search (F-7) |
+| `#constructor`, `#__proto__`, `#toString` | Dashboard shown (F-9) |
+| Red-flag and "Open risk case" buttons on a lead ID with `'`, `\` and a line break | Open with the exact text (F-8) |
+| Export payloads | Quick Flags sends date column 2, Report builder sends none (F-3, F-4) |
+| Widget "review type" filter | Kept after saving (F-6) |
+| Password changed from another session | This browser was signed out: "Your session expired. Please sign in again." (S-14) |
+| Accessibility scan: 46 admin pages, 17 agent pages | 0 controls without a name, 0 clickable elements unreachable by keyboard |
 
-These browser checks were run by hand in this session. They are **not** saved as automated tests in the repository.
+### Defect introduced during the audit
+
+A comment placed in the middle of a line in `public/js/comply.js` (round 2) stopped that file from loading. The browser test caught it (the Compliance page showed the dashboard). It was fixed, all 51 files were re-checked with `node --check`, and the four pages were reopened. It was never committed.
+
+## Remaining dependency advisories
+
+- **Package:** `uuid` < 11.1.1, moderate severity, pulled in by `exceljs`.
+- **Why it cannot be triggered here:** it only affects `v3`/`v5`/`v6` with a buffer, and `exceljs` only calls `uuid.v4()` without one.
+- **Why it was not fixed:** the only automatic fix downgrades `exceljs` to 3.4.0, a breaking change.
+- **Decision:** accepted. See R-22 for the maintenance concern.
 
 ## Not performed
 
@@ -56,12 +83,11 @@ These browser checks were run by hand in this session. They are **not** saved as
 |---|---|
 | OWASP ZAP or other dynamic scanner | Not installed |
 | ESLint or other static analysis | Not configured in the project |
-| Live e-mail (SMTP) and live AI (Anthropic) | No credentials used. The no-SMTP and no-AI fallbacks ran |
-| Faked `X-Forwarded-For` from another machine | Tests run on this computer, which is the trusted tunnel address. Covered by code review |
-| Load, stress and concurrency tests | Out of scope for a local JSON-file app. Limits documented |
-| Real phones and tablets, screen readers, full keyboard-only pass | Not available or not done |
+| Live e-mail (SMTP) and live AI (Anthropic) | No credentials used |
+| Load and stress tests | Only the bounded measurement above (one request at a time) |
+| Real phones and tablets, screen readers, colour contrast | Not available or not done |
 | GitHub repository visibility | `gh` CLI not installed |
 
 ## Remaining failures
 
-None. All 93 automated tests pass. The open items are design and architecture limits, not failing tests (REMAINING_ISSUES.md).
+None. All 129 automated tests pass. The open items are design and architecture limits, not failing tests (REMAINING_ISSUES.md).

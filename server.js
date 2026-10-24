@@ -130,11 +130,14 @@ const app = express();
 const TP = process.env.TRUST_PROXY;
 app.set('trust proxy', /^\d+$/.test(TP || '') ? Number(TP) : TP === 'true' ? true : TP || 'loopback');
 app.disable('x-powered-by');
-app.use((req, res, next) => {   // basic browser protections: no framing by other sites (clickjacking), no guessing of file types
-  res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'same-origin' }); next();
+app.use((req, res, next) => {   // basic browser protections: no framing by other sites (clickjacking), no guessing of file types; data answers are never cached
+  res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'same-origin' });
+  if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
+  next();
 });
-app.use((req, res, next) => {   // a change sent by another website (CSRF) is refused; the app itself sends "same-origin"
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('sec-fetch-site') === 'cross-site') return res.status(403).json({ error: 'Requests from other websites are not allowed' });
+app.use((req, res, next) => {   // a change sent by another website (CSRF) is refused, also from a neighbouring site of the same domain; the app itself sends "same-origin"
+  const from = req.get('sec-fetch-site');
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && from && from !== 'same-origin' && from !== 'none') return res.status(403).json({ error: 'Requests from other websites are not allowed' });
   next();
 });
 app.use(session({
@@ -142,8 +145,9 @@ app.use(session({
   resave: false, saveUninitialized: false, rolling: true,
   cookie: { httpOnly: true, sameSite: 'lax', secure: 'auto', maxAge: 12 * 36e5 }   // 'auto': HTTPS-only when opened through HTTPS (the tunnel); signed out after 12 hours without use
 }));
-const bigJson = express.json({ limit: '25mb' }), smallJson = express.json({ limit: '100kb' });   // only signed-in people may send large data (imports, backups)
-app.use((req, res, next) => (req.session && req.session.user ? bigJson : smallJson)(req, res, next));
+// only signed-in staff may send large data (imports, backups); an agent never needs more than a few hundred KB (an Excel file of their own reviews)
+const bigJson = express.json({ limit: '25mb' }), midJson = express.json({ limit: '2mb' }), smallJson = express.json({ limit: '100kb' });
+app.use((req, res, next) => { const u = req.session && req.session.user; (!u ? smallJson : u.role === 'agent' ? midJson : bigJson)(req, res, next); });
 const AUDIT = require('./audit');
 app.use(AUDIT.middleware);
 // the account as it is saved right now (re-read only when data.json changed), so a deactivated user or a changed role takes effect at once, not at the next login
@@ -153,9 +157,10 @@ function liveUser(username) {
   if (key !== UC.key || !UC.users) UC = { key, users: new Map(load().users.map(u => [u.username, u])) };
   return UC.users.get(username);
 }
-function refreshSession(req, res) {   // false = the account is gone or deactivated (the sign-in is ended and 401 is sent)
+// false = the account is gone or deactivated, or its password was changed / reset after this sign-in (the sign-in is ended and 401 is sent)
+function refreshSession(req, res) {
   const cur = liveUser(req.session.user.username);
-  if (!cur || cur.active === false) { req.session.destroy(() => res.status(401).json({ error: 'login required' })); return false; }
+  if (!cur || cur.active === false || (cur.pwv || 0) !== (req.session.pwv || 0)) { req.session.destroy(() => res.status(401).json({ error: 'login required' })); return false; }
   const s = req.session.user;
   if (s.role !== cur.role || s.team !== (cur.team || '') || s.name !== cur.name || s.mustChange !== !!cur.mustChange) req.session.user = pub(cur);
   return true;
@@ -176,8 +181,13 @@ app.post('/api/demo/reset', need('admin'), (req, res) => {
   try { require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'seed.js')], { cwd: __dirname, stdio: 'ignore' }); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: 'The reset failed - run "node seed.js" in the terminal to see why' }); }
 });
-const ctx = { FILE, DIR: __dirname, app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, limited,
+// what the browser receives of the system settings: e-mail templates and notification rules are only for admins
+const setOut = (db, u) => { const s = { ...db.settings, oldTeams: db.oldTeams }; if (u.role !== 'admin') { delete s.mailtpl; delete s.notifOff; } return s; };
+const ctx = { FILE, DIR: __dirname, app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, limited, setOut,
   scopeOf: (db, u) => scopeOf(db, u), seesUser: (db, u, username, team) => seesUser(db, u, username, team) };
+// a password version: changing or resetting a password ends the sign-ins made with the old one (see refreshSession)
+const newPw = (u, pw) => { u.hash = bcrypt.hashSync(String(pw), 10); u.pwv = (u.pwv || 0) + 1; };
+const DUMMY = bcrypt.hashSync(hex(8), 10);   // checked when the account does not exist, so a wrong username takes as long as a wrong password
 
 // ------------------------------------------------------------------ login / account
 app.post('/api/login', (req, res) => {
@@ -189,8 +199,9 @@ app.post('/api/login', (req, res) => {
   if (recent(fail, 9e5) >= 10) return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });
   if (u && u.active !== false && bcrypt.compareSync(String(password || ''), u.hash)) {   // a fresh session id at every sign-in (an id planted before the sign-in is useless)
     delete hits[fail];
-    return req.session.regenerate(err => { if (err) return res.status(500).json({ error: 'Could not sign in, try again' }); req.session.user = pub(u); res.json(req.session.user); });
+    return req.session.regenerate(err => { if (err) return res.status(500).json({ error: 'Could not sign in, try again' }); req.session.user = pub(u); req.session.pwv = u.pwv || 0; res.json(req.session.user); });
   }
+  if (!u) bcrypt.compareSync(String(password || ''), DUMMY);
   if (u && u.active === false && bcrypt.compareSync(String(password || ''), u.hash)) return res.status(403).json({ error: 'This account is deactivated. Please contact the administrator.' });
   const r = db.registrations.find(x => (x.username === id || x.email === id) && x.status !== 'approved' && bcrypt.compareSync(String(password || ''), x.hash));
   if (r) return res.status(403).json({ error: r.status === 'pending'
@@ -219,21 +230,23 @@ app.put('/api/profile', need(), (req, res) => {
   if (b.phone !== undefined) u.phone = str(b.phone, 40);
   save(db); req.session.user = pub(u); res.json(req.session.user);
 });
+// a new password ends the person's other sign-ins (someone else may be using one); the sign-in that changed it stays
 app.post('/api/password', need(), (req, res) => {
   const { current, next } = req.body || {};
-  const db = load(), u = userBy(db, req.session.user.username);
-  if (!u || !bcrypt.compareSync(String(current || ''), u.hash)) return bad(res, 'Your current password is wrong');
+  const db = load(), u = userBy(db, req.session.user.username), key = 'pw:' + req.session.user.username;
+  if (recent(key, 9e5) >= 10) return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });   // the current password cannot be guessed here either
+  if (!u || !bcrypt.compareSync(String(current || ''), u.hash)) { limited(key, 10, 9e5); return bad(res, 'Your current password is wrong'); }
   const pe = pwBad(next); if (pe) return bad(res, pe);
   if (bcrypt.compareSync(String(next), u.hash)) return bad(res, 'The new password cannot be the same as your current password');
-  u.hash = bcrypt.hashSync(String(next), 10); u.mustChange = false; save(db); res.json({ ok: 1 });
+  delete hits[key]; newPw(u, next); u.mustChange = false; save(db); req.session.pwv = u.pwv; res.json({ ok: 1 });
 });
 app.post('/api/password/first', authed, (req, res) => {   // the pop-up every new user sees at their first login
   if (!req.session.user.mustChange) return bad(res, 'Your password was already changed');
   const next = (req.body || {}).next, pe = pwBad(next); if (pe) return bad(res, pe);
   const db = load(), u = userBy(db, req.session.user.username);
   if (bcrypt.compareSync(String(next), u.hash)) return bad(res, 'Please choose a different password than the temporary one');
-  u.hash = bcrypt.hashSync(String(next), 10); u.mustChange = false; save(db);
-  req.session.user = pub(u); res.json(req.session.user);
+  newPw(u, next); u.mustChange = false; save(db);
+  req.session.pwv = u.pwv; req.session.user = pub(u); res.json(req.session.user);
 });
 // My account > Notifications & Confirmations. Only ever changes the person who is signed in.
 //   { info: true|false }      welcome messages and tips on / off       { confirm: true|false }  routine confirmations on / off
@@ -348,7 +361,7 @@ app.delete('/api/teams/:id', need('admin'), (req, res) => {
 });
 
 // ------------------------------------------------------------------ users (admin)
-app.get('/api/users', need('admin'), (req, res) => { const db = load(); res.json(db.users.map(({ hash, reset, ...u }) => ({ ...u, workspaces: u.role === 'agent' ? db.workspaces.filter(w => w.teams.includes(u.team)).map(w => w.id) : db.workspaces.filter(w => (w.staff || []).includes(u.username)).map(w => w.id) }))); });
+app.get('/api/users', need('admin'), (req, res) => { const db = load(); res.json(db.users.map(({ hash, reset, pwv, ...u }) => ({ ...u, workspaces: u.role === 'agent' ? db.workspaces.filter(w => w.teams.includes(u.team)).map(w => w.id) : db.workspaces.filter(w => (w.staff || []).includes(u.username)).map(w => w.id) }))); });
 const userBody = (b, db, cur) => {
   const np = nameParts(b); if (!np.firstName) throw new Error('Enter the first name'); if (!np.lastName) throw new Error('Enter the last name');
   const email = str(b.email, 120).toLowerCase();
@@ -404,45 +417,55 @@ app.delete('/api/users/:username', need('admin'), (req, res) => {
   db.notifications = db.notifications.filter(n => n.to !== u.username);
   save(db); res.json({ ok: 1 });
 });
-app.post('/api/users/:username/reset', need('admin'), (req, res) => {
+app.post('/api/users/:username/reset', need('admin'), (req, res) => {   // the person is signed out everywhere and chooses a new password at the next sign-in
   const db = load(), u = userBy(db, req.params.username);
   if (!u) return res.status(404).json({ error: 'not found' });
-  u.hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10); u.mustChange = true; save(db); res.json({ ok: 1 });
+  newPw(u, DEFAULT_PASSWORD); u.mustChange = true; save(db); res.json({ ok: 1 });
 });
 
 // ------------------------------------------------------------------ dashboard layouts: every role has a default view (set by admins), everybody can personalise their own
+// a page name is a short simple word (dash, autoqa): never a name every JavaScript object already has (__proto__, constructor ...),
+// which would change the server for everybody; and at most 20 pages with their own layout or views, so the data file cannot be filled up
+const okPage = p => /^[a-z][a-z0-9]{0,19}$/.test(p) && !(p in Object.prototype);
+const roomFor = (o, page) => Object.hasOwn(o, page) || Object.keys(o).length < 20;
 app.put('/api/layout', need(), (req, res) => {                                  // my own layout of one page
   const db = load(), u = userBy(db, req.session.user.username), items = cleanLayout((req.body || {}).items), page = str((req.body || {}).page, 20);
-  if (!page || !items) return bad(res, 'Bad layout');
+  if (!okPage(page) || !items) return bad(res, 'Bad layout');
   u.layouts = u.layouts || {};
-  if ((req.body || {}).reset) delete u.layouts[page]; else u.layouts[page] = items;
+  if ((req.body || {}).reset) delete u.layouts[page]; else { if (!roomFor(u.layouts, page)) return bad(res, 'Too many pages'); u.layouts[page] = items; }
   save(db); req.session.user = pub(u); res.json(req.session.user);
 });
 app.put('/api/layouts/:role', need('admin'), (req, res) => {                    // the default view of a role
   const db = load(), items = cleanLayout((req.body || {}).items), page = str((req.body || {}).page, 20);
-  if (!ROLES.includes(req.params.role) || !page || !items) return bad(res, 'Bad layout');
-  db.settings.layouts = db.settings.layouts || {}; db.settings.layouts[page] = db.settings.layouts[page] || {};
+  if (!ROLES.includes(req.params.role) || !okPage(page) || !items) return bad(res, 'Bad layout');
+  db.settings.layouts = db.settings.layouts || {}; if (!roomFor(db.settings.layouts, page)) return bad(res, 'Too many pages');
+  db.settings.layouts[page] = db.settings.layouts[page] || {};
   if ((req.body || {}).reset) delete db.settings.layouts[page][req.params.role]; else db.settings.layouts[page][req.params.role] = items;
-  save(db); res.json(db.settings);
+  save(db); res.json(setOut(db, req.session.user));
 });
-// a widget on a page: k = its own key (the same widget can be added twice), id = the kind of widget, size, an own title and own filters (team, period)
+// a widget on a page: k = its own key (the same widget can be added twice), id = the kind of widget, size, an own title and own filters (review type, team, period).
+// Keys and ids go inside onclick="..." on the page, so they keep only letters, numbers, - and _ (a shared view must not be able to carry code to other people)
 const SIZES = [3, 4, 6, 12, 15, 20, 30, 40, 60];
-const cleanLayout = a => Array.isArray(a) && a.length <= 40 ? a.map(x => ({ k: str(x.k, 40) || undefined, id: str(x.id, 30), size: SIZES.includes(Number(x.size)) ? Number(x.size) : 30, on: x.on !== false, title: str(x.title, 60) || undefined, f: x.f && typeof x.f === 'object' ? { t: str(x.f.t, 40), p: str(x.f.p, 10) } : undefined })).filter(x => x.id) : null;
+const safeId = (v, n) => str(v, n).replace(/[^\w-]/g, '');
+const cleanLayout = a => Array.isArray(a) && a.length <= 40 ? a.filter(x => x && typeof x === 'object').map(x => ({ k: safeId(x.k, 40) || undefined, id: safeId(x.id, 30), size: SIZES.includes(Number(x.size)) ? Number(x.size) : 30, on: x.on !== false, title: str(x.title, 60) || undefined,
+  f: x.f && typeof x.f === 'object' ? { c: CHANNELS.includes(x.f.c) ? x.f.c : '', t: safeId(x.f.t, 40), p: safeId(x.f.p, 10) } : undefined })).filter(x => x.id) : null;
 // named dashboard views: personal ones (everybody) and shared ones (admins and QA) that are shown to chosen roles or to everyone
-const cleanViews = (a, shared) => Array.isArray(a) && a.length <= 20 ? a.map(v => ({ id: str(v.id, 20) || 'v' + hex(4), name: str(v.name, 40) || 'My view', items: cleanLayout(v.items) || [], ...(shared ? { roles: list(v.roles, 6, 10).filter(r => r === 'all' || ROLES.includes(r)), by: str(v.by, 60) } : {}) })) : null;
+const cleanViews = (a, shared) => Array.isArray(a) && a.length <= 20 ? a.filter(v => v && typeof v === 'object').map(v => ({ id: safeId(v.id, 20) || 'v' + hex(4), name: str(v.name, 40) || 'My view', items: cleanLayout(v.items) || [], ...(shared ? { roles: list(v.roles, 6, 10).filter(r => r === 'all' || ROLES.includes(r)), by: str(v.by, 60) } : {}) })) : null;
 app.put('/api/views', need(), (req, res) => {
   const db = load(), u = userBy(db, req.session.user.username), page = str((req.body || {}).page, 20), views = cleanViews((req.body || {}).views);
-  if (!page || !views) return bad(res, 'Bad views');
-  u.views = u.views || {}; u.views[page] = views; save(db); req.session.user = pub(u); res.json(req.session.user);
+  if (!okPage(page) || !views) return bad(res, 'Bad views');
+  u.views = u.views || {}; if (!roomFor(u.views, page)) return bad(res, 'Too many pages');
+  u.views[page] = views; save(db); req.session.user = pub(u); res.json(req.session.user);
 });
 app.put('/api/shared-views', need('admin', 'qa'), (req, res) => {
   const db = load(), page = str((req.body || {}).page, 20), views = cleanViews((req.body || {}).views, true);
-  if (!page || !views) return bad(res, 'Bad views');
-  db.settings.views = db.settings.views || {}; db.settings.views[page] = views; save(db); res.json({ ...db.settings, oldTeams: db.oldTeams });
+  if (!okPage(page) || !views) return bad(res, 'Bad views');
+  db.settings.views = db.settings.views || {}; if (!roomFor(db.settings.views, page)) return bad(res, 'Too many pages');
+  db.settings.views[page] = views; save(db); res.json(setOut(db, req.session.user));
 });
 
 // ------------------------------------------------------------------ system settings (pass rate thresholds)
-app.get('/api/settings', need(), (req, res) => { const db = load(); res.json({ ...db.settings, oldTeams: db.oldTeams }); });
+app.get('/api/settings', need(), (req, res) => res.json(setOut(load(), req.session.user)));
 app.put('/api/settings', need('admin'), (req, res) => {
   const b = req.body || {}, db = load(), pass = Number(b.pass);
   if (!(pass >= 1 && pass <= 100)) return bad(res, 'The pass rate must be between 1 and 100');
@@ -453,7 +476,7 @@ app.put('/api/settings', need('admin'), (req, res) => {
     if (!db.teams.some(t => t.id === k) || !(n >= 1 && n <= 100)) return bad(res, 'Each team pass rate must be between 1 and 100');
     teams[k] = n;
   }
-  db.settings = { ...db.settings, pass, teams }; save(db); res.json({ ...db.settings, oldTeams: db.oldTeams });
+  db.settings = { ...db.settings, pass, teams }; save(db); res.json(setOut(db, req.session.user));
 });
 
 // ------------------------------------------------------------------ notifications (each user only sees their own)
@@ -653,16 +676,20 @@ app.delete('/api/scorecards/:id', need('admin'), (req, res) => {
 // ------------------------------------------------------------------ Excel export: the page sends the rows it is showing, we return a real .xlsx file
 // only plain text, numbers and yes/no become cells: an object could be turned into a formula or a link inside Excel (spreadsheet injection)
 const cellOf = v => typeof v === 'number' ? (Number.isFinite(v) ? v : null) : typeof v === 'boolean' ? v : v == null || typeof v === 'object' ? null : String(v).slice(0, 32000);
+// dc = the column that holds the dates (Call Reviews: 1, Quick Flags: 2, reports: none = -1); only a real YYYY-MM-DD value in it becomes an Excel date
 app.post('/api/export/call-reviews', need(), async (req, res) => {
-  const raw = (req.body || {}).rows, pf = Number((req.body || {}).pf), pt = Number((req.body || {}).pt), name = str((req.body || {}).name, 30) || 'Call Reviews';
+  const b = req.body || {}, raw = b.rows, pf = Number(b.pf), pt = Number(b.pt), dc = b.dc === undefined ? 1 : Number(b.dc), name = str(b.name, 30) || 'Call Reviews', u = req.session.user;
   if (!Array.isArray(raw) || !raw.length || raw.length > 20000) return res.status(400).json({ error: 'bad rows' });
   const rows = raw.map(r => (Array.isArray(r) ? r : []).slice(0, 200).map(cellOf));
-  if (!(req.body || {}).again) { const db = load(), u = req.session.user; db.exports = Array.isArray(db.exports) ? db.exports : []; db.exports.unshift({ id: 'x' + hex(5), name, n: rows.length - 1, pf, pt, by: u.username, byName: u.name, at: iso(), rows: rows.length <= 5001 ? rows : null }); db.exports = db.exports.slice(0, 200); save(db); }   // the Export centre keeps a copy
+  if (!b.again && STAFF.includes(u.role)) {   // the Export centre (staff only) keeps a copy, but never a big one inside the data file
+    const db = load(), keep = rows.length <= 5001 && JSON.stringify(rows).length <= 2e6; db.exports = Array.isArray(db.exports) ? db.exports : [];
+    db.exports.unshift({ id: 'x' + hex(5), name, n: rows.length - 1, pf, pt, dc, by: u.username, byName: u.name, at: iso(), rows: keep ? rows : null }); db.exports = db.exports.slice(0, 200); save(db);
+  }
   const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(name.replace(/[\\/?*[\]:]/g, ' '));
-  rows.forEach((r, i) => ws.addRow(r.map((v, j) => (i && j === 1) ? new Date(v + 'T12:00:00') : v)));
+  rows.forEach((r, i) => ws.addRow(r.map((v, j) => (i && j === dc && typeof v === 'string' && DAY.test(v)) ? new Date(v + 'T12:00:00') : v)));
   ws.eachRow((row, n) => row.eachCell((c, j) => {
     c.font = { name: 'Calibri', size: 12, bold: n === 1 };
-    if (n > 1 && j === 2) c.numFmt = 'mm/dd/yyyy';
+    if (n > 1 && j - 1 === dc && c.value instanceof Date) c.numFmt = 'mm/dd/yyyy';
     if (n > 1 && j - 1 >= pf && j - 1 <= pt && typeof c.value === 'number') c.numFmt = 'General"%"';
   }));
   const nC = rows[0].length, wide = { 5: 34, [nC - 2]: 30, [nC - 1]: 40, [nC]: 40 };
@@ -678,7 +705,8 @@ app.post('/api/forgot', async (req, res) => {
   if (limited('forgot:' + req.ip, 5, 9e5)) return res.status(429).json({ error: 'Too many requests, try again later' });
   const id = str((req.body || {}).identifier, 120).toLowerCase();
   const db = load(), u = id && db.users.find(x => x.username === id || (x.email || '').toLowerCase() === id);
-  if (u && u.email) {
+  if (u && u.email && limited('forgot-acct:' + u.username, 3, 36e5)) console.log('Reset requested again for ' + u.username + ': no new e-mail (at most 3 per hour)');   // nobody can flood a mailbox
+  else if (u && u.email) {
     const token = crypto.randomBytes(32).toString('hex');
     u.reset = { h: sha(token), exp: now + 36e5 }; save(db);          // link is valid for 1 hour
     const url = `${BASE}/?reset=${token}&u=${encodeURIComponent(u.username)}`;
@@ -694,7 +722,7 @@ app.post('/api/reset', (req, res) => {
   if (!ok) return bad(res, 'This reset link is invalid or has expired');
   const pe = pwBad(password); if (pe) return bad(res, pe);
   if (bcrypt.compareSync(String(password), u.hash)) return bad(res, 'For security, the new password cannot be the same as your current password');
-  u.hash = bcrypt.hashSync(String(password), 10); u.mustChange = false; delete u.reset; save(db); res.json({ ok: 1 });
+  newPw(u, password); u.mustChange = false; delete u.reset; save(db); res.json({ ok: 1 });   // every sign-in made before the reset ends
 });
 
 // ------------------------------------------------------------------ call recordings
@@ -712,7 +740,7 @@ app.post('/api/evaluations/:rid/recording', need('admin', 'qa'), express.raw({ t
   if (!ext) return res.status(415).json({ error: 'unsupported audio type' });
   if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'empty file' });
   fs.mkdirSync(REC, { recursive: true });
-  const name = ev.rid + '-' + Date.now() + '.' + ext;
+  const name = String(ev.rid).replace(/[^\w-]/g, '') + '-' + Date.now() + '.' + ext;   // only letters and numbers: the file always lands in the recordings folder
   fs.writeFileSync(path.join(REC, name), req.body);
   if (ev.rec) fs.rm(path.join(REC, path.basename(ev.rec)), () => {});      // the old file is replaced
   ev.rec = name; save(db); res.json({ rec: name });

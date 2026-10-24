@@ -23,7 +23,8 @@ const RR = { entry: ['admin', 'qa'], flags: STAFFR, team: STAFFR, cats: STAFFR, 
 Object.assign(RR, { rbuild: STAFFR, rsaved: STAFFR, rexp: STAFFR, planner: ['admin', 'qa', 'lead'], workload: ['admin', 'qa', 'lead'], compliance: STAFFR, risks: STAFFR, complaints: STAFFR, csat: STAFFR, perms: ['admin'], integ: ['admin'], notifs: ['admin'], backup: ['admin'], mailtpl: ['admin'] });
 // an admin can change who sees which page (Admin > Roles & permissions); admins always keep the Admin pages
 const ADMINP = ['users', 'teams', 'wsp', 'skills', 'perms', 'integ', 'notifs', 'backup', 'mailtpl', 'audit'];
-const canRoute = k => { if (ME.role === 'admin' && ADMINP.includes(k)) return true; const p = (SET.perm || {})[k] || RR[k]; return !p || p.includes(ME.role); };
+const own = (o, k) => o && Object.hasOwn(o, k) ? o[k] : undefined;   // only the object's own entries (a link such as #constructor is not a page)
+const canRoute = k => { if (ME.role === 'admin' && ADMINP.includes(k)) return true; const p = own(SET.perm, k) || own(RR, k); return !Array.isArray(p) || p.includes(ME.role); };
 const groupsFor = () => GROUPS.map(g => ({ ...g, items: g.items.filter(([k]) => canRoute(k)) })).filter(g => g.items.length);
 const groupOf = r => ({ aqlist: 'home', aqgaps: 'home' })[r] || (GROUPS.find(g => g.items.some(([k]) => k === r)) || {}).id;
 

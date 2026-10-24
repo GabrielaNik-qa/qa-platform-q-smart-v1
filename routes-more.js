@@ -2,7 +2,7 @@
 // Most of these are simple lists of records ("collections") with the same four routes: list, add, change, delete.
 const fs = require('fs'), path = require('path');
 const RPT = require('./public/js/rpt-engine.js');
-module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify, userBy, mail, BASE, scopeOf }) => {
+module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify, userBy, mail, BASE, scopeOf, setOut }) => {
   const EDIT = ['admin', 'qa', 'lead', 'trainer'], ALL = ['admin', 'qa', 'lead', 'trainer', 'agent'];
   // who may read / write each collection; mine(u, x) = an agent may only see the records about themselves
   const COLS = {
@@ -41,6 +41,7 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   app.post('/api/c/:col', need(), known, (req, res) => {
     const c = req.params.col, u = req.session.user, db = load(), b = req.body || {};
     if (!canWrite(c, u)) return res.status(403).json({ error: 'Your role cannot add these' });
+    if (Array.isArray(b.bulk) && c !== 'surveys') return bad(res, 'Only survey answers can be imported as a list');
     const list = Array.isArray(b.bulk) ? b.bulk.slice(0, 3000) : [b];                // bulk = an imported list (surveys)
     if (JSON.stringify(list).length > 3e6) return bad(res, 'Too much data at once');
     const out = list.map(x => ({ ...clean(x), id: c.slice(0, 1) + hex(5), by: u.username, byName: u.name, at: iso() }));
@@ -69,7 +70,7 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   const KEYS = { planner: ['admin', 'qa'], perm: ['admin'], integ: ['admin'], notifOff: ['admin'], mailtpl: ['admin'] };
   app.put('/api/settings/x/:key', need(), (req, res) => {
     const k = req.params.key, u = req.session.user; if (!KEYS[k]) return res.status(404).json({ error: 'unknown setting' }); if (!KEYS[k].includes(u.role)) return res.status(403).json({ error: 'not allowed' });
-    const db = load(); db.settings = { ...db.settings, [k]: clean((req.body || {}).value) }; save(db); res.json({ ...db.settings, oldTeams: db.oldTeams });
+    const db = load(); db.settings = { ...db.settings, [k]: clean((req.body || {}).value) }; save(db); res.json(setOut(db, u));
   });
 
   // ---------------------------------------------------------------- export centre: every Excel file that was made, ready to download again

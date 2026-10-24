@@ -81,7 +81,7 @@ function render() {
   const fk = focusKey();
   if (!ME) { $('#m').innerHTML = LG(); $('#n').innerHTML = ''; $('#br').innerHTML = ''; $('#fz').innerHTML = ''; refocus(fk); return; }
   applySb();
-  $('#m').innerHTML = (PG[route] || PG.dash)() + overlays();
+  $('#m').innerHTML = (Object.hasOwn(PG, route) && typeof PG[route] === 'function' ? PG[route] : PG.dash)() + overlays();   // a link such as #constructor shows the dashboard
   $('#br').innerHTML = `<div class=brand onclick="location.hash='dash'" title="Go to Home">${mark('mg2', 36)}<div><b>Q-SMART</b><small>Customer Service Analytics</small></div></div>`;
   $('#n').innerHTML = NAVH();
   $('#fz').innerHTML = FOOT();
@@ -190,11 +190,12 @@ function palItems() {
   if (q) {
     AGENTS().filter(a => hit(a.name) || hit(a.username)).slice(0, 6).forEach(a => out.push({ ic: `<span class=av style="margin:0;width:24px;height:24px;font-size:9px">${esc(ini(a.name))}</span>`, t: a.name, s: 'Agent · ' + tn(a.team), go: ME.role === 'agent' ? "goPage('agents')" : `openAgent('${esc(a.username)}')` }));
     EV.filter(e => String(e.id).toLowerCase().includes(q)).slice(0, 6).forEach(e => out.push({ ic: IC.eye, t: 'Lead ' + e.id, s: `${agn(e)} · ${f(e.d)} · ${Math.round(e.sc)}%`, go: `om('view','${e.rid}')` }));
-    out.push({ ic: IC.search, t: `Search Call Reviews for "${PAL.q.trim()}"`, s: 'Lead ID, agent or campaign', go: `Q=${JSON.stringify(PAL.q.trim()).replace(/"/g, "'")};KQ=true;location.hash==='#calls'?render():location.hash='calls'` });
+    const sq = PAL.q.trim();   // a function, not code made from the typed text: names such as O'Brien work, and nothing typed can run as code
+    out.push({ ic: IC.search, t: `Search Call Reviews for "${sq}"`, s: 'Lead ID, agent or campaign', go: () => { Q = sq; KQ = true; if (location.hash === '#calls') render(); else location.hash = 'calls'; } });
   }
   return out.slice(0, 14);
 }
-function palGo(k) { const it = palItems()[k]; PAL = null; render(); if (it) new Function(it.go)(); }
+function palGo(k) { const it = palItems()[k]; PAL = null; render(); if (it) typeof it.go === 'function' ? it.go() : new Function(it.go)(); }
 const PALM = () => { const l = palItems(); if (PAL.i >= l.length) PAL.i = 0;
   return OVL(`<div class=pal><div class=sx><span>${IC.search}</span><input id=palq placeholder="Go to a page, an agent or a lead ID…" value="${esc(PAL.q)}" oninput="PAL.q=this.value;PAL.i=0;palRt()" onkeydown="palKey(event)"><kbd class=kb>Esc</kbd></div><div id=pall>${palList(l)}</div><small class=mu>↑ ↓ to choose · Enter to open</small></div>`, 'PAL=null;render()', 620, 99); };
 const palList = l => l.map((it, k) => `<button class="palr ${k === PAL.i ? 'on' : ''}" onclick="palGo(${k})"><span class=pali>${it.ic}</span><span><b>${esc(it.t)}</b><small>${esc(it.s)}</small></span></button>`).join('') || '<p class=mu style="padding:14px">Nothing found</p>';

@@ -34,8 +34,8 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     const title = str(b.title, 150); if (!title) return bad(res, 'Give the task a title');
     if (b.due && !DAY.test(b.due)) return bad(res, 'Choose a valid deadline');
     if (b.start && b.due && b.start > b.due) return bad(res, 'The start date is after the deadline');
-    const who = new Set((Array.isArray(b.assignees) ? b.assignees : []).filter(x => { const u = userBy(db, x); return u && u.active !== false; }));
-    activeUsers(db).forEach(u => { if (u.role === 'agent' && (b.teams || []).includes(u.team)) who.add(u.username); });
+    const who = new Set((Array.isArray(b.assignees) ? b.assignees : []).filter(x => { const u = userBy(db, x); return u && u.active !== false && seesUser(db, me, u.username); }));
+    activeUsers(db).forEach(u => { if (u.role === 'agent' && (Array.isArray(b.teams) ? b.teams : []).includes(u.team) && seesUser(db, me, u.username)) who.add(u.username); });
     if (!who.size) return bad(res, 'Choose at least one agent or team to give the task to');
     const group = 'g' + hex(4), out = [];
     who.forEach(un => {
@@ -60,7 +60,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
       if (b.start !== undefined) { if (b.start && !DAY.test(b.start)) return bad(res, 'Choose a valid start date'); t.start = b.start || ''; }
       if (b.labels !== undefined) t.labels = list(b.labels, 8);
       if (b.checklist !== undefined) t.checklist = checklist(b.checklist);
-      if (b.assignee !== undefined && b.assignee !== t.assignee) { const a = userBy(db, b.assignee); if (!a) return bad(res, 'Choose a valid person'); t.assignee = a.username; notify(db, a.username, 'task', `A ${t.type} was assigned to you: ${t.title}`, { task: t.id }); }
+      if (b.assignee !== undefined && b.assignee !== t.assignee) { const a = userBy(db, b.assignee); if (!a || !seesUser(db, u, a.username)) return bad(res, 'Choose a valid person'); t.assignee = a.username; notify(db, a.username, 'task', `A ${t.type} was assigned to you: ${t.title}`, { task: t.id }); }
     } else if (b.checklist !== undefined && Array.isArray(b.checklist) && b.checklist.length === t.checklist.length) t.checklist.forEach((c, i) => { c.done = !!(b.checklist[i] && b.checklist[i].done); });
     if (b.pinned !== undefined) t.pinned = !!b.pinned;                                   // the agent can pin and archive their own cards too
     if (b.archived !== undefined) t.archived = b.archived ? iso() : null;
@@ -101,10 +101,10 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   // ---------------------------------------------------------------- coaching / training / one-to-one sessions
   const KINDS = ['o2o', 'coaching', 'group', 'training'];
   const writers = kind => kind === 'o2o' ? ['admin', 'lead', 'qa'] : ['admin', 'trainer', 'qa'];
-  const sessBody = (b, db) => {
+  const sessBody = (b, db, me) => {
     const kind = KINDS.includes(b.kind) ? b.kind : null; if (!kind) throw new Error('Choose the type of session');
     if (!DAY.test(b.date || '')) throw new Error('Choose the date');
-    const agents = list(b.agents, 60, 40).filter(x => userBy(db, x)); if (!agents.length) throw new Error('Choose at least one agent');
+    const agents = list(b.agents, 60, 40).filter(x => userBy(db, x) && seesUser(db, me, x)); if (!agents.length) throw new Error('Choose at least one agent');
     const actions = (Array.isArray(b.actions) ? b.actions : []).slice(0, 20).map(a => ({ t: str(a.t, 200), owner: userBy(db, a.owner) ? a.owner : '', due: DAY.test(a.due || '') ? a.due : '', done: !!a.done, taskId: str(a.taskId, 20) })).filter(a => a.t);
     return { kind, date: b.date, title: str(b.title, 150) || ({ o2o: 'One-to-one', coaching: 'Coaching session', group: 'Group coaching', training: 'Training' })[kind], agents, topics: list(b.topics, 12), focus: list(b.focus, 12, 80), notes: str(b.notes, 6000), goals: str(b.goals, 2000), actions, follow: DAY.test(b.follow || '') ? b.follow : '', status: b.status === 'planned' ? 'planned' : 'done' };
   };
@@ -122,7 +122,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   app.post('/api/sessions', need(...EDIT), (req, res) => {
     const db = load(), me = req.session.user;
     try {
-      const b = sessBody(req.body || {}, db); if (!writers(b.kind).includes(me.role)) return res.status(403).json({ error: 'Your role cannot document this type of session' });
+      const b = sessBody(req.body || {}, db, me); if (!writers(b.kind).includes(me.role)) return res.status(403).json({ error: 'Your role cannot document this type of session' });
       const s = { id: 's' + hex(5), ...b, by: me.username, byName: me.name, created: iso(), updated: iso() };
       if ((req.body || {}).makeTasks) makeTasks(db, s, me);
       db.sessions.unshift(s); save(db); res.json(s);
@@ -141,7 +141,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     const db = load(), me = req.session.user, s = db.sessions.find(x => x.id === req.params.id && sessSeen(db, me, x));
     if (!s) return res.status(404).json({ error: 'not found' });
     try {
-      const b = sessBody({ ...s, ...(req.body || {}) }, db); if (!writers(b.kind).includes(me.role) || !writers(s.kind).includes(me.role)) return res.status(403).json({ error: 'not allowed' });
+      const b = sessBody({ ...s, ...(req.body || {}) }, db, me); if (!writers(b.kind).includes(me.role) || !writers(s.kind).includes(me.role)) return res.status(403).json({ error: 'not allowed' });
       Object.assign(s, b, { updated: iso() }); if ((req.body || {}).makeTasks) makeTasks(db, s, me); save(db); res.json(s);
     } catch (e) { bad(res, e.message); }
   });
@@ -184,7 +184,8 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   });
   app.post('/api/simulations', need(), (req, res) => {
     const db = load(), me = req.session.user, b = req.body || {};
-    const agent = me.role === 'agent' ? me.username : (userBy(db, b.agent) ? b.agent : me.username);
+    if (me.role !== 'agent' && b.agent && !(userBy(db, b.agent) && seesUser(db, me, b.agent))) return bad(res, 'Choose the agent');   // staff save results only for people of their workspace
+    const agent = me.role === 'agent' ? me.username : (b.agent || me.username);
     const x = { id: 'm' + hex(5), agent, scenario: str(b.scenario, 100) || 'Practice call', persona: str(b.persona, 60), score: Math.max(0, Math.min(100, Math.round(Number(b.score) || 0))), minutes: Math.max(1, Math.min(240, Math.round(Number(b.minutes) || 1))), result: str(b.result, 30), tips: list(b.tips, 6, 160), date: iso() };
     db.simulations.unshift(x); save(db); res.json(x);
   });
