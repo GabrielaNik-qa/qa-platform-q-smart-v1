@@ -53,17 +53,18 @@ const PG = {
   sim: () => head('Call Simulator', 'Practice objection handling with a virtual customer') + card('Scenario: price objection', CH.map(m => `<div class="msg ${m[0] === 'u' ? 'me' : ''}">${esc(m[1])}</div>`).join('') + `<div class=row style="margin-top:10px"><input id=si style="flex:1" placeholder="Type your reply…" onkeydown='if(event.key=="Enter")snd()'><button class=btn onclick=snd()>Send</button></div><div class=row style="margin-top:12px"><small class=mu>When you are done, save the result: it appears on your Agents page (tab Simulations).</small><button class=pb onclick=simFinish()>Finish &amp; save score</button></div>`)
 };
 let SIMT = 0;
+const SIM_GOOD = 'Coach: good, you acknowledged the concern.', SIM_TIP = 'Coach tip: empathise first, then ask a question.';   // kept in English, translated on screen
 function snd() {
   const t = $('#si').value.trim(); if (!t) return;
   if (!SIMT) SIMT = Date.now();
   const g = /understand|value|include|\?/i.test(t);
-  CH.push(['u', t], ['c', RP[Math.min(CH.filter(m => m[0] === 'u').length, 2)]], ['c', g ? 'Coach: good, you acknowledged the concern.' : 'Coach tip: empathise first, then ask a question.']); render();
+  CH.push(['u', t], ['c', RP[Math.min(CH.filter(m => m[0] === 'u').length, 2)]], ['c', g ? SIM_GOOD : SIM_TIP]); render();
 }
 
 // the practice call is scored by how many of your replies the coach liked, then saved for the Agents page
 async function simFinish() {
   const you = CH.filter(m => m[0] === 'u').length; if (!you) return toast('Write at least one reply first', true);
-  const good = CH.filter(m => m[0] === 'c' && m[1].startsWith('✔')).length, tips = [...new Set(CH.filter(m => m[0] === 'c' && m[1].startsWith('ℹ')).map(m => m[1].replace(/^ℹs*/, '')))];
+  const good = CH.filter(m => m[0] === 'c' && m[1] === SIM_GOOD).length, tips = [...new Set(CH.filter(m => m[0] === 'c' && m[1] === SIM_TIP).map(m => m[1]))];
   const score = Math.round(good / you * 100);
   const r = await api('/api/simulations', { scenario: 'Price objection', persona: 'Price-sensitive customer', score, minutes: Math.ceil((Date.now() - SIMT) / 60000), result: score >= 85 ? 'winner' : 'keep practising', tips });
   if (!r.ok) return toast(await errOf(r, 'Could not save the result'), true);

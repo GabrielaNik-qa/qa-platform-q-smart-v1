@@ -77,12 +77,13 @@
     const grand = {}; mets.forEach(m => { grand[m] = metric(src, m, l, data, null); });
     return { src, srcName: S.name, metrics: mets, metricNames: mets.map(m => S.metrics[m]), rowDim, colDim, rowName: DIMN[rowDim], colName: DIMN[colDim], rows, colKeys, grand, n: l.length, from: a, to: b, periodName: PERN[(cfg.period || {}).p || 'month'] || '' };
   }
-  // a plain HTML table of a result (used in the scheduled emails)
+  // a plain HTML table of a result (used in the scheduled emails and the PDF print); names and titles are typed by people, so they are escaped
   function toHtml(res, title) {
-    const fmt = v => v == null ? '—' : String(v);
-    const head = res.colDim === 'none' ? res.metricNames.map(n => `<th>${n}</th>`).join('') : res.colKeys.map(c => `<th>${c}</th>`).join('') + '<th>Total</th>';
-    const body = res.rows.map(r => `<tr><td>${r.key}</td>${res.colDim === 'none' ? res.metrics.map(m => `<td>${fmt(r.cells[0][m])}</td>`).join('') : r.cells.map(c => `<td>${fmt(c[res.metrics[0]])}</td>`).join('') + `<td>${fmt(r.total[res.metrics[0]])}</td>`}</tr>`).join('');
-    return `<h2 style="font-family:sans-serif">${title}</h2><p style="font-family:sans-serif;color:#555">${res.srcName} · ${res.periodName} · ${res.n} records${res.colDim === 'none' ? '' : ' · ' + res.metricNames[0]}</p><table border=1 cellpadding=6 style="border-collapse:collapse;font-family:sans-serif;font-size:13px"><tr><th>${res.rowName}</th>${head}</tr>${body}</table>`;
+    const h = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+    const fmt = v => v == null ? '—' : h(v);
+    const head = res.colDim === 'none' ? res.metricNames.map(n => `<th>${h(n)}</th>`).join('') : res.colKeys.map(c => `<th>${h(c)}</th>`).join('') + '<th>Total</th>';
+    const body = res.rows.map(r => `<tr><td>${h(r.key)}</td>${res.colDim === 'none' ? res.metrics.map(m => `<td>${fmt(r.cells[0][m])}</td>`).join('') : r.cells.map(c => `<td>${fmt(c[res.metrics[0]])}</td>`).join('') + `<td>${fmt(r.total[res.metrics[0]])}</td>`}</tr>`).join('');
+    return `<h2 style="font-family:sans-serif">${h(title)}</h2><p style="font-family:sans-serif;color:#555">${h(res.srcName)} · ${h(res.periodName)} · ${res.n} records${res.colDim === 'none' ? '' : ' · ' + h(res.metricNames[0])}</p><table border=1 cellpadding=6 style="border-collapse:collapse;font-family:sans-serif;font-size:13px"><tr><th>${h(res.rowName)}</th>${head}</tr>${body}</table>`;
   }
   const api = { SRC, DIMN, PERN, range, run, toHtml };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.RPT = api;

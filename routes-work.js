@@ -1,6 +1,8 @@
 // Tasks (Kanban + missions + recurring daily missions), coaching / one-to-one sessions, calibration sessions.
-module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, userBy }) => {
+module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, userBy, seesUser }) => {
   const EDIT = ['admin', 'qa', 'lead', 'trainer'];
+  // staff only reach the records of people in their own workspace (admins reach everything); agents only their own, checked below
+  const taskSeen = (db, u, t) => seesUser(db, u, t.assignee), sessSeen = (db, u, s) => s.agents.some(a => seesUser(db, u, a)), flagSeen = (db, u, f) => seesUser(db, u, f.agent, f.tid);
   const STATUS = ['todo', 'doing', 'review', 'done'], PRIO = ['low', 'med', 'high'];
   const DAY = /^\d{4}-\d{2}-\d{2}$/;
   const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
@@ -25,7 +27,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   }
   app.get('/api/tasks', need(), (req, res) => {
     const db = load(), u = req.session.user; recurring(db);
-    res.json(db.tasks.filter(t => u.role !== 'agent' || t.assignee === u.username));
+    res.json(db.tasks.filter(t => u.role !== 'agent' ? taskSeen(db, u, t) : t.assignee === u.username));
   });
   app.post('/api/tasks', need(...EDIT), (req, res) => {
     const db = load(), b = req.body || {}, me = req.session.user;
@@ -44,7 +46,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     save(db); res.json(out);
   });
   app.put('/api/tasks/:id', need(), (req, res) => {
-    const db = load(), t = db.tasks.find(x => x.id === req.params.id), u = req.session.user, b = req.body || {};
+    const db = load(), u = req.session.user, t = db.tasks.find(x => x.id === req.params.id && (x.assignee === u.username || (u.role !== 'agent' && taskSeen(db, u, x)))), b = req.body || {};
     if (!t) return res.status(404).json({ error: 'not found' });
     const editor = EDIT.includes(u.role), mine = t.assignee === u.username;
     if (!editor && !mine) return res.status(403).json({ error: 'not allowed' });
@@ -73,7 +75,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     save(db); res.json(t);
   });
   app.delete('/api/tasks/:id', need(...EDIT), (req, res) => {
-    const db = load(); if (!db.tasks.some(t => t.id === req.params.id)) return res.status(404).json({ error: 'not found' });
+    const db = load(); if (!db.tasks.some(t => t.id === req.params.id && taskSeen(db, req.session.user, t))) return res.status(404).json({ error: 'not found' });
     db.tasks = db.tasks.filter(t => t.id !== req.params.id); save(db); res.json({ ok: 1 });
   });
   app.get('/api/task-templates', need(...EDIT), (req, res) => res.json(load().taskTpl));
@@ -115,7 +117,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   }
   app.get('/api/sessions', need(), (req, res) => {
     const db = load(), u = req.session.user;
-    res.json(db.sessions.filter(s => u.role !== 'agent' || s.agents.includes(u.username)));
+    res.json(db.sessions.filter(s => u.role !== 'agent' ? sessSeen(db, u, s) : s.agents.includes(u.username)));
   });
   app.post('/api/sessions', need(...EDIT), (req, res) => {
     const db = load(), me = req.session.user;
@@ -136,7 +138,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     save(db); res.json(s);
   });
   app.put('/api/sessions/:id', need(...EDIT), (req, res) => {
-    const db = load(), s = db.sessions.find(x => x.id === req.params.id), me = req.session.user;
+    const db = load(), me = req.session.user, s = db.sessions.find(x => x.id === req.params.id && sessSeen(db, me, x));
     if (!s) return res.status(404).json({ error: 'not found' });
     try {
       const b = sessBody({ ...s, ...(req.body || {}) }, db); if (!writers(b.kind).includes(me.role) || !writers(s.kind).includes(me.role)) return res.status(403).json({ error: 'not allowed' });
@@ -144,7 +146,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     } catch (e) { bad(res, e.message); }
   });
   app.delete('/api/sessions/:id', need(...EDIT), (req, res) => {
-    const db = load(), s = db.sessions.find(x => x.id === req.params.id), me = req.session.user;
+    const db = load(), me = req.session.user, s = db.sessions.find(x => x.id === req.params.id && sessSeen(db, me, x));
     if (!s) return res.status(404).json({ error: 'not found' });
     if (!writers(s.kind).includes(me.role)) return res.status(403).json({ error: 'not allowed' });
     db.sessions = db.sessions.filter(x => x !== s); save(db); res.json({ ok: 1 });
@@ -158,21 +160,27 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     const link = v => /^https?:\/\//i.test(String(v || '').trim()) ? str(v, 500) : '';
     return { type: b.type === 'green' ? 'green' : 'red', ch: ['call', 'chat', 'email', 'other'].includes(b.ch) ? b.ch : 'call', agent: a.username, tid: a.team, lead, date: b.date, cp: str(b.cp, 80), lk: link(b.lk), rl: link(b.rl), cm: str(b.cm, 1000) };
   };
-  app.get('/api/qflags', need(), (req, res) => { const u = req.session.user; res.json(load().qflags.filter(f => u.role !== 'agent' || f.agent === u.username)); });
+  app.get('/api/qflags', need(), (req, res) => { const db = load(), u = req.session.user; res.json(db.qflags.filter(f => u.role !== 'agent' ? flagSeen(db, u, f) : f.agent === u.username)); });
   app.post('/api/qflags', need(...EDIT), (req, res) => {
     const db = load(), me = req.session.user;
-    try { const f = { id: 'f' + hex(5), ...qfBody(req.body || {}, db), by: me.username, byName: me.name, at: iso() }; db.qflags.unshift(f); notify(db, f.agent, 'flag', `${me.name} gave you a ${f.type} flag for Lead #${f.lead}${f.cm ? ': ' + f.cm.slice(0, 80) : ''}`, { flag: f.id, lead: f.lead }); save(db); res.json(f); } catch (e) { bad(res, e.message); }
+    try {
+      const f = { id: 'f' + hex(5), ...qfBody(req.body || {}, db), by: me.username, byName: me.name, at: iso() }; if (!flagSeen(db, me, f)) throw new Error('Choose the agent');
+      db.qflags.unshift(f); notify(db, f.agent, 'flag', `${me.name} gave you a ${f.type} flag for Lead #${f.lead}${f.cm ? ': ' + f.cm.slice(0, 80) : ''}`, { flag: f.id, lead: f.lead }); save(db); res.json(f);
+    } catch (e) { bad(res, e.message); }
   });
   app.put('/api/qflags/:id', need(...EDIT), (req, res) => {
-    const db = load(), f = db.qflags.find(x => x.id === req.params.id); if (!f) return res.status(404).json({ error: 'not found' });
-    try { Object.assign(f, qfBody({ ...f, ...(req.body || {}) }, db), { updated: iso() }); save(db); res.json(f); } catch (e) { bad(res, e.message); }
+    const db = load(), me = req.session.user, f = db.qflags.find(x => x.id === req.params.id && flagSeen(db, me, x)); if (!f) return res.status(404).json({ error: 'not found' });
+    try { const nf = qfBody({ ...f, ...(req.body || {}) }, db); if (!flagSeen(db, me, nf)) throw new Error('Choose the agent'); Object.assign(f, nf, { updated: iso() }); save(db); res.json(f); } catch (e) { bad(res, e.message); }
   });
-  app.delete('/api/qflags/:id', need(...EDIT), (req, res) => { const db = load(); db.qflags = db.qflags.filter(x => x.id !== req.params.id); save(db); res.json({ ok: 1 }); });
+  app.delete('/api/qflags/:id', need(...EDIT), (req, res) => {
+    const db = load(), f = db.qflags.find(x => x.id === req.params.id && flagSeen(db, req.session.user, x)); if (!f) return res.status(404).json({ error: 'not found' });
+    db.qflags = db.qflags.filter(x => x !== f); save(db); res.json({ ok: 1 });
+  });
 
   // ---------------------------------------------------------------- call simulator results (shown on the Agents page, tab Simulations)
   app.get('/api/simulations', need(), (req, res) => {
     const db = load(), u = req.session.user;
-    res.json(db.simulations.filter(x => u.role !== 'agent' || x.agent === u.username));
+    res.json(db.simulations.filter(x => u.role !== 'agent' ? seesUser(db, u, x.agent) : x.agent === u.username));
   });
   app.post('/api/simulations', need(), (req, res) => {
     const db = load(), me = req.session.user, b = req.body || {};

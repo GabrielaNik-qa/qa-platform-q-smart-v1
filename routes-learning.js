@@ -5,9 +5,14 @@ let mammoth = null; try { mammoth = require('mammoth'); } catch (e) {}
 const ai = require('./ai');
 const { md } = require('./public/js/md.js');
 
-module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, userBy }) => {
+module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, userBy, seesUser, limited }) => {
   const EDIT = ['admin', 'qa', 'lead', 'trainer'];
   const isEd = u => EDIT.includes(u.role);
+  // every AI request costs money: at most 30 per person per hour
+  const aiBusy = (req, res) => {
+    if (!ai.enabled() || !limited('ai:' + req.session.user.username, 30, 36e5)) return false;
+    res.status(429).json({ error: 'Too many AI requests. Try again later.' }); return true;
+  };
   const DAY = /^\d{4}-\d{2}-\d{2}$/;
   const COLORS = ['#2563eb', '#7c3aed', '#0d9488', '#e11d48', '#ea580c', '#16a34a', '#ca8a04'], ICONS = ['📁', '📘', '📗', '📙', '📕', '🧭', '💡'];
   const slug = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'item';
@@ -155,7 +160,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   // ---------------------------------------------------------------- who has read / passed what (for trainers and managers)
   app.get('/api/kb/progress', need(...EDIT), (req, res) => {
     const db = load();
-    const people = db.users.filter(u => u.role === 'agent' && u.active !== false).map(u => {
+    const people = db.users.filter(u => u.role === 'agent' && u.active !== false && seesUser(db, req.session.user, u.username)).map(u => {
       const reads = db.kbReads[u.username] || {};
       const required = db.kbArticles.filter(a => isRequired(db, a, u));
       const left = required.filter(a => !reads[a.id] || (a.quiz && !passedTest(db, u.username, a.id))).map(a => ({ id: a.id, title: a.title, why: !reads[a.id] ? 'not read' : 'test not passed' }));
@@ -192,6 +197,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   const htmlText = h => String(h).replace(/<(script|style)[\s\S]*?<\/\1>/gi, '').replace(/<\/(p|div|h[1-6]|li|br)>/gi, '\n').replace(/<h([1-3])[^>]*>/gi, (m, n) => '\n' + '#'.repeat(+n) + ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');   // &amp; last, so "&amp;lt;" stays "&lt;"
   app.get('/api/ai/status', need(), (req, res) => res.json({ enabled: ai.enabled(), model: ai.MODEL() }));
   app.post('/api/kb/import', need(...EDIT), async (req, res) => {
+    if (aiBusy(req, res)) return;
     const b = req.body || {}, db = load();
     try {
       let text = String(b.text || ''), pdf = null; const fn = str(b.filename, 150), ext = (fn.match(/\.([a-z0-9]+)$/i) || [])[1] || '';
@@ -219,6 +225,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     save(db); res.json({ created: ids.length, ids });
   });
   app.post('/api/ai/quiz', need(...EDIT), async (req, res) => {
+    if (aiBusy(req, res)) return;
     const db = load(), b = req.body || {};
     try {
       let text = String(b.text || '');

@@ -32,6 +32,9 @@ Make your own admin: `node adduser.js yourname "Your#Pass1" admin --email=you@ex
 | `$env:SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `PUBLIC_URL` | emails (registration, password reset, reminders) |
 | `$env:ANTHROPIC_API_KEY="sk-ant-..."` | AI: analyse imported documents into articles, write quiz questions |
 | `$env:DATA_FILE`, `AUDIT_FILE`, `REC_DIR` | use another copy of the data, audit log or recordings folder (for testing; normally leave them out) |
+| `$env:TRUST_PROXY` | which proxy may tell the app the visitor's address. Default `loopback` = only the Cloudflare tunnel running on this computer. Use `1` behind one hosted proxy |
+
+Sign-ins end after 12 hours without use. The security audit of October 2026 is in `docs/audit/`.
 
 ## Design
 All colours, fonts, spacing, corners and shadows are set once at the top of `public/css/app.css` (the "tokens"): charcoal

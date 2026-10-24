@@ -87,6 +87,7 @@ function limited(key, max, ms) {
   if (Object.keys(hits).length > 5000) for (const k in hits) if (!hits[k].some(t => now - t < 36e5)) delete hits[k];   // forget old visitors so the list cannot grow forever
   return false;
 }
+const recent = (key, ms) => (hits[key] || []).filter(t => Date.now() - t < ms).length;   // how many times, without counting this one
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 const pwBad = p => {
   p = String(p || '');
@@ -124,17 +125,25 @@ const rosterPub = u => ({ username: u.username, name: u.name, role: u.role, team
 
 // ------------------------------------------------------------------ app + sessions
 const app = express();
-app.set('trust proxy', 1);   // so the real visitor IP is seen behind a tunnel
+// the real visitor IP is read from the tunnel's X-Forwarded-For header only when the request comes from this computer (cloudflared runs here);
+// a visitor on the network cannot fake their address to get around the sign-in limits. TRUST_PROXY = another setting, e.g. 1 behind a hosted proxy.
+const TP = process.env.TRUST_PROXY;
+app.set('trust proxy', /^\d+$/.test(TP || '') ? Number(TP) : TP === 'true' ? true : TP || 'loopback');
 app.disable('x-powered-by');
 app.use((req, res, next) => {   // basic browser protections: no framing by other sites (clickjacking), no guessing of file types
   res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'same-origin' }); next();
 });
-app.use(express.json({ limit: '25mb' }));
+app.use((req, res, next) => {   // a change sent by another website (CSRF) is refused; the app itself sends "same-origin"
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.get('sec-fetch-site') === 'cross-site') return res.status(403).json({ error: 'Requests from other websites are not allowed' });
+  next();
+});
 app.use(session({
   secret: process.env.SECRET || hex(32),      // without $env:SECRET a random one is made at every start (sign-ins live in memory and end at a restart anyway)
-  resave: false, saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: 'lax', secure: 'auto' }   // 'auto': the cookie is HTTPS-only when the site is opened through HTTPS (the tunnel)
+  resave: false, saveUninitialized: false, rolling: true,
+  cookie: { httpOnly: true, sameSite: 'lax', secure: 'auto', maxAge: 12 * 36e5 }   // 'auto': HTTPS-only when opened through HTTPS (the tunnel); signed out after 12 hours without use
 }));
+const bigJson = express.json({ limit: '25mb' }), smallJson = express.json({ limit: '100kb' });   // only signed-in people may send large data (imports, backups)
+app.use((req, res, next) => (req.session && req.session.user ? bigJson : smallJson)(req, res, next));
 const AUDIT = require('./audit');
 app.use(AUDIT.middleware);
 // the account as it is saved right now (re-read only when data.json changed), so a deactivated user or a changed role takes effect at once, not at the next login
@@ -167,7 +176,8 @@ app.post('/api/demo/reset', need('admin'), (req, res) => {
   try { require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'seed.js')], { cwd: __dirname, stdio: 'ignore' }); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: 'The reset failed - run "node seed.js" in the terminal to see why' }); }
 });
-const ctx = { FILE, DIR: __dirname, app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, scopeOf: (db, u) => scopeOf(db, u) };
+const ctx = { FILE, DIR: __dirname, app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, limited,
+  scopeOf: (db, u) => scopeOf(db, u), seesUser: (db, u, username, team) => seesUser(db, u, username, team) };
 
 // ------------------------------------------------------------------ login / account
 app.post('/api/login', (req, res) => {
@@ -175,13 +185,18 @@ app.post('/api/login', (req, res) => {
   const { username, password } = req.body || {};
   const id = String(username || '').trim().toLowerCase(), db = load();
   const u = db.users.find(x => x.username === id || (x.email || '').toLowerCase() === id);   // username OR email
-  if (u && u.active !== false && bcrypt.compareSync(String(password || ''), u.hash))   // a fresh session id at every sign-in (an id planted before the sign-in is useless)
+  const fail = 'fail:' + (u ? u.username : id);                                               // wrong passwords are also counted per account, whatever the address
+  if (recent(fail, 9e5) >= 10) return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });
+  if (u && u.active !== false && bcrypt.compareSync(String(password || ''), u.hash)) {   // a fresh session id at every sign-in (an id planted before the sign-in is useless)
+    delete hits[fail];
     return req.session.regenerate(err => { if (err) return res.status(500).json({ error: 'Could not sign in, try again' }); req.session.user = pub(u); res.json(req.session.user); });
+  }
   if (u && u.active === false && bcrypt.compareSync(String(password || ''), u.hash)) return res.status(403).json({ error: 'This account is deactivated. Please contact the administrator.' });
   const r = db.registrations.find(x => (x.username === id || x.email === id) && x.status !== 'approved' && bcrypt.compareSync(String(password || ''), x.hash));
   if (r) return res.status(403).json({ error: r.status === 'pending'
     ? 'Your registration is still pending approval by an administrator.'
     : 'Your registration was declined. Please contact the administrator of the application.' });
+  limited(fail, 10, 9e5);
   res.status(401).json({ error: 'Wrong username/email or password' });
 });
 app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ ok: 1 })));
@@ -296,6 +311,8 @@ function scopeOf(db, u) {
   return { teams, sc };
 }
 const inScope = (db, u, ev) => { const s = scopeOf(db, u); if (!s) return true; const us = userBy(db, ev.agent); return s.teams.has(us ? us.team : ev.tid); };
+// a record about one person (flag, task, session ...) is in this person's workspace; team = the team saved on the record, for people who were deleted
+const seesUser = (db, u, username, team) => { const s = scopeOf(db, u); if (!s) return true; const x = userBy(db, username); return s.teams.has(x ? x.team : team || ''); };
 
 // ------------------------------------------------------------------ teams (admin) and the roster everybody can read
 app.get('/api/roster', need(), (req, res) => { const db = load(), s = scopeOf(db, req.session.user); res.json(db.users.filter(u => !s || s.teams.has(u.team)).map(rosterPub)); });
@@ -454,6 +471,7 @@ app.delete('/api/notifications/:id', need(), (req, res) => {
 
 // "show me how notifications look": creates one example of every kind for the person who asks
 app.post('/api/notifications/sample', need(), (req, res) => {
+  if (limited('sample:' + req.session.user.username, 3, 36e5)) return res.status(429).json({ error: 'You have already created example notifications. Try again later.' });   // the list of all notifications is capped, so it must not be flooded
   const db = load(), u = req.session.user, ev = db.evaluations.find(e => canSee(u, e) && inScope(db, u, e)) || {}, id = ev.id || '4312345', rid = ev.rid;
   const S = [['review', `You received a new call review for Lead #${id} (score 92%)`, { rid, lead: id }], ['dispute', `Alex Example has disputed the review for Lead #${id}`, { rid, lead: id }], ['msg', `Alex Example wrote in the dispute for Lead #${id}: "Could we listen to the call again?"`, { rid, lead: id }],
     ['resolved', `Your dispute for Lead #${id} was resolved: score kept`, { rid, lead: id }], ['remind', `Reminder: please open your call review for Lead #${id}`, { rid, lead: id }], ['task', 'New mission: Listen to 3 recorded calls (due ' + new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10) + ')', {}],
@@ -633,9 +651,12 @@ app.delete('/api/scorecards/:id', need('admin'), (req, res) => {
 });
 
 // ------------------------------------------------------------------ Excel export: the page sends the rows it is showing, we return a real .xlsx file
+// only plain text, numbers and yes/no become cells: an object could be turned into a formula or a link inside Excel (spreadsheet injection)
+const cellOf = v => typeof v === 'number' ? (Number.isFinite(v) ? v : null) : typeof v === 'boolean' ? v : v == null || typeof v === 'object' ? null : String(v).slice(0, 32000);
 app.post('/api/export/call-reviews', need(), async (req, res) => {
-  const rows = (req.body || {}).rows, pf = Number((req.body || {}).pf), pt = Number((req.body || {}).pt), name = str((req.body || {}).name, 30) || 'Call Reviews';
-  if (!Array.isArray(rows) || !rows.length || rows.length > 20000) return res.status(400).json({ error: 'bad rows' });
+  const raw = (req.body || {}).rows, pf = Number((req.body || {}).pf), pt = Number((req.body || {}).pt), name = str((req.body || {}).name, 30) || 'Call Reviews';
+  if (!Array.isArray(raw) || !raw.length || raw.length > 20000) return res.status(400).json({ error: 'bad rows' });
+  const rows = raw.map(r => (Array.isArray(r) ? r : []).slice(0, 200).map(cellOf));
   if (!(req.body || {}).again) { const db = load(), u = req.session.user; db.exports = Array.isArray(db.exports) ? db.exports : []; db.exports.unshift({ id: 'x' + hex(5), name, n: rows.length - 1, pf, pt, by: u.username, byName: u.name, at: iso(), rows: rows.length <= 5001 ? rows : null }); db.exports = db.exports.slice(0, 200); save(db); }   // the Export centre keeps a copy
   const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(name.replace(/[\\/?*[\]:]/g, ' '));
   rows.forEach((r, i) => ws.addRow(r.map((v, j) => (i && j === 1) ? new Date(v + 'T12:00:00') : v)));
@@ -697,7 +718,7 @@ app.post('/api/evaluations/:rid/recording', need('admin', 'qa'), express.raw({ t
   ev.rec = name; save(db); res.json({ rec: name });
 });
 app.delete('/api/evaluations/:rid/recording', need('admin', 'qa'), (req, res) => {
-  const db = load(), ev = findEv(db, req.params.rid);
+  const db = load(), ev = evOf(db, req.session.user, req.params.rid);
   if (!ev) return res.status(404).json({ error: 'evaluation not found' });
   if (ev.rec) fs.rm(path.join(REC, path.basename(ev.rec)), () => {});
   ev.rec = ''; save(db); res.json({ ok: 1 });

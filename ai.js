@@ -7,8 +7,9 @@ async function ask(system, content, max = 8000) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL(), max_tokens: max, system, messages: [{ role: 'user', content }] })
-  });
+    body: JSON.stringify({ model: MODEL(), max_tokens: max, system, messages: [{ role: 'user', content }] }),
+    signal: AbortSignal.timeout(180000)                                           // a request that hangs gives up after 3 minutes instead of waiting forever
+  }).catch(e => { throw new Error(e.name === 'TimeoutError' ? 'The AI took too long to answer. Try again or use a shorter text.' : 'Could not reach the AI service'); });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error((j.error && j.error.message) || 'Anthropic API error ' + r.status);
   return (j.content || []).filter(b => b.type === 'text').map(b => b.text).join('');

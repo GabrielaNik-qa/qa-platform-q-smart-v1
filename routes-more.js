@@ -2,7 +2,7 @@
 // Most of these are simple lists of records ("collections") with the same four routes: list, add, change, delete.
 const fs = require('fs'), path = require('path');
 const RPT = require('./public/js/rpt-engine.js');
-module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify, userBy, mail, BASE }) => {
+module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify, userBy, mail, BASE, scopeOf }) => {
   const EDIT = ['admin', 'qa', 'lead', 'trainer'], ALL = ['admin', 'qa', 'lead', 'trainer', 'agent'];
   // who may read / write each collection; mine(u, x) = an agent may only see the records about themselves
   const COLS = {
@@ -22,7 +22,9 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     return undefined;
   };
   // the few records whose numbers feed reports are checked here too (the page checks first, but the server must not trust the page)
-  const CHECK = { surveys: x => Number.isInteger(x.score) && x.score >= 1 && x.score <= 5 && /^\d{4}-\d{2}-\d{2}$/.test(String(x.date || '')) ? '' : 'Each survey answer needs a date (YYYY-MM-DD) and a score from 1 to 5' };
+  const CHECK = { surveys: x => Number.isInteger(x.score) && x.score >= 1 && x.score <= 5 && /^\d{4}-\d{2}-\d{2}$/.test(String(x.date || '')) ? '' : 'Each survey answer needs a date (YYYY-MM-DD) and a score from 1 to 5',
+    // the pages count the goals of a plan, so anything but a list of goals would break them for everybody
+    pips: x => x.goals == null || (Array.isArray(x.goals) && x.goals.every(g => g && typeof g === 'object' && !Array.isArray(g))) ? '' : 'The goals of an improvement plan must be a list' };
   const coll = (db, c) => { if (!Array.isArray(db[c])) db[c] = []; return db[c]; };
   const canRead = (c, u) => COLS[c] && COLS[c].read.includes(u.role);
   const canWrite = (c, u) => COLS[c] && COLS[c].write.includes(u.role);
@@ -34,8 +36,9 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     if (c === 'goals' && x.scope === 'agent' && x.target) notify(db, x.target, 'goal', `New goal for you: ${x.title || x.metric}`, {});
     if (c === 'risks' && x.owner && x.owner !== me.username) notify(db, x.owner, 'risk', `${me.name} assigned a risk case to you: ${x.title || ''}`, {});
   };
-  app.get('/api/c/:col', need(), (req, res) => { const c = req.params.col, u = req.session.user; if (!canRead(c, u)) return res.status(403).json({ error: 'not allowed' }); res.json(visible(c, u, load())); });
-  app.post('/api/c/:col', need(), (req, res) => {
+  const known = (req, res, next) => COLS[req.params.col] ? next() : res.status(404).json({ error: 'not found' });   // only the collections above exist
+  app.get('/api/c/:col', need(), known, (req, res) => { const c = req.params.col, u = req.session.user; if (!canRead(c, u)) return res.status(403).json({ error: 'not allowed' }); res.json(visible(c, u, load())); });
+  app.post('/api/c/:col', need(), known, (req, res) => {
     const c = req.params.col, u = req.session.user, db = load(), b = req.body || {};
     if (!canWrite(c, u)) return res.status(403).json({ error: 'Your role cannot add these' });
     const list = Array.isArray(b.bulk) ? b.bulk.slice(0, 3000) : [b];                // bulk = an imported list (surveys)
@@ -45,7 +48,7 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     out.forEach(x => { coll(db, c).unshift(x); after(db, c, x, u, true); });
     save(db); res.json(Array.isArray(b.bulk) ? { added: out.length } : out[0]);
   });
-  app.put('/api/c/:col/:id', need(), (req, res) => {
+  app.put('/api/c/:col/:id', need(), known, (req, res) => {
     const c = req.params.col, u = req.session.user, db = load(), x = coll(db, c).find(r => r.id === req.params.id);
     if (!x) return res.status(404).json({ error: 'not found' });
     const b = clean(req.body || {});
@@ -55,7 +58,7 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     const wrong = CHECK[c] && CHECK[c]({ ...x, ...b }); if (wrong) return bad(res, wrong);
     Object.assign(x, b, { updated: iso() }); save(db); res.json(x);
   });
-  app.delete('/api/c/:col/:id', need(), (req, res) => {
+  app.delete('/api/c/:col/:id', need(), known, (req, res) => {
     const c = req.params.col, u = req.session.user, db = load(), x = coll(db, c).find(r => r.id === req.params.id);
     if (!x) return res.status(404).json({ error: 'not found' });
     if (!canWrite(c, u) || (COLS[c].ownOnly && x.by !== u.username && u.role !== 'admin')) return res.status(403).json({ error: 'not allowed' });
@@ -75,19 +78,24 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   app.delete('/api/exports/:id', need(...EDIT), (req, res) => { const db = load(); db.exports = coll(db, 'exports').filter(r => r.id !== req.params.id || (r.by !== req.session.user.username && req.session.user.role !== 'admin')); save(db); res.json({ ok: 1 }); });
 
   // ---------------------------------------------------------------- scheduled reports: e-mailed by themselves (daily / weekly / monthly, at the chosen hour)
-  const reportData = db => {
-    const teamOf = un => (db.users.find(x => x.username === un) || {}).team || '';
-    return { ev: db.evaluations.map(e => ({ ...e, tm: teamOf(e.agent) || e.tid })), qf: db.qflags || [], tasks: db.tasks || [], surveys: db.surveys || [], complaints: db.complaints || [], users: db.users, teams: db.teams, pass: tm => { const v = (db.settings.teams || {})[tm]; return v == null || v === '' ? (+db.settings.pass || 85) : +v; } };
+  // the data a report is made of: only what its owner may see (their workspace), like the Reports page in the browser
+  const reportData = (db, owner) => {
+    const teamOf = un => (db.users.find(x => x.username === un) || {}).team || '', s = scopeOf(db, owner);
+    const ok = (un, tm) => !s || s.teams.has(teamOf(un) || tm || ''), okOpt = un => !un || ok(un);   // surveys and complaints may have no agent
+    return { ev: db.evaluations.filter(e => ok(e.agent, e.tid)).map(e => ({ ...e, tm: teamOf(e.agent) || e.tid })), qf: (db.qflags || []).filter(f => ok(f.agent, f.tid)), tasks: (db.tasks || []).filter(t => ok(t.assignee)),
+      surveys: (db.surveys || []).filter(x => okOpt(x.agent)), complaints: (db.complaints || []).filter(x => okOpt(x.agent)), users: db.users.filter(u => ok(u.username)), teams: db.teams.filter(t => !s || s.teams.has(t.id)),
+      pass: tm => { const v = (db.settings.teams || {})[tm]; return v == null || v === '' ? (+db.settings.pass || 85) : +v; } };
   };
   async function sendReport(db, r) {
-    const res = RPT.run(r.cfg || {}, reportData(db)), to = String((r.schedule || {}).to || '').split(/[,;\s]+/).filter(x => /@/.test(x));
+    const owner = userBy(db, r.by); if (!owner || owner.active === false) return 0;   // the report of a person who left is not sent any more
+    const res = RPT.run(r.cfg || {}, reportData(db, owner)), to = String((r.schedule || {}).to || '').split(/[,;\s]+/).filter(x => /@/.test(x));
     if (!to.length) return 0;
     const html = RPT.toHtml(res, r.name) + `<p style="font-family:sans-serif;font-size:12px;color:#888">Sent by Q-smart · <a href="${BASE}">open the app</a></p>`;
     for (const t of to) await mail(t, 'Q-smart report: ' + r.name, `${r.name}\n${res.periodName} · ${res.n} records\nOpen ${BASE} to see the full report.`, 'report', { name: r.name, link: BASE }, html);
     return to.length;
   }
   app.post('/api/c/reports/:id/send', need(...EDIT), async (req, res) => {
-    const db = load(), r = coll(db, 'reports').find(x => x.id === req.params.id); if (!r) return res.status(404).json({ error: 'not found' });
+    const db = load(), u = req.session.user, r = coll(db, 'reports').find(x => x.id === req.params.id && (x.by === u.username || u.role === 'admin')); if (!r) return res.status(404).json({ error: 'not found' });
     const n = await sendReport(db, r); if (!n) return bad(res, 'Add at least one e-mail address in "Send to"');
     markSent([r.id]); res.json({ sent: n });
   });

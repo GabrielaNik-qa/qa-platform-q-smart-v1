@@ -64,7 +64,7 @@ async function rbExport() {
   const name = (RB.name || 'Report').slice(0, 30), r = await api('/api/export/call-reviews', { rows, pf: -1, pt: -1, name }); if (!r.ok) return toast('Could not create the Excel file', true);
   const a = document.createElement('a'); a.href = URL.createObjectURL(await r.blob()); a.download = name.replace(/\s+/g, '_') + '_' + iso(new Date()) + '.xlsx'; a.click();
 }
-function rbPrint() { const res = RPT.run(RB.cfg, rbData()), w = window.open('', '_blank'); if (!w) return toast('Please allow pop-ups to create the PDF', true); w.document.write(`<!doctype html><meta charset=utf-8><title>${esc(RB.name || 'Report')}</title><body style="margin:30px">${RPT.toHtml(res, esc(RB.name || 'Report'))}<p style="font-family:sans-serif;font-size:12px;color:#888">Q-smart · ${fdt(new Date())}</p></body>`); w.document.close(); setTimeout(() => w.print(), 400); }
+function rbPrint() { const res = RPT.run(RB.cfg, rbData()), w = window.open('', '_blank'); if (!w) return toast('Please allow pop-ups to create the PDF', true); w.document.write(`<!doctype html><meta charset=utf-8><title>${esc(RB.name || 'Report')}</title><body style="margin:30px">${RPT.toHtml(res, RB.name || 'Report')}<p style="font-family:sans-serif;font-size:12px;color:#888">Q-smart · ${fdt(new Date())}</p></body>`); w.document.close(); setTimeout(() => w.print(), 400); }
 
 // ---- saved and scheduled reports (like "Receive report" in Modjo)
 const SCHN = { none: 'Not scheduled', daily: 'Every day', weekly: 'Every week', monthly: 'Every month' };
