@@ -164,7 +164,7 @@ PG.wsp = function () {
 
 // ---------- system settings (pass rate thresholds) + account
 async function saveSys() {
-  const teams = {}; TEAMS.forEach(t => { teams[t.id] = $('#spt' + t.id).value.trim(); });
+  const teams = {}; TEAMS.forEach(t => { const el = $('#spt' + t.id); if (el) teams[t.id] = el.value.trim(); });   // the built-in Administration team has no box (staff are never reviewed)
   const r = await api('/api/settings', { pass: $('#spg').value, teams }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save the settings'), true);
   SET = await r.json(); SYS = false; render(); toast('System settings saved');
 }
