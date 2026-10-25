@@ -982,6 +982,9 @@ I18N.add('bg', {
   "Tasks: drag a card to move it and earn XP.": "Задачи: плъзнете карта, за да я преместите, и печелете XP.",
   "The welcome message will not show again. Switch it back on in My account › Notifications & Confirmations.": "Приветственото съобщение няма да се показва отново. Можете да го включите пак от Моят акаунт › Известия и потвърждения.",
   "Welcome": "Добре дошли", "Don't show me this again": "Не показвай това отново", "Get started": "Започнете",
+  "Getting started": "Първи стъпки", "Click to see this period in detail": "Щракнете, за да видите периода подробно",
+  "Tags": "Етикети", "All tags": "Всички етикети", "Type a tag and press Enter": "Напишете етикет и натиснете Enter",
+  "— what this scorecard is for (e.g. Calls, Chats, B2C). Tags only help to find and filter scorecards: any scorecard can be used for any review.": "— за какво е тази оценъчна карта (напр. Разговори, Чатове, B2C). Етикетите само помагат да намирате и филтрирате оценъчните карти: всяка оценъчна карта може да се използва за всяка оценка.",
 
   // ---------------------------------------------------------------- my account
   "Profile": "Профил", "Appearance": "Външен вид", "Notifications & Confirmations": "Известия и потвърждения", "About me": "За мен", "Save profile": "Запази профила",

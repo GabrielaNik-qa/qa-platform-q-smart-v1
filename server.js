@@ -654,8 +654,10 @@ const cleanSC = b => {
     return { n, k: !!c.k, it };
   });
   if (total !== 100) throw new Error('Total points must equal 100 (currently ' + total + ')');
-  const chs = (Array.isArray(b.chs) ? b.chs : []).filter(c => CHANNELS.includes(c));     // the kinds of conversation this scorecard is used for
-  return { name, desc: str(b.desc, 200), chs: chs.length ? [...new Set(chs)] : ['call'], cats };
+  // tags: free words (Calls, Chats, B2C, Retention ...) that show what the scorecard is for and filter the list. They never limit which reviews it can score.
+  const tags = []; (Array.isArray(b.tags) ? b.tags : String(b.tags || '').split(',')).forEach(t => { t = str(t, 30); if (t && tags.length < 12 && !tags.some(x => x.toLowerCase() === t.toLowerCase())) tags.push(t); });
+  const chs = (Array.isArray(b.chs) ? b.chs : []).filter(c => CHANNELS.includes(c));     // older scorecards: the review types they were first made for (kept, shown as tags while they have none)
+  return { name, desc: str(b.desc, 200), tags, chs: [...new Set(chs)], cats };
 };
 app.get('/api/scorecards', need(), (req, res) => { const db = load(), s = scopeOf(db, req.session.user); res.json(db.scorecards.filter(c => !s || s.sc.has(c.id))); });
 app.post('/api/scorecards', need('admin'), (req, res) => {

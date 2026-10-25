@@ -81,6 +81,18 @@ test('a changed score tells the agent; a changed comment does not', async () => 
   assert.equal(l.length, n0 + 1); assert.match(l[0].text, /was updated \(score 100%\)/);
 });
 
+test('scorecards have free tags (trimmed, no doubles, at most 12) and any scorecard can score any type of conversation', async () => {
+  const adm = await as('t.admin');
+  const tags = [' Chats ', 'chats', 'B2C', ...Array.from({ length: 15 }, (_, i) => 'T' + i)];
+  const sc = await adm.post('/api/scorecards', { ...SC2, name: 'Tagged', tags });
+  assert.equal(sc.status, 200);
+  assert.equal(sc.json.tags.length, 12); assert.deepEqual(sc.json.tags.slice(0, 3), ['Chats', 'B2C', 'T0']);
+  const r = await adm.post('/api/evaluations', { scid: sc.json.id, agent: 'a.one', id: 'W-TAG', dt: '2026-10-05', ch: 'email', subj: 'Invoice', tx: 'Hello', a: [[['y'], ['y']], [['y']]] });
+  assert.equal(r.status, 200, 'an e-mail scored with a scorecard tagged only "Chats" is accepted');
+  assert.equal(r.json.ch, 'email');
+  assert.equal((await adm.del('/api/scorecards/' + sc.json.id)).status, 200);
+});
+
 test('deleting a scorecard keeps the reviews made with it', async () => {
   const adm = await as('t.admin');
   assert.equal((await adm.del('/api/scorecards/' + SCID)).status, 200);

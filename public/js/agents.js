@@ -71,24 +71,55 @@ function agRadar(names, a, t) {
     + `<div class=agleg><span><i style="background:#3b82f6"></i>Agent</span><span><i style="background:#f97316"></i>Team Average</span></div>`;
 }
 
+// one wide bar per period, never one per review: a week shows its days, a month its weeks (Week 1-4), a quarter weeks,
+// a year (or all time) months; custom dates choose by their length. Hovering a bar shows the period, a click zooms into it.
+let AGB = [];                                                  // the bars drawn right now (for the preview and the zoom)
+function agBuckets(a, b, p) {
+  const DAY = 864e5, days = Math.max(1, Math.round((b - a) / DAY)), dm = d => d.getDate() + ' ' + MON(d), out = [];
+  const unit = p === 'week' ? 'day' : p === 'month' ? 'mweek' : p === 'q' ? 'week' : p === 'year' || p === 'all' ? 'month' : days <= 14 ? 'day' : days <= 92 ? 'week' : 'month';
+  if (unit === 'month') for (let d = new Date(a.getFullYear(), a.getMonth(), 1); d < b; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) out.push({ s: d, e: new Date(d.getFullYear(), d.getMonth() + 1, 1), t: MON(d) + (days > 400 ? " '" + String(d.getFullYear()).slice(2) : ''), long: d.toLocaleString(I18N.locale(), { month: 'long', year: 'numeric' }) });
+  else if (unit === 'mweek') for (let i = 0; i < 4; i++) { const s = new Date(a.getFullYear(), a.getMonth(), 1 + 7 * i), e = i < 3 ? new Date(a.getFullYear(), a.getMonth(), 8 + 7 * i) : new Date(b); out.push({ s, e, w: i + 1, long: dm(s) + ' – ' + dm(new Date(e - DAY)) }); }   // 1-7, 8-14, 15-21, 22 to the end
+  else { const step = unit === 'day' ? 1 : 7; for (let d = new Date(a); d < b; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + step)) { const e = new Date(Math.min(+b, +new Date(d.getFullYear(), d.getMonth(), d.getDate() + step))); out.push({ s: d, e, t: unit === 'day' ? String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') : dm(d), long: unit === 'day' ? f(d) : dm(d) + ' – ' + dm(new Date(e - DAY)) }); } }
+  const last = out[out.length - 1], prev = out[out.length - 2];   // a few days left at the end (e.g. 29-31) join the week before, instead of a tiny bar of their own
+  if (unit === 'week' && prev && last.e - last.s < 4 * DAY) { prev.e = last.e; prev.long = dm(prev.s) + ' – ' + dm(new Date(prev.e - DAY)); out.pop(); }
+  return out;
+}
 function agChart(l, rc, pass) {
+  agTipOff();
   const W = 900, H = 300, L = 46, Rg = 70, T = 14, B = 46, pw = W - L - Rg, ph = H - T - B, DAY = 864e5;
   let a = rc[0], b = rc[1];
   if (AG.p === 'all') { a = l.length ? new Date(Math.min(...l.map(e => +e.d))) : new Date(); a = new Date(a.getFullYear(), a.getMonth(), 1); b = new Date(Math.max(Date.now(), ...l.map(e => +e.d)) + DAY); }
-  const days = Math.max(1, Math.round((b - a) / DAY)), bk = [];
-  if (days > 100) { for (let d = new Date(a.getFullYear(), a.getMonth(), 1); d < b; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) bk.push({ s: d, e: new Date(d.getFullYear(), d.getMonth() + 1, 1), t: MON(d) + (days > 400 ? " '" + String(d.getFullYear()).slice(2) : '') }); }
-  else { const step = days <= 8 ? 1 : days <= 35 ? 3 : 7; for (let d = new Date(a); d < b; d = new Date(+d + step * DAY)) { const e = new Date(Math.min(+b, +d + step * DAY)); bk.push({ s: d, e, t: String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') }); } }
-  bk.forEach(k => { k.l = l.filter(e => e.d >= k.s && e.d < k.e).sort((x, y) => x.d - y.d); });
+  const bk = AGB = agBuckets(a, b, AG.p);
+  bk.forEach(k => { k.l = l.filter(e => e.d >= k.s && e.d < k.e); k.avg = k.l.length ? avg(k.l.map(e => e.sc)) : null; });
   const bw = pw / bk.length, y = v => T + ph * (1 - v / 100), pts = [];
   const grid = [0, 20, 40, 60, 80, 100].map(v => `<line x1="${L}" x2="${W - Rg}" y1="${y(v)}" y2="${y(v)}" style="stroke:var(--bd)"/><text x="${L - 8}" y="${y(v) + 4}" font-size="11" text-anchor="end" style="fill:var(--mu)">${v}%</text>`).join('');
-  const bars = bk.map((k, i) => { const n = k.l.length, w = Math.min(16, Math.max(4, bw * .8 / Math.max(n, 1) - 3)), x0 = L + i * bw + (bw - n * (w + 3) + 3) / 2;
-    return k.l.map((e, j) => { const x = x0 + j * (w + 3), c = e.sc >= pass ? 'var(--ok)' : 'var(--wn)'; pts.push([x + w / 2, e.sc]);
-      return `<g class=agb onclick="om('view','${e.rid}')"><rect x="${x.toFixed(1)}" y="${y(e.sc).toFixed(1)}" width="${w.toFixed(1)}" height="${(ph * e.sc / 100).toFixed(1)}" rx="3" style="fill:${c}" fill-opacity=".9"><title>Lead ${esc(e.id)} · ${e.sc}% · ${f(e.d)}</title></rect><circle cx="${(x + w / 2).toFixed(1)}" cy="${y(e.sc).toFixed(1)}" r="4" fill="#e5e7eb" stroke="#64748b"/></g>`; }).join('');
+  const bars = bk.map((k, i) => { if (k.avg == null) return ''; const w = Math.min(64, Math.max(6, bw * .62)), x = L + i * bw + (bw - w) / 2, c = k.avg >= pass ? 'var(--ok)' : 'var(--wn)'; pts.push([x + w / 2, k.avg]);
+    return `<g class=agb tabindex=0 role=button aria-label="${esc(k.long)}: ${k.avg.toFixed(1)}%" onmouseenter="agTip(event,${i})" onmousemove="agTip(event,${i})" onmouseleave="agTipOff()" onfocus="agTip(event,${i})" onblur="agTipOff()" onclick="agZoom(${i})"><rect x="${x.toFixed(1)}" y="${y(k.avg).toFixed(1)}" width="${w.toFixed(1)}" height="${(ph * k.avg / 100).toFixed(1)}" rx="5" style="fill:${c}" fill-opacity=".35"/><circle cx="${(x + w / 2).toFixed(1)}" cy="${y(k.avg).toFixed(1)}" r="4.5" fill="#e5e7eb" stroke="#64748b"/></g>`;
   }).join('');
-  const every = Math.ceil(bk.length / 14), xl = bk.map((k, i) => i % every ? '' : `<text x="${(L + i * bw + bw / 2).toFixed(1)}" y="${H - 24}" font-size="11" text-anchor="middle" style="fill:var(--mu)">${k.t}</text><text x="${(L + i * bw + bw / 2).toFixed(1)}" y="${H - 10}" font-size="10" text-anchor="middle" style="fill:var(--mu)">(${k.l.length})</text>`).join('');
+  const every = Math.ceil(bk.length / 14), xl = bk.map((k, i) => i % every ? '' : `<text x="${(L + i * bw + bw / 2).toFixed(1)}" y="${H - 24}" font-size="11" text-anchor="middle" style="fill:var(--mu)">${k.w ? `<tspan>Week</tspan> ${k.w}` : esc(k.t)}</text><text x="${(L + i * bw + bw / 2).toFixed(1)}" y="${H - 10}" font-size="10" text-anchor="middle" style="fill:var(--mu)">(${k.l.length})</text>`).join('');
   let trend = ''; if (pts.length > 1) { const n = pts.length, sx = pts.reduce((s, p) => s + p[0], 0), sy = pts.reduce((s, p) => s + p[1], 0), sxy = pts.reduce((s, p) => s + p[0] * p[1], 0), sxx = pts.reduce((s, p) => s + p[0] * p[0], 0), d = n * sxx - sx * sx; if (d) { const m = (n * sxy - sx * sy) / d, c = (sy - m * sx) / n, x1 = pts[0][0], x2 = pts[n - 1][0], cl = v => Math.max(0, Math.min(100, v)); trend = `<line x1="${x1.toFixed(1)}" y1="${y(cl(m * x1 + c)).toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y(cl(m * x2 + c)).toFixed(1)}" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/>`; } }
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Score evolution">${grid}<line x1="${L}" x2="${W - Rg + 6}" y1="${y(pass)}" y2="${y(pass)}" style="stroke:var(--ok)" stroke-dasharray="5 4" stroke-width="1.5"/><text x="${W - Rg + 10}" y="${y(pass) + 4}" font-size="11" style="fill:var(--ok)">Pass (${pass}%)</text>${bars}${trend}${xl}</svg>`
     + `<div class=agleg><span><i style="background:var(--ok)"></i>≥${pass}% (Pass)</span><span><i style="background:var(--wn)"></i>&lt;${pass}% (Needs improvement)</span><span><i style="background:#94a3b8;height:3px;width:16px;border-radius:2px"></i>Trend Line</span></div>`;
+}
+
+// the preview of one bar (mouse over it, or keyboard focus): the period, its average, reviews, pass rate and every category
+function agTip(ev, i) {
+  const k = AGB[i]; if (!k) return;
+  let t = $('#agtip'); if (!t) { t = document.createElement('div'); t.id = 'agtip'; t.className = 'agtip'; t.setAttribute('role', 'tooltip'); document.body.appendChild(t); }
+  const u = ROSTER.find(r => r.username === AG.agent), tm = u ? u.team : null, n = k.l.length, cats = CATS(k.l).map(c => [c, agCat(k.l, c)]).filter(x => x[1] != null);
+  t.innerHTML = `<b class=atip-t>${esc(k.long)}</b>` + (n ? `<div class=atip-r><span>Average score</span><b style="color:${scol(k.avg, tm)}">${k.avg.toFixed(1)}%</b></div><div class=atip-r><span>Reviews</span><b>${n}</b></div><div class=atip-r><span>Pass rate</span><b>${(k.l.filter(isPass).length / n * 100).toFixed(0)}%</b></div>`
+    + (cats.length ? `<div class=atip-c><small>Categories</small>${cats.map(([c, v]) => `<div class=atip-r><span data-noi18n>${esc(c)}</span><b style="color:${scol(v, tm)}">${v.toFixed(0)}%</b></div>`).join('')}</div>` : '') + `<small class=atip-h>Click to see this period in detail</small>` : `<div class=mu>No reviews</div>`);
+  t.style.display = 'block';
+  const r = ev.type === 'focus' ? ev.target.getBoundingClientRect() : null, cx = r ? r.left + r.width / 2 : ev.clientX, cy = r ? r.top : ev.clientY, w = t.offsetWidth, h = t.offsetHeight;
+  t.style.left = Math.max(8, Math.min(innerWidth - w - 8, cx + 16)) + 'px';
+  t.style.top = Math.max(8, Math.min(innerHeight - h - 8, cy - h - 14 < 8 ? cy + 20 : cy - h - 14)) + 'px';
+}
+function agTipOff() { const t = $('#agtip'); if (t) t.style.display = 'none'; }
+// a click on a bar zooms into its period (a year shows the weeks of the month you clicked, a week its days); one day with one review opens it
+function agZoom(i) {
+  const k = AGB[i], DAY = 864e5; if (!k || !k.l.length) return; agTipOff();
+  if (k.e - k.s <= DAY + 36e5 && k.l.length === 1) return om('view', k.l[0].rid);
+  AG.p = 'custom'; AG.f = iso(k.s); AG.to = iso(new Date(k.e - DAY)); AG.pn = 1; render();
 }
 
 // ---- the table of calls (own sorting, search and paging; only this block is redrawn while typing)
@@ -171,7 +202,7 @@ PG.agents = function () {
       + (isAg ? '' : `<label>Team<select onchange="agSet('t',this.value)"><option value="">All Teams</option>${TEAMS.filter(t => !t.system && opts.some(a => a.team === t.id)).map(t => `<option value="${t.id}" ${t.id === AG.t ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label><label>Agent<select onchange="agSet('agent',this.value)">${inTeam.map(a => `<option value="${esc(a.username)}" ${a.username === AG.agent ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>`)
       + `<label>Period<div class="sg agsg">${per.map(([k, nm]) => `<button class="${AG.p === k ? 'on' : ''}" onclick="agSet('p','${k}')">${nm}</button>`).join('')}<button class="${AG.p === 'custom' ? 'on' : ''}" onclick="agSet('p','custom')" title="Choose dates">${AIC.cal}</button></div></label></div>`
       + (AG.p === 'custom' ? `<div class=agcust><label>From <input type=date value="${AG.f}" onchange="AG.f=this.value;render()"></label><label>To <input type=date value="${AG.to}" onchange="AG.to=this.value;render()"></label></div>` : '')
-      + (chChips(d.chBase, AG.ch, 'agCh') ? `<div class=agscw><div class=cap style="margin:14px 0 8px">REVIEW TYPE <span style="letter-spacing:0;text-transform:none">— average of every type, or all together</span></div>${chChips(d.chBase, AG.ch, 'agCh')}</div>` : '') + (d.scs.length ? `<div class=agscw><div class=cap style="margin:14px 0 8px">SCORECARD FILTER <span style="letter-spacing:0;text-transform:none">(${d.scs.length} scorecard${d.scs.length === 1 ? '' : 's'})</span></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="agch ${AG.sc ? '' : 'on'}" onclick="agSet('sc','')">All <b>(${d.inCur.length})</b></button>${d.scs.map(s => { const v = avg(s.l.map(e => e.sc)); return `<button class="agch ${AG.sc === s.id ? 'on' : ''}" onclick="agSet('sc','${esc(s.id)}')" title="${esc(s.n)}">${AIC.card}<span class=agcn>${esc(s.n)}</span><b>(${s.l.length})</b><b style="color:${scol(v, u.team)}">${Math.round(v)}%</b></button>`; }).join('')}</div></div>` : ''));
+      + `<div class=agscw><div class=cap style="margin:14px 0 8px">REVIEW TYPE <span style="letter-spacing:0;text-transform:none">— average of every type, or all together</span></div>${chChips(d.chBase, AG.ch, 'agCh', true)}</div>` + (d.scs.length ? `<div class=agscw><div class=cap style="margin:14px 0 8px">SCORECARD FILTER <span style="letter-spacing:0;text-transform:none">(${d.scs.length} scorecard${d.scs.length === 1 ? '' : 's'})</span></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="agch ${AG.sc ? '' : 'on'}" onclick="agSet('sc','')">All <b>(${d.inCur.length})</b></button>${d.scs.map(s => { const v = avg(s.l.map(e => e.sc)); return `<button class="agch ${AG.sc === s.id ? 'on' : ''}" onclick="agSet('sc','${esc(s.id)}')" title="${esc(s.n)}">${AIC.card}<span class=agcn>${esc(s.n)}</span><b>(${s.l.length})</b><b style="color:${scol(v, u.team)}">${Math.round(v)}%</b></button>`; }).join('')}</div></div>` : ''));
     const sel = AG.sc ? (d.scs.find(s => s.id === AG.sc) || {}).n : '';
     const head2 = card('', `<div class=row style="flex-wrap:wrap;gap:14px"><div style="display:flex;gap:16px;align-items:center"><span class=av style="width:52px;height:52px;font-size:18px;margin:0">${esc(ini(u.name))}</span><div><b style="font-size:22px">${esc(u.name)}</b><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">${teamLink(u.team)}<small>${n} review${n === 1 ? '' : 's'} • ${esc(agLabel())}</small>${sel ? `<span class=agsct>${AIC.card} ${esc(sel)}</span>` : ''}</div></div></div>${agWave}</div>`);
     const kp = `<div class=agkp>${kpi('Avg Score', n ? Math.round(a) + '%' : '—', n ? scol(a, u.team) : '', agLabel(), n && pa != null ? agDelta(a - pa, ' pts', pl) : '')}`
@@ -182,7 +213,7 @@ PG.agents = function () {
     const tabs = [['perf', 'Performance', AIC.perf, null], ['calls', 'Reviews & Trends', AIC.calls, n], ['flags', 'Flags', AIC.flag, d.flags.length], ['o2o', 'One-to-One', AIC.o2o, d.o2o.length], ['sim', 'Simulations', AIC.sim, d.sims.length], ['growth', 'Growth', svg('<path d="M3 17l6-6 4 4 8-8M14 7h7v7"/>', 15), (CO.pips || []).filter(p => p.agent === u.username && pipOpen(p)).length + (CO.goals || []).filter(g => g.scope === 'agent' && g.target === u.username).length]];
     if (!tabs.some(t => t[0] === AG.tab)) AG.tab = 'perf';
     const body = { perf: agPerf, calls: agCallsTab, flags: agFlagsTab, o2o: agO2oTab, sim: agSimTab, growth: agGrowthTab }[AG.tab](u, d);
-    return hd + filt + head2 + kp + `<section class="card agtabs"><div class=agtb>${tabs.map(([k, nm, ic, c]) => `<button class="${AG.tab === k ? 'on' : ''}" onclick="AG.tab='${k}';render()">${ic} ${nm}${c == null ? '' : ` <span class=bg>${c}</span>`}</button>`).join('')}</div><div class=agbody>${body}</div></section>`;
+    return hd + filt + head2 + kp + `<section class="card agtabs"><div class=agtb>${tabs.map(([k, nm, ic, c]) => `<button class="${AG.tab === k ? 'on' : ''}" onclick="AG.tab='${k}';render()" title="${nm}" aria-label="${nm}">${ic}<span class=agtn>${nm}</span>${c == null ? '' : ` <span class=bg>${c}</span>`}</button>`).join('')}</div><div class=agbody>${body}</div></section>`;
   } finally { THR = null; }
 };
 

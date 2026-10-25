@@ -63,7 +63,8 @@ function gGo(id, ev) {
 }
 function tgG(id, ev) { if (COL) { const first = groupsFor().find(g => g.id === id).items[0][0]; FLY = id; FLYY = ev.currentTarget.getBoundingClientRect().top; if (first !== route) { location.hash = first; return; } } else OG = (gOpen({ id }) ? '' : id); render(); }
 const NAVH = () => groupsFor().map(g => { const act = groupOf(route) === g.id, open = gOpen(g);
-  return `<div class="grp ${open ? 'open' : ''} ${act ? 'act' : ''}"><button class=gh onclick="${COL ? `gGo('${g.id}',event)` : `tgG('${g.id}',event)`}" title="${g.name}"><i onclick="gGo('${g.id}',event)" title="Open ${g.items[0][1]}">${IC[g.icon]}</i><span>${g.name}</span><em>›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}</div>`; }).join('');
+  // the icon AND the name open the group's first page; only the small arrow opens or closes the list without leaving the page
+  return `<div class="grp ${open ? 'open' : ''} ${act ? 'act' : ''}"><button class=gh onclick="gGo('${g.id}',event)" title="Open ${g.items[0][1]}"><i>${IC[g.icon]}</i><span>${g.name}</span><em onclick="event.stopPropagation();tgG('${g.id}',event)" title="Show / hide">›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}</div>`; }).join('');
 document.addEventListener('click', e => { if ((FLY || UMN) && !e.target.closest('.fly,.gh,.av2')) { FLY = null; UMN = false; render(); } });
 let UMN = false;                                           // the small "me" menu of the compact sidebar
 const THL = [['light', 'Light', IC.sun], ['dark', 'Dark', IC.moon], ['system', 'System', IC.mon]];
@@ -86,8 +87,17 @@ function render() {
   $('#n').innerHTML = NAVH();
   $('#fz').innerHTML = FOOT();
   $$('.chat').forEach(c => { c.scrollTop = c.scrollHeight; });
-  a11y($('#m')); refocus(fk);
+  a11y($('#m')); refocus(fk); fitTables();
 }
+// a table wider than its card ends at the bottom of the screen: its sideways scrollbar is always visible (the column titles stay pinned on top)
+function fitTables() {
+  $$('#m .sc').forEach(sc => {
+    sc.style.maxHeight = '';
+    if (sc.closest('.ov') || sc.scrollWidth <= sc.clientWidth + 1) return;
+    sc.style.maxHeight = Math.max(320, innerHeight - Math.max(sc.getBoundingClientRect().top, 0) - 16) + 'px';
+  });
+}
+addEventListener('resize', () => { if (ME) fitTables(); });
 // ---------------------------------------------------------------- accessibility (the page area and pop-ups only - the sidebar is left as it is)
 //  - icon-only buttons get a name and a tooltip (Edit, Delete ...); fields without a label are named after their table row and column, or their first choice
 //  - clickable cards, rows and column headers can be reached with Tab and opened with Enter or Space

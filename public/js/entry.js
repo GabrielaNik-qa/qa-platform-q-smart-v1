@@ -1,17 +1,15 @@
 // ===================== QA Entry form (new review and edit review) =====================
-// ch = the type of conversation (call, chat, email, other); the first scorecard made for that type is chosen
+// ch = the type of conversation (call, chat, email, other). Any scorecard can score any type; a new form starts with the first scorecard
+// tagged with that type (e.g. "Chats"), otherwise the first one
+const tagIs = (t, w) => String(t).toLowerCase().replace(/s$/, '') === String(w).toLowerCase().replace(/s$/, '');
 const ent0 = (id, ch = 'call') => {
-  const s = SCS.find(x => x.id === id) || SCS.find(x => scChs(x).includes(ch)) || SCS[0];
+  const s = SCS.find(x => x.id === id) || SCS.find(x => scTags(x).some(t => tagIs(t, CHP[ch]))) || SCS[0];
   return { ch, scid: s.id, scn: s.name, team: '', agent: '', id: '', dt: '', lk: '', rl: '', cl: '', tx: '', subj: '', chn: '', cp: '', cm: '', fl: '',
     cats: s.cats.map(c => ({ n: c.n, k: !!c.k, it: c.it.map(i => ({ t: i.t, p: i.p, k: !!i.k, cp: !!i.cp, a: 'y', cm: '', rc: '' })) })) };
 };
 const newEnt = (id, ch) => { ENT = ent0(id, ch || (ENT && ENT.ch) || 'call'); ENT0 = JSON.stringify(ENT); EDITID = ''; };
-// switching the type keeps what was typed; the scorecard changes only when the chosen one is not made for that type
-function setCh(ch) {
-  if (ENT.ch === ch) return; const cur = SCS.find(x => x.id === ENT.scid), keep = ['team', 'agent', 'id', 'dt', 'lk', 'cp', 'cm', 'fl', 'cl', 'tx', 'subj', 'chn'].reduce((o, k) => (o[k] = ENT[k], o), {});
-  if (!EDITID && !scChs(cur).includes(ch)) { const ns = SCS.find(x => scChs(x).includes(ch)); if (ns) { ENT = { ...ent0(ns.id, ch), ...keep }; toast('Scorecard changed to ' + ns.name); } }
-  ENT.ch = ch; render();
-}
+// switching the type keeps what was typed and the chosen scorecard (scorecards are never limited to one type)
+function setCh(ch) { if (ENT.ch === ch) return; ENT.ch = ch; render(); }
 const entDirty = () => !!ENT && JSON.stringify(ENT) !== ENT0;
 
 // the same rules as the server:  N/A is left out of the possible points;
@@ -50,12 +48,12 @@ PG.entry = function () {
   if (!SCS.length) return head('QA Entry Form', 'Enter QA scores for calls, chats and emails') + card('', ME.role === 'admin' ? '<p class=mu>There is no scorecard yet. Create one in Scorecards first.</p>'
     : '<p class=mu>You do not have a scorecard to use yet. You only see the scorecards of your workspace: ask an administrator to add you to a workspace (Admin &gt; Workspaces).</p>');   // non-admins only see their workspace's scorecards
   if (!ENT || (!EDITID && !SCS.some(x => x.id === ENT.scid))) newEnt();
-  const ed = EDITID, s = SCS.find(x => x.id === ENT.scid), S = entS(), L = (t, r) => t + (r ? ' <i class=rq>*</i>' : ' <span class=mu>(optional)</span>'), ch = ENT.ch || 'call', fit = SCS.filter(x => scChs(x).includes(ch)), rest = SCS.filter(x => !scChs(x).includes(ch));
-  const opt = x => `<option value="${esc(x.id)}" ${x.id === ENT.scid ? 'selected' : ''}>${esc(x.name)}</option>`;
+  const ed = EDITID, s = SCS.find(x => x.id === ENT.scid), S = entS(), L = (t, r) => t + (r ? ' <i class=rq>*</i>' : ' <span class=mu>(optional)</span>'), ch = ENT.ch || 'call';
+  const opt = x => `<option value="${esc(x.id)}" ${x.id === ENT.scid ? 'selected' : ''}>${esc(x.name)}${scTags(x).length ? ' · ' + esc(scTags(x).join(', ')) : ''}</option>`;
   return head(ed ? 'Edit QA Review' : 'QA Entry Form', ed ? 'Update the answers and save your changes' : 'Enter QA scores for calls, chats, emails and other conversations',
     `<div style="display:flex;gap:8px;flex-wrap:wrap">${ed ? `<button class=ib onclick="cancelE()">Cancel</button>` : ''}<div class=sx style="width:290px"><span>${IC.search}</span><input class=qi style="padding-right:64px" placeholder="Search lead ID, agent, campaign…" value="${esc(Q)}" oninput="sq(this)" onkeydown='if(event.key=="Enter"&&!document.getElementById("tb")){KQ=true;location.hash="calls"}'><kbd class=kb>Ctrl K</kbd></div>${bellBtn()}</div>`)
-    + ENTRY_TIP() + `<div class=eg><div>` + card(`${CHN[ch]} Information`, `<label>${L('Review type', 1)}<div class=chseg>${CHS.map(k => `<button type=button class="${ch === k ? 'on' : ''}" style="--c:${CHC[k]}" onclick="setCh('${k}')">${IC['ch_' + k]} ${CHN[k]}</button>`).join('')}</div></label><label>${L('Select Scorecard', 1)}<select ${ed ? 'disabled' : ''} onchange="setSc(this.value)">${s ? '' : `<option>${esc(ENT.scn || '')}</option>`}${fit.length ? `<optgroup label="Scorecards for ${CHP[ch].toLowerCase()}">${fit.map(opt).join('')}</optgroup>` : ''}${rest.length ? `<optgroup label="${fit.length ? 'Other scorecards' : 'No scorecard is made for ' + CHP[ch].toLowerCase() + ' yet'}">${rest.map(opt).join('')}</optgroup>` : ''}</select></label><small class=mu>${esc(s ? s.desc : '')}${!fit.length ? ` — tip: mark a scorecard as “used for ${CHP[ch].toLowerCase()}” in Scorecards.` : ''}</small><hr><div class=eg2>`
-      + `<label>${L('Team', 1)}<select id=etm onchange="setTm(this.value)"><option value="">Select a team</option>${TEAMS.map(t => `<option value="${t.id}" ${ENT.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>`
+    + ENTRY_TIP() + `<div class=eg><div>` + card(`${CHN[ch]} Information`, `<label>${L('Review type', 1)}<div class=chseg>${CHS.map(k => `<button type=button class="${ch === k ? 'on' : ''}" style="--c:${CHC[k]}" onclick="setCh('${k}')">${IC['ch_' + k]} ${CHN[k]}</button>`).join('')}</div></label><label>${L('Select Scorecard', 1)}<select ${ed ? 'disabled' : ''} onchange="setSc(this.value)">${s ? '' : `<option>${esc(ENT.scn || '')}</option>`}${SCS.map(opt).join('')}</select></label><small class=mu>${esc(s ? s.desc : '')}</small><hr><div class=eg2>`
+      + `<label>${L('Team', 1)}<select id=etm onchange="setTm(this.value)"><option value="">Select a team</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${t.id}" ${ENT.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label>`
       + `<label>${L('Agent', 1)}<select id=eag ${!ENT.team ? 'disabled' : ''} onchange="ENT.agent=this.value">${AGO()}</select></label>`
       + `<label>${L('Lead ID', 1)}<input id=eid placeholder="Enter lead ID (any characters)" maxlength=60 value="${esc(ENT.id)}" oninput="ENT.id=this.value;if(crmLink('x')&&(!ENT.lk||ENT.lkAuto)){ENT.lk=crmLink(this.value);ENT.lkAuto=1;const c=$('#elk');if(c)c.value=ENT.lk}"></label>`
       + `<label>${L(ch === 'other' ? 'Date' : CHN[ch] + ' Date', 1)}<input id=edt type=date value="${ENT.dt}" oninput="ENT.dt=this.value"></label>`

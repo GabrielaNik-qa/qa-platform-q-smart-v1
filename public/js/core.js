@@ -365,10 +365,15 @@ const CHN = { call: 'Call', chat: 'Chat', email: 'Email', other: 'Other' }, CHP 
 const CHC = { call: 'var(--ac)', chat: '#8b5cf6', email: '#f59e0b', other: '#14b8a6' };
 const chOf = e => (e && e.ch) || 'call';
 const scChs = s => (s && s.chs && s.chs.length) ? s.chs : ['call'];
+// a scorecard's tags (free words such as Calls, Chats, B2C, Retention): they show what it is made for and filter the list, but any scorecard
+// can score any review. Older scorecards without tags show the review types they were made for.
+const scTags = s => s && Array.isArray(s.tags) && s.tags.length ? s.tags : (s && s.chs && s.chs.length ? s.chs : []).map(k => CHP[k]);
+const tagChip = t => `<span class=sctag>${esc(t)}</span>`;
 const chTag = (ch, short) => `<span class=cht style="--c:${CHC[ch]}" title="${CHN[ch]}">${IC['ch_' + ch]}${short ? '' : ' ' + CHN[ch]}</span>`;
 // "All types / Calls / Chats / Emails / Other" buttons with how many reviews and their average; only types that have reviews are shown
-const chChips = (list, cur, fn) => { const c = k => list.filter(e => !k || chOf(e) === k); const used = CHS.filter(k => c(k).length);
-  return used.length < 2 && !cur ? '' : `<div class=chchips>${['', ...used].map(k => { const l = c(k), a = avg(l.map(e => e.sc)); return `<button class="chchip ${cur === k ? 'on' : ''}" style="--c:${k ? CHC[k] : 'var(--ac)'}" onclick="${fn}('${k}')">${k ? IC['ch_' + k] : ''}${k ? CHP[k] : 'All types'} <b>(${l.length})</b>${l.length ? `<b class=chav>${a.toFixed(0)}%</b>` : ''}</button>`; }).join('')}</div>`; };
+// (always = every type is shown, also with 0 reviews, so the switch is there even when all reviews are calls)
+const chChips = (list, cur, fn, always) => { const c = k => list.filter(e => !k || chOf(e) === k); const used = always ? CHS : CHS.filter(k => c(k).length);
+  return used.length < 2 && !cur ? '' : `<div class=chchips>${['', ...used].map(k => { const l = c(k), a = avg(l.map(e => e.sc)); return `<button class="chchip ${cur === k ? 'on' : ''} ${l.length ? '' : 'zero'}" style="--c:${k ? CHC[k] : 'var(--ac)'}" onclick="${fn}('${k}')">${k ? IC['ch_' + k] : ''}${k ? CHP[k] : 'All types'} <b>(${l.length})</b>${l.length ? `<b class=chav>${a.toFixed(0)}%</b>` : ''}</button>`; }).join('')}</div>`; };
 const chSel = (cur, on) => `<select onchange="${on}"><option value="">All types</option>${CHS.map(k => `<option value=${k} ${cur === k ? 'selected' : ''}>${CHP[k]}</option>`).join('')}</select>`;
 
 // ---------------------------------------------------------------- the new sections keep their records in simple lists (CO.goals, CO.pips, CO.kudos ...)

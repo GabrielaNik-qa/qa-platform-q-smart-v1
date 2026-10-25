@@ -981,6 +981,9 @@ I18N.add('fr', {
   "Tasks: drag a card to move it and earn XP.": "Tâches : faites glisser une carte pour la déplacer et gagnez des XP.",
   "The welcome message will not show again. Switch it back on in My account › Notifications & Confirmations.": "Le message de bienvenue ne s'affichera plus. Réactivez-le dans Mon compte › Notifications et confirmations.",
   "Welcome": "Bienvenue", "Don't show me this again": "Ne plus afficher", "Get started": "Commencer",
+  "Getting started": "Premiers pas", "Click to see this period in detail": "Cliquez pour voir cette période en détail",
+  "Tags": "Étiquettes", "All tags": "Toutes les étiquettes", "Type a tag and press Enter": "Saisissez une étiquette et appuyez sur Entrée",
+  "— what this scorecard is for (e.g. Calls, Chats, B2C). Tags only help to find and filter scorecards: any scorecard can be used for any review.": "— à quoi sert cette grille (p. ex. Appels, Chats, B2C). Les étiquettes servent uniquement à trouver et filtrer les grilles : toute grille peut être utilisée pour n'importe quelle évaluation.",
 
   // ---------------------------------------------------------------- my account
   "Profile": "Profil", "Appearance": "Apparence", "Notifications & Confirmations": "Notifications et confirmations", "About me": "À propos de moi", "Save profile": "Enregistrer le profil",

@@ -44,7 +44,7 @@ const setFA = v => { FA = v; if (FA) FT = teamOf(FA); PN = 1; render(); };
 PG.calls = function () {
   const seg = [['week', 'Week'], ['month', 'Month'], ['all', 'All'], ['custom', 'Custom']].map(([k, l]) => `<button class="${k === FP ? 'on' : ''}" onclick="FP='${k}';PN=1;render()">${l}</button>`).join('');
   const si = `<div class=sx><span>${IC.search}</span><input class=qi placeholder="Search by agent, lead ID, or campaign…" value="${esc(Q)}" oninput="sq(this)"></div>`;
-  const tOpts = TEAMS.filter(t => !FA || t.id === teamOf(FA)), aOpts = AGENTS().filter(a => !FT || a.team === FT);
+  const tOpts = TEAMS.filter(t => !t.system && (!FA || t.id === teamOf(FA))), aOpts = AGENTS().filter(a => !FT || a.team === FT);
   const chip = FSC ? `<span class=chip onclick="FSC=null;PN=1;render()" title="Remove this filter" aria-label="Remove this filter">${FSC.m === 'pass' ? `Passing reviews (team pass rates)` : FSC.m === 'fail' ? 'Failing reviews (below the pass rate)' : `Score ${FSC.a}% – ${FSC.b > 100 ? 100 : FSC.b - 1}%`} ${IC.x}</span>` : '';
   return head('Reviews', 'View and manage the evaluations of calls, chats, emails and other conversations', `<div style="display:flex;gap:8px;flex-wrap:wrap"><div class=sx style="width:290px"><span>${IC.search}</span><input class=qi style="padding-right:64px" placeholder="Search lead ID, agent, campaign…" value="${esc(Q)}" oninput="sq(this)"><kbd class=kb>Ctrl K</kbd></div>${bellBtn()}<button class="ib ibx" onclick="xp(CR(),'Reviews')">${IC.dl} Export to Excel</button></div>`)
     + card('', `<div class=fl><label>Search${si}</label>

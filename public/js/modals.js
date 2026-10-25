@@ -114,8 +114,30 @@ function welClose(go) {
   if (go) location.hash = go; else render();
   if (d) setPrefs({ dismiss: ['welcome'] }, 'The welcome message will not show again. Switch it back on in My account › Notifications & Confirmations.');
 }
+// ---- the "Getting started" guide: after the welcome, the steps stay in a small card in the corner (ticked when visited) until it is closed.
+// Kept per person in this browser; it never covers the page (no grey background) and can be folded into a small button.
+const gdKey = () => 'qa_guide_' + (ME ? ME.username : '');
+const gdGet = () => { const g = LS.get(gdKey(), null); return g && g.on ? g : null; };
+const gdSteps = () => (WSTEPS[ME.role] || WSTEPS.agent).map(s => s[0] ? s : ME.role === 'admin' && s[1] === 'gear' ? ['sys', ...s.slice(1)] : null)   // 'sys' = the gear: System settings
+  .filter(s => s && (s[0] === 'sys' || canRoute(s[0])));
+function gdStart(go) {                                         // "Open" next to a step, or "Get started": the guide starts (not when "Don't show me this again" is ticked)
+  if (!(WEL && WEL.dna)) { const g = gdGet() || { on: true, min: false, done: [] }; if (go && !g.done.includes(go)) g.done.push(go); LS.set(gdKey(), g); }
+  welClose(go);
+}
+function gdGo(h) { const g = gdGet(); if (!g) return; if (!g.done.includes(h)) g.done.push(h); g.min = false; LS.set(gdKey(), g); if (h === 'sys') { SYS = true; render(); } else if (location.hash === '#' + h) render(); else location.hash = h; }
+function gdMin(on) { const g = gdGet(); if (!g) return; g.min = on; LS.set(gdKey(), g); render(); }
+function gdEnd() { LS.set(gdKey(), { on: false }); render(); }
+const GDM = () => {
+  const g = gdGet(); if (!g || WEL || ME.mustChange) return '';
+  const st = gdSteps(); if (st.some(s => s[0] === route) && !g.done.includes(route)) { g.done.push(route); LS.set(gdKey(), g); }   // a step's page was opened from the menu: it counts too
+  const n = st.filter(s => g.done.includes(s[0])).length;
+  if (g.min) return `<button class=gdpill onclick="gdMin(false)" title="Getting started">${IC.compass}<span>Getting started</span><b>${n}/${st.length}</b></button>`;
+  return `<aside class=gdp aria-label="Getting started"><div class=gdh><b>Getting started</b><b class=gdn>${n}/${st.length}</b><span><button class=ic onclick="gdMin(true)" title="Hide">${IC.chev}</button><button class=ic onclick="gdEnd()" title="Close">${IC.x}</button></span></div>`
+    + `<ol class=gdl>${st.map(([h, ic, t, s]) => `<li class="${g.done.includes(h) ? 'dn' : ''} ${route === h ? 'cur' : ''}"><button onclick="gdGo('${h}')"><span class=gdk>${g.done.includes(h) ? IC.check : IC[ic]}</span><span><b>${t}</b><small>${s}</small></span></button></li>`).join('')}</ol>`
+    + (n === st.length ? `<div class=gdok>${IC.check}<span>Done</span></div>` : '') + `</aside>`;
+};
 const WELM = () => { const steps = (WSTEPS[ME.role] || WSTEPS.agent).filter(s => !s[0] || canRoute(s[0])), rn = ROLE[ME.role] || ME.role;
-  return OVL(`<div class=mh><div><span class=kick>Welcome</span><h2>Hi ${esc(String(ME.name || '').split(' ')[0])}, welcome to Q-SMART</h2></div>${X('welClose()')}</div><div class=mb><p class=mu style="margin:0">Where to start as ${/^[aeiou]/i.test(rn) ? 'an' : 'a'} ${esc(rn)}:</p><ol class=steps>${steps.map(([h, ic, t, s]) => `<li><span class=si>${IC[ic]}</span><span><b>${t}</b><br><small>${s}</small></span>${h ? `<button class=ib onclick="welClose('${h}')">Open</button>` : ''}</li>`).join('')}</ol></div><div class=mf><label class=dna><input type=checkbox ${WEL.dna ? 'checked' : ''} onchange="WEL.dna=this.checked"> Don't show me this again</label><button class=btn data-af onclick="welClose()">Get started</button></div>`, 'welClose()', 560, 72); };
+  return OVL(`<div class=mh><div><span class=kick>Welcome</span><h2>Hi ${esc(String(ME.name || '').split(' ')[0])}, welcome to Q-SMART</h2></div>${X('welClose()')}</div><div class=mb><p class=mu style="margin:0">Where to start as ${/^[aeiou]/i.test(rn) ? 'an' : 'a'} ${esc(rn)}:</p><ol class=steps>${steps.map(([h, ic, t, s]) => `<li><span class=si>${IC[ic]}</span><span><b>${t}</b><br><small>${s}</small></span>${h ? `<button class=ib onclick="gdStart('${h}')">Open</button>` : ''}</li>`).join('')}</ol></div><div class=mf><label class=dna><input type=checkbox ${WEL.dna ? 'checked' : ''} onchange="WEL.dna=this.checked"> Don't show me this again</label><button class=btn data-af onclick="gdStart()">Get started</button></div>`, 'welClose()', 560, 72); };
 
 // ---------------------------------------------------------------- "my account" menu (click your name) and system settings (gear)
 const MYR = () => ROSTER.find(r => r.username === ME.username) || {};
@@ -151,4 +173,4 @@ const SYSM = () => OVL(`<div class=mh><h2>System Settings</h2>${X('SYS=false;ren
 const resetDemo = () => ask('Reset the data?', 'All data goes back to the copy saved in seed.js. Everything changed since then is replaced (a backup is kept in data.backup.json).', async () => { const r = await api('/api/demo/reset', {}, 'POST'); if (!r.ok) return toast(await errOf(r, 'Could not reset'), true); SYS = false; await load(); render(); toast('Data reset'); }, { yes: 'Yes, reset', no: 'Cancel', danger: true });
 
 // all overlays, in stacking order
-const overlays = () => (NO ? MODAL() : '') + (MD ? MDL() : '') + (SSV ? SSVM() : '') + (TKV ? TKM() : '') + (TPLM ? TPLMM() : '') + (RSV ? RSVM() : '') + (AC ? ACCT() : '') + (SYS ? SYSM() : '') + (FM ? FMM() : '') + (WEL ? WELM() : '') + (PLY ? PLYM() : '') + (QFM ? QFMM() : '') + (PAL ? PALM() : '') + (WADD ? WADDM() : '') + (WSET ? WSETM() : '') + (WDISP ? WDISPM() : '') + (AQV ? AQM() : '') + (TEST ? TESTM() : '') + (AIH ? AIHM() : '') + (ME.mustChange ? FIRSTM() : '') + (CFM ? CFMM() : '');
+const overlays = () => (NO ? MODAL() : '') + (MD ? MDL() : '') + (SSV ? SSVM() : '') + (TKV ? TKM() : '') + (TPLM ? TPLMM() : '') + (RSV ? RSVM() : '') + (AC ? ACCT() : '') + (SYS ? SYSM() : '') + (FM ? FMM() : '') + (WEL ? WELM() : '') + (PLY ? PLYM() : '') + (QFM ? QFMM() : '') + (PAL ? PALM() : '') + (WADD ? WADDM() : '') + (WSET ? WSETM() : '') + (WDISP ? WDISPM() : '') + (AQV ? AQM() : '') + (TEST ? TESTM() : '') + (AIH ? AIHM() : '') + (ME.mustChange ? FIRSTM() : '') + (CFM ? CFMM() : '') + GDM();
