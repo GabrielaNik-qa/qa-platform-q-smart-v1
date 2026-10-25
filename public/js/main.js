@@ -89,11 +89,20 @@ function render() {
   $$('.chat').forEach(c => { c.scrollTop = c.scrollHeight; });
   a11y($('#m')); refocus(fk); fitTables();
 }
-// a table wider than its card ends at the bottom of the screen: its sideways scrollbar is always visible (the column titles stay pinned on top)
+// a table wider than its card gets a second sideways scrollbar on top (kept in step with the one below) and ends at the bottom of
+// the screen, so a sideways scrollbar is always at hand, even with 100 rows per page (the column titles stay pinned on top)
 function fitTables() {
   $$('#m .sc').forEach(sc => {
     sc.style.maxHeight = '';
-    if (sc.closest('.ov') || sc.scrollWidth <= sc.clientWidth + 1) return;
+    const wide = !sc.closest('.ov') && sc.scrollWidth > sc.clientWidth + 1, prev = sc.previousElementSibling;
+    let top = prev && prev.classList.contains('sctop') ? prev : null;
+    if (!wide) { if (top) top.remove(); return; }
+    if (!top) {
+      top = document.createElement('div'); top.className = 'sctop'; top.setAttribute('aria-hidden', 'true'); top.appendChild(document.createElement('div')); sc.before(top);
+      top.addEventListener('scroll', () => { if (sc.scrollLeft !== top.scrollLeft) sc.scrollLeft = top.scrollLeft; });
+      sc.addEventListener('scroll', () => { if (top.scrollLeft !== sc.scrollLeft) top.scrollLeft = sc.scrollLeft; });
+    }
+    top.firstChild.style.width = sc.scrollWidth + 'px'; top.scrollLeft = sc.scrollLeft;
     sc.style.maxHeight = Math.max(320, innerHeight - Math.max(sc.getBoundingClientRect().top, 0) - 16) + 'px';
   });
 }
@@ -129,7 +138,7 @@ function a11y(root) {
   });
   root.querySelectorAll('.ov > .md:not([role])').forEach(d => { d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true'); const h = d.querySelector('h2'); if (h) d.setAttribute('aria-label', h.textContent.trim().slice(0, 80)); });
 }
-const enhance = () => a11y($('#m'));                   // for parts of a page redrawn on their own
+const enhance = () => { a11y($('#m')); fitTables(); };   // for parts of a page redrawn on their own
 const FATTR = ['onclick', 'oninput', 'onchange'];
 const focusKey = () => {
   const a = document.activeElement, m = $('#m'); if (!a || a === document.body || !m || !m.contains(a)) return null;
