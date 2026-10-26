@@ -169,7 +169,7 @@ wdef('dash', 'ai_train', 'AI trainer', 30, (c, s, x) => card(`${wt(x, 'AI traine
 // The server works out the numbers (scores, teams, categories, channels, agents, reviewers, disputes) for the period and the team;
 // the AI only writes the report from them. Reports are kept so they can be read again and copied into an e-mail.
 let AIQ = { q: '', period: '30', team: '' };
-const AIQS = ['Which team improved the most, and why?', 'Where do we lose the most points?', 'Which agents need help first?', 'Are our reviewers scoring the same way?', 'How do calls, chats and e-mails compare?'];
+const AIQS = ['Which team improved the most, and why?', 'Where do we lose the most points?', 'Which agents need help first?', 'Are our reviewers scoring the same way?', 'How do calls, chats and e-mails compare?', 'How many agents do I have today?', 'Who is off this Friday?', 'Who was late last week?'];
 function aiAnaPage() {
   const busy = !!BUSY.aiana, P = AIA.periods || {}, list = AIA.reports;
   const one = (x, open) => `<div class=row style="align-items:flex-start;gap:10px"><div style="flex:1"><b>${esc(x.q)}</b><br><small class=mu>${esc(tr(P[x.period] || x.period))} · ${esc(x.team ? tn(x.team) : tr('All teams'))} · ${x.auto ? tr('written by the AI analyst on the 1st') : esc(x.by)} · ${fdt(x.at)}</small></div>`

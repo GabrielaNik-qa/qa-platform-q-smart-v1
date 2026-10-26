@@ -305,4 +305,6 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, s
     res.json({ team: team.id, m, pct, people: rows, days: dates.map(d => { const n = rows.filter(r => r.days[d]).length;
       return { d, off: cal.days[wf.dow(d)] === 'off', hol: (cal.holidays.find(h => h.d === d) || {}).n || '', n, warn: !!pct && n >= 2 && n > size * pct / 100 }; }) });
   });
+  // shared with routes-today.js (Team today, the morning brief, the reports, the AI analyst)
+  return { W, statusOf, canDecide, approversOf, members, calm, typeOf, bal, teamsFor };
 };

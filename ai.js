@@ -162,4 +162,13 @@ async function analystReport(pack, question, playbook) {
     + (playbook ? '\nCompany rules (use them to judge what matters):\n' + String(playbook).slice(0, 4000) : '');
   return str(await ask(system, [{ type: 'text', text: 'Question: ' + question + '\n\nData (JSON):\n' + JSON.stringify(pack).slice(0, 60000) }], 3000), 8000);
 }
-module.exports = { enabled, MODEL, PRICE, setConfig, ping, reviewDraft, teamSummary, coachPlan, roleCustomer, roleScore, talk, analystReport, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };
+// AI team lead: the morning brief of a team for its team lead, from the facts of the day (never invents any), in the lead's language
+async function morningBrief(facts, playbook, lang) {
+  const L = { bg: 'Bulgarian', fr: 'French' }[lang] || 'English';
+  const system = 'You write the morning brief of a call-center team for its team lead. Use ONLY the facts given; never invent names, numbers or reasons. '
+    + 'Write in ' + L + ', in Markdown, at most 150 words: one line that sums up the morning, then short bullet points under the headings Right now, To watch, This week and Waiting for you '
+    + '(translate the headings, leave out a heading with nothing under it). Be kind and practical, and end with one concrete thing to do first.'
+    + (playbook ? '\nCompany rules:\n' + String(playbook).slice(0, 4000) : '');
+  return str(await ask(system, [{ type: 'text', text: JSON.stringify(facts).slice(0, 30000) }], 1200), 4000);
+}
+module.exports = { enabled, MODEL, PRICE, setConfig, ping, reviewDraft, teamSummary, coachPlan, roleCustomer, roleScore, talk, analystReport, morningBrief, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };

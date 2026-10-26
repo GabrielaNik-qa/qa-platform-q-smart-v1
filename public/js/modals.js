@@ -5,7 +5,7 @@ const OVL = (inner, close, w = 640, z = 50, cls = '') => `<div class=ov style="z
 let NUI = [];
 
 // ---------------------------------------------------------------- notifications
-const NFT = { task: [IC.check, 'New task', 'var(--ac)'], taskdone: [IC.check, 'Task completed', 'var(--ok)'], quiz: [IC.pen, 'New quiz', 'var(--wn)'], news: [IC.list, 'Newsletter', 'var(--ac)'], cal: [IC.grid, 'Calibration', 'var(--ac)'], review: [IC.eye, 'New Call Review', 'var(--ok)'], dispute: [IC.flag, 'Call Review Disputed', 'var(--wn)'], msg: [IC.pen, 'New dispute message', 'var(--ac)'], resolved: [IC.check, 'Dispute resolved', 'var(--ok)'], remind: [IC.clock, 'Reminder', 'var(--wn)'], reg: [IC.plus, 'New registration request', 'var(--ac)'], flag: [IC.flag, 'Quick flag', 'var(--bad)'], kudos: ['⭐', 'Kudos', 'var(--ok)'], pip: [IC.flag, 'Improvement plan', 'var(--wn)'], goal: [IC.check, 'New goal', 'var(--ac)'], risk: [IC.flag, 'Risk case', 'var(--bad)'], att: [IC.clock, 'Attendance', 'var(--wn)'], fix: [IC.pen, 'Attendance correction', 'var(--ac)'], leave: [IC.grid, 'Time off', 'var(--ac)'] };
+const NFT = { task: [IC.check, 'New task', 'var(--ac)'], taskdone: [IC.check, 'Task completed', 'var(--ok)'], quiz: [IC.pen, 'New quiz', 'var(--wn)'], news: [IC.list, 'Newsletter', 'var(--ac)'], cal: [IC.grid, 'Calibration', 'var(--ac)'], review: [IC.eye, 'New Call Review', 'var(--ok)'], dispute: [IC.flag, 'Call Review Disputed', 'var(--wn)'], msg: [IC.pen, 'New dispute message', 'var(--ac)'], resolved: [IC.check, 'Dispute resolved', 'var(--ok)'], remind: [IC.clock, 'Reminder', 'var(--wn)'], reg: [IC.plus, 'New registration request', 'var(--ac)'], flag: [IC.flag, 'Quick flag', 'var(--bad)'], kudos: ['⭐', 'Kudos', 'var(--ok)'], pip: [IC.flag, 'Improvement plan', 'var(--wn)'], goal: [IC.check, 'New goal', 'var(--ac)'], risk: [IC.flag, 'Risk case', 'var(--bad)'], att: [IC.clock, 'Attendance', 'var(--wn)'], fix: [IC.pen, 'Attendance correction', 'var(--ac)'], leave: [IC.grid, 'Time off', 'var(--ac)'], brief: [IC.sun, 'Morning brief', 'var(--ac)'] };
 async function openN() {
   const r0 = await api('/api/notifications'); if (r0.ok) NF = (await r0.json()).filter(n => !NDEL.has(n.id));     // always show the freshest list
   NU = UN(); NUI = NF.filter(n => !n.read).map(n => n.id); NO = true; render();
@@ -14,7 +14,7 @@ async function openN() {
 function nfOpen(id) {
   const n = NF.find(x => x.id === id); if (!n) return;
   NO = false;
-  const go = { kudos: 'kudos', pip: 'pips', goal: 'goals', risk: 'risks', flag: ME.role === 'agent' ? 'agents' : 'flags', reg: 'users', task: 'tasks', taskdone: 'tasks', quiz: 'quiz', news: 'news', cal: 'cal', att: 'att', fix: 'att', leave: 'leave' }[n.type];
+  const go = { kudos: 'kudos', pip: 'pips', goal: 'goals', risk: 'risks', flag: ME.role === 'agent' ? 'agents' : 'flags', reg: 'users', task: 'tasks', taskdone: 'tasks', quiz: 'quiz', news: 'news', cal: 'cal', att: 'att', fix: 'att', leave: 'leave', brief: 'today' }[n.type];
   if (go) { if (location.hash === '#' + go) render(); else location.hash = go; return; }
   if (n.rid && EV.some(e => e.rid === n.rid)) om('view', n.rid); else { render(); toast('This review no longer exists', true); }
 }

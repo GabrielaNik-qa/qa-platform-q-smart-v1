@@ -72,7 +72,7 @@ wdef('dash', 'learn_prog', 'Learning progress', 30, (c, s, x) => {
 // ---- the ready-made dashboards (one per role and focus) and the defaults of each role
 const DTPL = [
   ['t-overall', 'Overall · team pulse', 'Everything important, one glance', 'g_home', wl(['brief', 60], ['kpi_avg', 15], ['kpi_pass', 15], ['plan_kpi', 15], ['kpi_disputes', 15], ['inbox', 30], ['heat', 30], ['qtime', 60])],
-  ['t-lead', 'Team lead', 'Who needs help this week', 'g_coaching', wl(['brief', 60], ['ai_lead', 60], ['kpi_avg', 20], ['kpi_pass', 20], ['kpi_trend', 20], ['inbox', 30], ['low', 30], ['heat', 60], ['teams', 30], ['tasks', 30])],
+  ['t-lead', 'Team lead', 'Who needs help this week', 'g_coaching', wl(['brief', 60], ['wf_today', 60], ['ai_lead', 60], ['kpi_avg', 20], ['kpi_pass', 20], ['kpi_trend', 20], ['inbox', 30], ['low', 30], ['heat', 60], ['teams', 30], ['tasks', 30])],
   ['t-qa', 'QA specialist', 'Review plan, disputes, calibration', 'g_quality', wl(['plan_kpi', 15], ['kpi_disputes', 15], ['kpi_total', 15], ['kpi_flags', 15], ['planner', 30], ['inbox', 30], ['attention', 60], ['distribution', 30], ['qflags', 30])],
   ['t-trainer', 'Trainer', 'Skill gaps, training impact', 'g_learning', wl(['brief', 60], ['ai_train', 30], ['needs', 30], ['cat0', 30], ['heat', 60], ['learn_prog', 30], ['strong', 30], ['cattime', 60])],
   ['t-agent', 'Agent · my progress', 'My score, my next step', 'g_perf', wl(['att_me', 60], ['kpi_avg', 20], ['kpi_pass', 20], ['kpi_trend', 20], ['coach_new', 60], ['todo', 60], ['strong', 30], ['needs', 30], ['last5', 60])],

@@ -212,7 +212,8 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     return { period: PERIODS[period], from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10), team: team ? tname(team) : 'All teams', target: t,
       thisPeriod: per(cur), previousPeriod: per(prev), byTeam, byChannel, byCategory, weeks, bestAgents: ag.slice(0, 5), lowestAgents: ag.slice(-5).reverse(), reviewers,
       disputes: { opened: dps.length, open: dps.filter(e => e.dp.status === 'open').length, outcomes: dps.reduce((m, e) => { const o = (e.dp.res || {}).outcome; if (o) m[o] = (m[o] || 0) + 1; return m; }, {}) },
-      aiReviewerAgreement: sims.length ? { approvedDrafts: sims.length, averageSimilarity: avgOf(sims) } : null };
+      aiReviewerAgreement: sims.length ? { approvedDrafts: sims.length, averageSimilarity: avgOf(sims) } : null,
+      attendance: app.locals.attPack ? app.locals.attPack(db, t => see(t) && (!team || t === team)) : null };
   }
   const seesAll = (db, u) => !scopeOf(db, u);
   async function writeReport(db0, see, q, period, team, by, byU, auto) {

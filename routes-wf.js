@@ -24,6 +24,8 @@ module.exports = ({ app, load, save, need, bad, hex, str, userBy, scopeOf, seesU
       const patterns = wf.cleanPatterns(b.patterns !== undefined ? b.patterns : cur.patterns, shifts, defShift, () => 'p-' + hex(3));
       const defCal = calendars.some(c => c.id === b.defCal) ? b.defCal : calendars.some(c => c.id === cur.defCal) ? cur.defCal : calendars[0].id;
       const leaveTypes = b.leaveTypes !== undefined ? wf.cleanLeaveTypes(b.leaveTypes, () => 'lt-' + hex(3)) : cur.leaveTypes;
+      const bf = b.rules && typeof b.rules === 'object' ? b.rules.bradford : undefined;
+      if (bf !== undefined && String(wf.bfLevels(bf)) !== String((Array.isArray(bf) ? bf : []).map(Number))) throw new Error('The three Bradford levels must go up: watch, then talk to them, then serious');
       const rules = b.rules !== undefined ? wf.cleanRules({ ...cur.rules, ...(b.rules && typeof b.rules === 'object' ? b.rules : {}) }) : cur.rules;
       db.settings.wf = { calendars, shifts, patterns, defShift, defCal, leaveTypes, rules }; save(db); res.json(db.settings.wf);
     } catch (e) { bad(res, e.message); }

@@ -47,7 +47,7 @@ function settingsOf(saved, today) {
   const out = { calendars: Array.isArray(s.calendars) && s.calendars.length ? s.calendars : d.calendars, shifts: Array.isArray(s.shifts) && s.shifts.length ? s.shifts : d.shifts, patterns: Array.isArray(s.patterns) ? s.patterns : [] };
   out.defShift = out.shifts.some(x => x.id === s.defShift) ? s.defShift : out.shifts[0].id;
   out.defCal = out.calendars.some(x => x.id === s.defCal) ? s.defCal : out.calendars[0].id;
-  out.leaveTypes = Array.isArray(s.leaveTypes) && s.leaveTypes.length ? s.leaveTypes : LT0.map(x => ({ ...x }));
+  out.leaveTypes = (Array.isArray(s.leaveTypes) && s.leaveTypes.length ? s.leaveTypes : LT0).map(x => ({ ...x, bradford: countsBf(x) }));
   out.rules = cleanRules({ ...RULES0, ...(s.rules && typeof s.rules === 'object' ? s.rules : {}) });
   return out;
 }
@@ -125,11 +125,11 @@ const cellHours = (W, c) => { const s = W.shifts.find(x => x.id === c.v); return
 // ======================== Phase 2: time off types, attendance rules, the status of a day, leave days and balances
 // the leave types a company starts with (Admin › People › Leave types changes them) and the attendance rules (Admin › People › Attendance rules)
 const LT0 = [
-  { id: 'lt-annual', name: 'Annual leave', color: '#16a34a', paid: true, unit: 'day', allowance: 20, carry: 5, half: true, approval: true, sandwich: false },
-  { id: 'lt-sick', name: 'Sick leave', color: '#e11d48', paid: true, unit: 'day', allowance: 0, carry: 0, half: false, approval: false, sandwich: false },
-  { id: 'lt-unpaid', name: 'Unpaid leave', color: '#475569', paid: false, unit: 'day', allowance: 0, carry: 0, half: true, approval: true, sandwich: false },
-  { id: 'lt-hours', name: 'Personal hours', color: '#0d9488', paid: true, unit: 'hour', allowance: 8, carry: 0, half: false, approval: true, sandwich: false }];
-const RULES0 = { lateLimit: 3, latePeriod: 'month', missingAfter: 30, fixDays: 7, fixReasons: ['Forgot to check in', 'Forgot to check out', 'Worked away from the computer', 'Technical problem', 'Other'], shortGrace: 15, teamOffPct: 20, since: '' };
+  { id: 'lt-annual', name: 'Annual leave', color: '#16a34a', paid: true, unit: 'day', allowance: 20, carry: 5, half: true, approval: true, sandwich: false, bradford: false },
+  { id: 'lt-sick', name: 'Sick leave', color: '#e11d48', paid: true, unit: 'day', allowance: 0, carry: 0, half: false, approval: false, sandwich: false, bradford: true },
+  { id: 'lt-unpaid', name: 'Unpaid leave', color: '#475569', paid: false, unit: 'day', allowance: 0, carry: 0, half: true, approval: true, sandwich: false, bradford: false },
+  { id: 'lt-hours', name: 'Personal hours', color: '#0d9488', paid: true, unit: 'hour', allowance: 8, carry: 0, half: false, approval: true, sandwich: false, bradford: false }];
+const RULES0 = { lateLimit: 3, latePeriod: 'month', missingAfter: 30, fixDays: 7, fixReasons: ['Forgot to check in', 'Forgot to check out', 'Worked away from the computer', 'Technical problem', 'Other'], shortGrace: 15, teamOffPct: 20, since: '', minOnPct: 70, briefOn: false, briefAfter: 30, bradford: [50, 125, 400] };
 const half = (v, lo, hi, def) => { const n = Number(v); return v !== '' && v !== null && v !== undefined && Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n * 2) / 2)) : def; };
 function cleanLeaveTypes(list, make) {
   if (!Array.isArray(list) || !list.length) throw new Error('Keep at least one leave type');
@@ -139,14 +139,15 @@ function cleanLeaveTypes(list, make) {
     const t = x && typeof x === 'object' ? x : {}, name = str(t.name, 40), unit = t.unit === 'hour' ? 'hour' : 'day', max = unit === 'hour' ? 2000 : 365;
     if (!name) throw new Error('Every leave type needs a name');
     return { id: idOf(t.id, make, used), name, color: COLOR.test(t.color || '') ? t.color : '#16a34a', paid: t.paid !== false, unit, allowance: half(t.allowance, 0, max, 0), carry: half(t.carry, 0, max, 0),
-      half: unit === 'day' && t.half !== false, approval: t.approval !== false, sandwich: unit === 'day' && t.sandwich === true };
+      half: unit === 'day' && t.half !== false, approval: t.approval !== false, sandwich: unit === 'day' && t.sandwich === true, bradford: countsBf(t) };
   });
 }
 function cleanRules(x) {
   const r = x && typeof x === 'object' ? x : {}, reasons = [...new Set((Array.isArray(r.fixReasons) ? r.fixReasons : []).map(v => str(v, 60)).filter(Boolean))].slice(0, 15);
   return { lateLimit: int(r.lateLimit, 0, 50, 3), latePeriod: r.latePeriod === 'week' ? 'week' : 'month', missingAfter: int(r.missingAfter, 0, 240, 30), fixDays: int(r.fixDays, 0, 60, 7),
     fixReasons: reasons.length ? reasons : RULES0.fixReasons.slice(), shortGrace: int(r.shortGrace, 0, 120, 15), teamOffPct: int(r.teamOffPct, 0, 100, 20),
-    since: DAY.test(typeof r.since === 'string' ? r.since : '') ? r.since : '' };              // attendance is tracked from this day: before it (or when empty) nobody is marked absent
+    since: DAY.test(typeof r.since === 'string' ? r.since : '') ? r.since : '',
+    minOnPct: int(r.minOnPct, 0, 100, 70), briefOn: r.briefOn === true, briefAfter: int(r.briefAfter, 0, 240, 30), bradford: bfLevels(r.bradford) };              // attendance is tracked from this day: before it (or when empty) nobody is marked absent
 }
 
 // ---- times: shift times are wall-clock times of the server's own time zone; check-ins are kept as exact moments (ISO)
@@ -259,5 +260,28 @@ const access = ({ scopeOf, seesUser, userBy, ADMIN_TEAM }) => ({
   canPlan: (db, me, username) => { const u = userBy(db, username); return !!u && (me.role === 'admin' || (me.role === 'lead' && u.team !== ADMIN_TEAM && seesUser(db, me, username))); }
 });
 
+// ======================== Phase 3: the Bradford score, absence patterns
+// a leave type counts in the Bradford score when it is an unplanned absence: ticked on the type, or sick leave by default
+const countsBf = t => !!t && (t.bradford !== undefined ? t.bradford === true : t.id === 'lt-sick');
+// the three Bradford levels (watch, talk, serious): rising numbers, else the usual 50 / 125 / 400
+const bfLevels = v => { const t = Array.isArray(v) ? v.map(x => int(x, 1, 100000, 0)) : []; return t.length === 3 && t[0] > 0 && t[0] < t[1] && t[1] < t[2] ? t : [50, 125, 400]; };
+// the Bradford factor: S² × D, S = separate spells of unplanned absence, D = days of it. Days are given in date order as
+// { work: a planned working day, abs: the share of the day that was an unplanned absence }. Days off do not end a spell;
+// a working day without absence does. Many short absences weigh more than one long one.
+function bradford(days) {
+  let S = 0, D = 0, open = false;
+  for (const x of days) { if (x.abs > 0) { D += x.abs; if (!open) { S++; open = true; } } else if (x.work) open = false; }
+  return { spells: S, days: Math.round(D * 10) / 10, score: Math.round(S * S * D) };
+}
+const bfLevel = (score, t) => score >= t[2] ? 3 : score >= t[1] ? 2 : score >= t[0] ? 1 : 0;
+// a pattern in unplanned absences: most of them on a Monday or a Friday (at least 3, and at least half of them)
+function weekdayPattern(dates) {
+  if (dates.length < 3) return null;
+  const c = [0, 0, 0, 0, 0, 0, 0]; dates.forEach(d => c[dow(d)]++);
+  const best = c[1] >= c[5] ? { dow: 1, n: c[1] } : { dow: 5, n: c[5] };
+  return best.n >= 3 && best.n / dates.length >= 0.5 ? { ...best, total: dates.length } : null;
+}
+
 module.exports = { DAY, TIME, addDays, dow, diffDays, monday, localDay, orthodoxEaster, bgHolidays, defaults, settingsOf, shiftHours, cleanShifts, cleanCalendars, cleanPatterns, planOf, cellHours,
-  LT0, RULES0, cleanLeaveTypes, cleanRules, shiftWindow, dayStatus, periodStart, missingCheckIns, leaveSpan, balance, access, dayOfTime, atLocal, leavesBy, lvOn };
+  LT0, RULES0, cleanLeaveTypes, cleanRules, shiftWindow, dayStatus, periodStart, missingCheckIns, leaveSpan, balance, access, dayOfTime, atLocal, leavesBy, lvOn,
+  countsBf, bfLevels, bradford, bfLevel, weekdayPattern };

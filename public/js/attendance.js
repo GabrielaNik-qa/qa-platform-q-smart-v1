@@ -66,11 +66,11 @@ const atWaiting = A => A && A.waiting.length ? card(`${tr('Corrections waiting f
   `<span style="white-space:nowrap"><button class=btn onclick="atDecide('${f.id}',true)">${tr('Approve')}</button> <button class=ib onclick="atDecide('${f.id}',false)">${tr('Do not approve')}</button></span>`]))) : '';
 
 // ---------------------------------------------------------------- Workforce › Attendance
-const atTab = k => { ATAB = k; LS.set('qa_atab', k); load().then(render); };
+const atTab = k => { ATAB = k; LS.set('qa_atab', k); if (k === 'rep') ATRQ = true; load().then(render); };
 PG.att = function () {
   const ed = ME.role !== 'agent', tab = ed ? ATAB : 'me', n = ATTD ? ATTD.waiting.length : 0;
-  const tabs = ed ? `<div class=sg role=tablist style="margin:0 0 14px">${[['me', 'My attendance'], ['team', 'Team by day'], ['month', 'Team by month']].map(([k, l]) => `<button role=tab class="${tab === k ? 'on' : ''}" onclick="atTab('${k}')">${tr(l)}${k === 'me' && n ? ' · ' + n : ''}</button>`).join('')}</div>` : '';
-  return head('Attendance', ed ? 'Check-ins of your teams, worked out day by day' : 'Your check-ins and your days', bellBtn()) + tabs + (tab === 'team' ? atTeamPage() : tab === 'month' ? atMonthPage() : atMePage());
+  const tabs = ed ? `<div class=sg role=tablist style="margin:0 0 14px">${[['me', 'My attendance'], ['team', 'Team by day'], ['month', 'Team by month'], ['rep', 'Reports']].map(([k, l]) => `<button role=tab class="${tab === k ? 'on' : ''}" onclick="atTab('${k}')">${tr(l)}${k === 'me' && n ? ' · ' + n : ''}</button>`).join('')}</div>` : '';
+  return head('Attendance', ed ? 'Check-ins of your teams, worked out day by day' : 'Your check-ins and your days', bellBtn()) + tabs + (tab === 'team' ? atTeamPage() : tab === 'month' ? atMonthPage() : tab === 'rep' ? atRepPage() : atMePage());
 };
 function atMePage() {
   const A = ATTD; if (!A) return card('', '<p class=mu style="margin:0">…</p>');
@@ -104,7 +104,7 @@ function atMonthPage() {
   const prev = M.m === '0' ? '' : iso(new Date(+M.m.slice(0, 4), +M.m.slice(5) - 2, 1)).slice(0, 7), next = iso(new Date(+M.m.slice(0, 4), +M.m.slice(5), 1)).slice(0, 7);
   const tip = (r, x, d) => esc(wfDay(d) + ' · ' + tr(AMC[x.c] || '') + (x.in ? ' · ' + atHm(x.in) + '–' + atHm(x.out) : '') + (x.late ? ' · ' + tr(`Late ${x.late} min`) : '') + (x.early ? ' · ' + tr(`Left ${x.early} min early`) : '') + (x.lt ? ' · ' + ltName(x.lt) : ''));
   return `<div class=row style="gap:8px;flex-wrap:wrap;margin:0 0 12px;justify-content:flex-start">${wfTeamSel(M.team, 'atTeam')}<div class=sg role=group aria-label="Month"><button onclick="atMonth('${prev}')" aria-label="Previous month">‹</button><button onclick="atMonth('${next}')" aria-label="Next month">›</button></div><input type=month value="${M.m}" onchange="atMonth(this.value)" style="width:auto"><b>${new Date(M.m + '-15').toLocaleDateString(I18N.locale(), { month: 'long', year: 'numeric' })}</b></div>`
-    + card('Summary', M.rows.length ? tbl(['Person', 'Present', 'Late', 'Absent', 'Left early', 'Short days', 'On leave', 'Worked / planned'], M.rows.map(r => [`<b>${esc(r.name)}</b>`, r.present, r.late ? `<b style="color:var(--wn)">${r.late}</b> <small class=mu>${atDur(r.lateMin)}</small>` : '0', r.absent ? `<b style="color:var(--bad)">${r.absent}</b>` : '0', r.early, r.short, r.leave, `<span class=mono>${r.worked} / ${r.planned} h</span>`])) : '<p class=mu style="margin:0">This team has no members yet.</p>')
+    + card('Summary', M.rows.length ? tbl(['Person', 'Present', 'Late', 'Absent', 'Left early', 'Short days', 'On leave', 'Worked / planned'], M.rows.map(r => [`<b>${esc(r.name)}</b>`, r.present, r.late ? `<b style="color:var(--wn)">${r.late}</b> <small class=mu>${atDur(r.lateMin)}</small>` : '0', r.absent ? `<b style="color:var(--bad)">${r.absent}</b>` : '0', r.early, r.short, r.leave, `<span class=mono>${r.worked} / ${tr(`${r.planned} h`)}</span>`])) : '<p class=mu style="margin:0">This team has no members yet.</p>')
     + (M.rows.length ? card('Day by day', `<div class=sc data-notools><table class="ct amg"><thead><tr><th>${tr('Person')}</th>${M.days.map(d => `<th title="${esc(wfDay(d))}">${+d.slice(8)}</th>`).join('')}</tr></thead><tbody>${M.rows.map(r => `<tr><td><b>${esc(r.name)}</b></td>${r.days.map((x, i) => `<td><i class="amc ${x.c}" title="${x.c ? tip(r, x, M.days[i]) : ''}"></i></td>`).join('')}</tr>`).join('')}</tbody></table></div>
 <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;font-size:12px">${Object.entries(AMC).map(([k, l]) => `<span><i class="amc ${k}"></i> ${tr(l)}</span>`).join('')}</div>`) : '');
 }
@@ -205,22 +205,24 @@ const lvSend = () => once('lvsend', async () => { const q = LRQ, r = await api('
 PG.ltypes = function () {
   const L = WF().leaveTypes, yn = v => v ? '✓' : '—';
   return head('Leave types', 'The kinds of time off, how much of each a year, and whether the team lead approves them.', `<button class=btn onclick="ltEdit('')">+ New leave type</button>`)
-    + card('', tbl(['Leave type', 'Paid', 'Counted in', 'Per year', 'Carried over (at most)', 'Half days', 'Approval', 'Days off inside count', ''], L.map(t => [`<span style="color:${t.color}">●</span> <b>${esc(t.name)}</b>`, yn(t.paid), tr(t.unit === 'hour' ? 'hours' : 'days'), t.allowance || tr('No limit'), t.allowance ? t.carry : '—', t.unit === 'hour' ? '—' : yn(t.half), yn(t.approval), t.unit === 'hour' ? '—' : yn(t.sandwich),
+    + card('', tbl(['Leave type', 'Paid', 'Counted in', 'Per year', 'Carried over (at most)', 'Half days', 'Approval', 'Days off inside count', 'Bradford score', ''], L.map(t => [`<span style="color:${t.color}">●</span> <b>${esc(t.name)}</b>`, yn(t.paid), tr(t.unit === 'hour' ? 'hours' : 'days'), t.allowance || tr('No limit'), t.allowance ? t.carry : '—', t.unit === 'hour' ? '—' : yn(t.half), yn(t.approval), t.unit === 'hour' ? '—' : yn(t.sandwich), yn(t.bradford),
       `<span style="white-space:nowrap"><button class=ic onclick="ltEdit('${t.id}')" title="Edit">${IC.pen}</button>${L.length > 1 ? `<button class=ic onclick="ltDel('${t.id}')" title="Delete">${IC.bin}</button>` : ''}</span>`])))
     + `<p class=mu style="font-size:12.5px">${tr('Balances count working days of each person’s rota: days off and public holidays inside a leave are not taken, unless “Days off inside count” is ticked. People who start during the year get the allowance of the months left.')}</p>`;
 };
 const ltEdit = id => { const t = ltOf(id);
-  openForm({ title: t ? tr('Edit the leave type') : tr('New leave type'), yes: 'Save', d: t ? { ...t } : { id: '', name: '', color: '#16a34a', paid: true, unit: 'day', allowance: 0, carry: 0, half: true, approval: true, sandwich: false },
+  openForm({ title: t ? tr('Edit the leave type') : tr('New leave type'), yes: 'Save', d: t ? { ...t } : { id: '', name: '', color: '#16a34a', paid: true, unit: 'day', allowance: 0, carry: 0, half: true, approval: true, sandwich: false, bradford: false },
     fields: [{ k: 'name', l: 'Name', req: 1, ph: 'Annual leave, Sick leave…' }, { k: 'color', l: 'Colour', t: 'color' }, { k: 'paid', l: 'Paid', t: 'checkbox' },
       { k: 'unit', l: 'Counted in', t: 'select', re: 1, o: [['day', tr('days')], ['hour', tr('hours')]] },
       { k: 'allowance', l: 'Per year', t: 'number', re: 1, hint: '0 = no yearly limit (for example sick leave).' }, { k: 'carry', l: 'Carried over to next year (at most)', t: 'number', show: d => +d.allowance > 0 },
       { k: 'half', l: 'Half days allowed', t: 'checkbox', show: d => d.unit !== 'hour' }, { k: 'approval', l: 'The team lead approves it', t: 'checkbox', hint: 'Without approval it is saved at once and the team lead is told.' },
-      { k: 'sandwich', l: 'Days off inside count', t: 'checkbox', show: d => d.unit !== 'hour', hint: 'A Friday-to-Monday leave then takes the weekend too.' }],
+      { k: 'sandwich', l: 'Days off inside count', t: 'checkbox', show: d => d.unit !== 'hour', hint: 'A Friday-to-Monday leave then takes the weekend too.' },
+      { k: 'bradford', l: 'Counts in the Bradford score', t: 'checkbox', hint: 'An unplanned absence, such as sick leave.' }],
     save: d => { const list = d.id ? WF().leaveTypes.map(x => x.id === d.id ? d : x) : [...WF().leaveTypes, d]; return wfSave({ leaveTypes: list }, 'Leave type saved'); } }); };
 const ltDel = id => { const t = ltOf(id); ask(`Delete “${t.name}”?`, 'Time off already taken with it stays, shown without a type.', () => wfDo({ leaveTypes: WF().leaveTypes.filter(x => x.id !== id) }, 'Leave type deleted'), { yes: 'Yes, delete', no: 'Cancel', danger: true }); };
 // the rules being edited are kept as they are typed (ARD), so a refresh of the page in the background never loses them
 let ARD = null;
 const arSet = (k, v) => { ARD = ARD || JSON.parse(JSON.stringify(WF().rules)); ARD[k] = v; };
+const arBf = (i, v) => { arSet('bradford', (ARD || WF().rules).bradford.slice()); ARD.bradford[i] = v; };
 PG.attrules = function () {
   const R = ARD || WF().rules, n = (id, k, min, max) => `<input id=${id} type=number min=${min} max=${max} value="${esc(R[k])}" oninput="arSet('${k}',this.value)" style="width:90px">`;
   return head('Attendance rules', 'Late arrivals, alerts, corrections and team absences. The grace minutes are set per shift in Shift templates.', '')
@@ -229,9 +231,40 @@ PG.attrules = function () {
     + card('Not checked in', `<label class=arl><span>${tr('Tell the team lead when somebody has not checked in this many minutes after the start of their shift')}</span>${n('ar_ma', 'missingAfter', 0, 240)}</label><p class=mu style="margin:6px 0 0;font-size:12.5px">${tr('0 = no alert. Never about people on leave.')}</p>`)
     + card('Corrections', `<label class=arl><span>${tr('People can ask for a correction up to this many days back')}</span>${n('ar_fd', 'fixDays', 0, 60)}</label><label style="display:block;margin-top:10px">${tr('Reasons to choose from (one per line)')}<textarea id=ar_fr rows=5 oninput="arSet('fixReasons',this.value.split('\n'))">${esc(R.fixReasons.join('\n'))}</textarea></label>`)
     + card('Short days and team absences', `<label class=arl><span>${tr('A day is short when the worked time is below the shift by more than (minutes)')}</span>${n('ar_sg', 'shortGrace', 0, 120)}</label><label class=arl style="margin-top:10px"><span>${tr('Warn when more than this share of a team is off on the same day (%)')}</span>${n('ar_tp', 'teamOffPct', 0, 100)}</label>`)
+    + card('Team today and the morning brief', `<label class=rad style="align-items:center;gap:8px"><input type=checkbox ${R.briefOn ? 'checked' : ''} onchange="arSet('briefOn',this.checked)"> ${tr('Send the morning brief to every team lead')}</label><label class=arl style="margin-top:10px"><span>${tr('Minutes after the first shift of the team starts')}</span>${n('ar_ba', 'briefAfter', 0, 240)}</label><p class=mu style="margin:6px 0 10px;font-size:12.5px">${tr('Written by the AI when it is connected (Admin › Integrations; it uses the AI budget), otherwise by the app from the same facts. Only from the day attendance is tracked.')}</p><label class=arl><span>${tr('A day is short-staffed when fewer than this share of the usual people are planned (%)')}</span>${n('ar_mo', 'minOnPct', 0, 100)}</label>`)
+    + card('Bradford score', `<p class=mu style="margin:0 0 8px;font-size:12.5px">${tr('Absences × absences × days of unplanned absence in the last 52 weeks: many short absences weigh more than one long one. Which leave types count is set in Leave types.')}</p><div style="display:flex;gap:14px;flex-wrap:wrap">${['Watch from', 'Talk to them from', 'Serious from'].map((l, i) => `<label style="display:flex;flex-direction:column;gap:4px;font-size:12.5px">${tr(l)}<input type=number min=1 value="${esc(R.bradford[i])}" oninput="arBf(${i},this.value)" style="width:110px"></label>`).join('')}</div>`)
     + `<button class=btn onclick="arSave()">${tr('Save the rules')}</button>`;
 };
 const arSave = () => once('arsave', async () => { const e = await wfSave({ rules: ARD || WF().rules }, 'Attendance rules saved'); if (e) return toast(e, true); ARD = null; render(); });
 
 // ---------------------------------------------------------------- dashboard: my day (check in from the dashboard)
 wdef('dash', 'att_me', 'My day', 60, (c, s, x) => card(wt(x, 'My day'), (ATTD ? atToday(true) : '<p class=mu style="margin:0">…</p>') + `<a href="javascript:void(0)" class=agl style="display:inline-block;margin-top:8px" onclick="goPage('att')">${tr('Open Attendance ›')}</a>`), 'Check in and out, and today’s plan', 'Lists');
+
+// ---------------------------------------------------------------- Workforce › Attendance › Reports (staff)
+// late arrivals, absences, presence hours, leave balances, the Bradford score and attendance by team for a period; asked for
+// again only when the team or the period changes (or with Refresh), not at every refresh of the page
+let ATREP = null, ATRQ = true, ATRK = LS.get('qa_atrk', 'late'), ATRTM = LS.get('qa_atrteam', ''), ATRF = '', ATRT = '';
+const ATRKS = [['late', 'Late arrivals'], ['abs', 'Absences'], ['hours', 'Presence hours'], ['bal', 'Leave balances'], ['bf', 'Bradford score'], ['teams', 'By team']];
+const atRep = (k, v) => { if (k === 'kind') { ATRK = v; LS.set('qa_atrk', v); return render(); } if (k === 'team') { ATRTM = v; LS.set('qa_atrteam', v); } if (k === 'from') ATRF = v; if (k === 'to') ATRT = v; ATRQ = true; load().then(render); };
+const atRepPer = p => { const t = new Date(), y = t.getFullYear(), m = t.getMonth(), d = iso(t);
+  [ATRF, ATRT] = { month: [iso(new Date(y, m, 1)), d], last: [iso(new Date(y, m - 1, 1)), iso(new Date(y, m, 0))], d30: [wfAdd(d, -29), d], d90: [wfAdd(d, -89), d], year: [y + '-01-01', d] }[p]; ATRQ = true; load().then(render); };
+function atRepPage() {
+  const P = ATREP, k = ATRK, ts = TEAMS.filter(t => !t.system);
+  const ctl = `<div class=row style="gap:8px;flex-wrap:wrap;margin:0 0 12px;justify-content:flex-start"><select style="width:auto" onchange="atRep('team',this.value)" aria-label="Team"><option value="">${tr('All my teams')}</option>${ts.map(t => `<option value="${t.id}" ${t.id === ATRTM ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>
+<div class=sg role=group aria-label="Period">${[['month', 'This month'], ['last', 'Last month'], ['d30', 'Last 30 days'], ['d90', 'Last 90 days'], ['year', 'This year']].map(([p, l]) => `<button onclick="atRepPer('${p}')">${tr(l)}</button>`).join('')}</div>
+<input type=date value="${P ? P.from : ATRF}" onchange="atRep('from',this.value)" style="width:auto" aria-label="From"><span>–</span><input type=date value="${P ? P.to : ATRT}" onchange="atRep('to',this.value)" style="width:auto" aria-label="Until"><button class=ib onclick="ATRQ=true;load().then(render)">${tr('Refresh')}</button></div>`;
+  if (!P) return ctl + card('', '<p class=mu style="margin:0">…</p>');
+  const kinds = `<div class=sg role=tablist style="margin:0 0 12px">${ATRKS.map(([x, l]) => `<button role=tab class="${k === x ? 'on' : ''}" onclick="atRep('kind','${x}')">${tr(l)}</button>`).join('')}</div>`;
+  const nm = p => `<b>${esc(p.name)}</b>`, team = p => esc(tn(p.team)), T = WF().leaveTypes, D = T.filter(t => t.unit !== 'hour'), by = f => P.people.slice().sort((a, b) => f(b) - f(a));
+  let body = '';
+  if (k === 'late') body = tbl(['Person', 'Team', 'Late arrivals', 'Minutes late', 'On average', 'Left early', 'No check-out'], by(p => p.late * 1e5 + p.lateMin).map(p => [nm(p), team(p), p.late, p.lateMin ? atDur(p.lateMin) : '—', p.late ? atDur(Math.round(p.lateMin / p.late)) : '—', p.early, p.noOut]));
+  if (k === 'abs') body = tbl(['Person', 'Team', 'Planned days', 'Absent', 'Unplanned absence (days)', ...D.map(t => t.name)], by(p => p.unplanned * 1e3 + p.absent).map(p => [nm(p), team(p), p.planned, p.absent ? `<b style="color:var(--bad)">${p.absent}</b>` : '0', p.unplanned, ...D.map(t => p.leave[t.id] || '—')]));
+  if (k === 'hours') body = tbl(['Person', 'Team', 'Planned days', 'Present', 'Worked hours', 'Planned hours', 'Difference', 'Short days', 'Worked on a day off'], P.people.map(p => { const df = Math.round((p.worked - p.plannedH) * 10) / 10; return [nm(p), team(p), p.planned, p.present, p.worked, p.plannedH, `<span style="color:${df < 0 ? 'var(--wn)' : 'inherit'}">${df > 0 ? '+' : ''}${df}</span>`, p.short, p.extra]; }));
+  if (k === 'bal') body = tbl(['Person', 'Team', ...T.map(t => t.name)], P.people.map(p => [nm(p), team(p), ...p.balances.map(b => b.unlimited ? `<small class=mu>${tr(`${b.taken} taken`)}</small>` : `<b class=mono>${b.left}</b> <small class=mu>/ ${Math.round((b.allowance + b.carried + b.adjust) * 10) / 10}</small>`)]));
+  if (k === 'bf') body = tbl(['Person', 'Team', 'Absences', 'Days', 'Score', 'Level', 'Last absence'], by(p => p.bradford.score).map(p => [nm(p), team(p), p.bradford.spells, p.bradford.days, `<b class=mono>${p.bradford.score}</b>`, p.bradford.level ? pill(tr(BFL[p.bradford.level]), p.bradford.level > 1 ? 'bad' : 'wn') : `<small class=mu>${tr('Low')}</small>`, p.bradford.last ? wfDay(p.bradford.last) : '—']))
+    + `<p class=mu style="margin:10px 0 0;font-size:12.5px">${tr(`Over the 52 weeks up to ${wfDay(P.to)}. Watch from ${P.levels[0]}, talk to them from ${P.levels[1]}, serious from ${P.levels[2]}.`)}</p>`;
+  if (k === 'teams') body = tbl(['Team', 'People', 'Planned days', 'Present', 'Late', 'Absent', 'On leave (days)', 'Worked / planned hours'], P.teams.map(t => [`<b>${esc(tn(t.team))}</b>`, t.people, t.planned, t.presentPct == null ? '—' : t.presentPct + '%', t.latePct == null ? '—' : t.latePct + '%', t.absentPct == null ? '—' : t.absentPct + '%', t.leave, `<span class=mono>${t.worked} / ${tr(`${t.plannedH} h`)}</span>`]));
+  return ctl + kinds + card(`${tr(ATRKS.find(x => x[0] === k)[1])} · ${wfDay(P.from, { day: 'numeric', month: 'short' })} – ${wfDay(P.to, { day: 'numeric', month: 'short', year: 'numeric' })}`, P.people.length ? body : '<p class=mu style="margin:0">This team has no members yet.</p>')
+    + (!P.since ? `<p class=mu style="font-size:12.5px">${tr('Attendance is not tracked yet: until an admin sets the start date in Admin › People › Attendance rules, nobody is marked absent. Checking in already works.')}</p>`
+      : P.since > P.from ? `<p class=mu style="font-size:12.5px">${tr(`Attendance is tracked from ${wfDay(P.since)}: days before that without a check-in are not counted.`)}</p>` : '');
+}

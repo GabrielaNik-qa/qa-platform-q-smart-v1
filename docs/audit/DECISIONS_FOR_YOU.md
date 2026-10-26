@@ -618,3 +618,50 @@ Nobody is planned before their start date or after their last working day.
 **Good to know**
 - Times follow the clock of the computer the app runs on (Bulgaria). For other countries, the time zone becomes a company setting when we move to one database per company.
 - On the two nights a year when the clocks change, a shift that runs through that hour counts the real hours worked.
+
+## O. Workforce, Phase 3 built (27 October): Team today, the morning brief, the Bradford score and reports
+
+**Where things are**
+- **Workforce › Team today** (admins, QA, team leads and trainers; agents do not see it):
+  - choose one team, or "All my teams"
+  - eight tiles: planned today, working now, on a break, late, not checked in, absent, on leave, later today
+  - **Who is where:** everybody grouped by what they are doing right now, with their shift start, check-in time or leave type
+  - buttons to the time off requests and corrections that wait for you
+  - **The week ahead:** for each of the next 7 days, how many people are planned against the usual number. A day turns red when fewer than 70% of the usual people are planned (you can change this share).
+  - **To watch:** patterns the app finds by itself over the last year:
+    - late more often than allowed this month
+    - check-outs missing
+    - a high Bradford score
+    - absences that fall mostly on Mondays or Fridays
+- **The morning brief:**
+  - one short summary per team and day, under four headings: Right now, To watch, This week, Waiting for you
+  - written by the AI when it is connected, in the team lead's language (it uses the AI budget). Without the AI, the app writes out the same facts itself, at no cost.
+  - "Write the brief now" on Team today, when one team is chosen. Writing it again replaces that day's brief.
+  - once switched on, it is written by itself 30 minutes after the first shift of each team starts. The team lead is told, and their deputy while one is named (the admins, when a team has no lead).
+- **The Bradford score:**
+  - the formula many HR teams use: absences × absences × days, over the last 52 weeks. Many short absences weigh more than one long one: a week off in one go = 5 points; five single days = 125 points.
+  - "unplanned absence" means absent without leave, or a leave type marked "Counts in the Bradford score" (sick leave by default)
+  - levels: Watch from 50, Talk to them from 125, Serious from 400 (you can change them)
+- **Workforce › Attendance › Reports** (a new tab, so no new menu item):
+  - one team or all; this month, last month, the last 30 or 90 days, this year, or any dates (at most one year)
+  - six views: late arrivals, absences, presence hours, leave balances, Bradford score, by team
+  - only the days when attendance is tracked are counted
+- **AI analyst:** it can now also answer questions about attendance ("How many agents do I have today?", "Who is off this Friday?", "Who was late last week?"). It gets today, the next 14 days and the last 30 days of the teams the person asking can see.
+- **Dashboard:** a **Team today** card, in the ready-made Team lead dashboard. Anyone else can add it with "Add widget".
+- **Admin › People:**
+  - **Attendance rules:** two new cards. "Team today and the morning brief": switch the brief on, minutes after the first shift, the short-staffed share. "Bradford score": the three levels.
+  - **Leave types:** a new column and option, "Counts in the Bradford score".
+- **Notifications:** a new type, "The morning brief of a team", switchable per role in Admin › System › Notification rules.
+
+**Please decide when you are ready**
+1. **Switch on the morning brief** (Admin › People › Attendance rules) once "Attendance is tracked from" is set. It is off for now. With the AI connected, it is one small AI call per team per day.
+2. **Bradford levels:** 50 / 125 / 400 are common starting points. Check them against your HR rules.
+3. **Short-staffed share (70%):** change it to what your planning needs.
+
+**Good to know**
+- The Bradford score is a reason for a conversation, not a sanction. Absence can be health data, so only staff see it, never agents.
+- "To watch" is worked out again at most every 5 minutes.
+- Found and fixed during the browser check:
+  - the reports counted the days before tracking started as planned days, so "present" looked too low. Those days are now left out, with a note saying from when attendance is tracked.
+  - Bradford levels that do not go up (for example 200 / 125 / 400) are now refused with a message, instead of quietly going back to 50 / 125 / 400
+  - four "Open … ›" links and the "Nothing to watch" line stayed in English in Bulgarian and French. They are translated now, and hours show as "ч" in Bulgarian.
