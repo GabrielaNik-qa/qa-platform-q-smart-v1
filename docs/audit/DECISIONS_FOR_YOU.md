@@ -221,3 +221,93 @@ So **testing 100 exercises with Sonnet costs about $5–15**. Set a monthly spen
    - the coaching simulator, with free voices first and premium voices later
    - a budget per company
 5. **Before selling:** billing, legal pages, single sign-on, monitoring.
+
+---
+
+## E. Your answers of 26 October, and what happened
+
+| Item | Your answer | Status |
+|---|---|---|
+| A1 Admin and Learning panels with "Back" | Do it | ✅ Built. Sections fold like the main menu; in the icons-only menu, resting the mouse on an icon opens its list |
+| A2 Merge into `main` | No | Nothing merged, nothing pushed |
+| A4 Filters and Columns on all tables, plus a copy for Excel | Yes | ✅ Every table has a small toolbar: Filter (text plus a drop-down per column), Columns, sort by clicking a title, and **Copy** (paste straight into Excel). Reviews copies every matching row of all pages |
+| A5 Kainami recording test | Later | Not done. The places for the keys are ready (next line) |
+| API keys and settings | Make sure they exist and nothing breaks | ✅ Admin › Integrations › **AI and voice**: Claude key, model, monthly budget with usage, "Test the connection", voice provider, ElevenLabs and OpenAI keys. Keys are stored encrypted and never shown again in full. Tested with a fake AI service: a wrong key, a busy service and an empty budget give clear messages, and nothing crashes |
+| A6 One database per company | Explain the steps; do it after the app set-up | See **G** below |
+
+## F. The new dashboard and the AI team — waiting for your yes
+
+The three pictures in the chat show:
+1. **Team pulse**, the new "Overall" dashboard, which answers three questions at a glance:
+   - **How is my team doing?** One plain sentence plus four numbers: average, pass rate, review plan, disputes.
+   - **What needs me now?** A list with one button per item (decide, plan coaching, review now, remind).
+   - **Where is it coming from?** A heat map of agents by categories, where a click opens those reviews.
+
+   Below them is the weekly trend against the target.
+2. **Dashboards**, a page of its own:
+   - **Ready-made dashboards:** Overall, Team lead, QA specialist, Trainer, Agent, Performance and KPIs, Speed and workload, Analytics, AI and automation, Learning.
+   - **Yours:** your own dashboards, named however you like, which can be shared or set as your home page.
+3. **AI team**: an AI QA reviewer, AI team lead, AI trainer and AI analyst. Each works by your company's playbook and either drafts for a person to approve or acts automatically. AutoQA shows human and AI scores side by side, with a **similarity rate**.
+
+Nothing of this is built yet. Say yes, or tell me what to change.
+
+### How the AI team would work
+
+1. **AI workers are like colleagues:**
+   - Each has a profile in the app (with an "AI" badge).
+   - It appears as the reviewer, author or coach on what it does.
+   - Agents can dispute an AI review like any other.
+2. **Playbooks: your company's rules in plain words.** For example:
+   - "3 reviews per agent, per category, per month"
+   - "Critical fail when the identity is not checked"
+   - "Coaching after 2 weeks below target"
+
+   Together with the scorecards and the knowledge base, they are what the AI follows.
+3. **Tasks and schedules.** The AI workers take tasks from the same task board, either given by a person or triggered by a rule:
+   - every night: review the new scripted calls
+   - every Monday at 08:00: send the team summary
+4. **Two modes per worker:**
+   - **Drafts for approval** (the default): a person checks and publishes.
+   - **Automatic**: publishes on its own when it is sure enough. Anything unsure goes to a person.
+5. **Human vs AI in AutoQA:**
+   - The same conversation is reviewed by both, with a similarity rate per category and overall.
+   - Big disagreements go to a "check" list.
+   - Every human decision is kept as an example, so the AI gets closer to your way of scoring.
+6. **Safety and cost:**
+   - the monthly budget (already built)
+   - a log of every AI action
+   - an on/off switch per worker
+   - the AI never deletes anything
+7. **Order of building:**
+   1. AI QA reviewer on transcripts, with drafts for approval and the similarity rate. The AI rating in AutoQA already exists.
+   2. AI analyst reports.
+   3. AI team lead summaries and coaching drafts.
+   4. AI trainer: quizzes (already possible with AI) and role-plays.
+   5. Voice simulator: free browser voice first, ElevenLabs later.
+
+## G. One database per company — the steps (after you finish the app set-up)
+
+1. **Finish the set-up** with your own company, as now.
+2. **Move to SQLite.**
+   - Each company gets its own database file, for example `companies/acme.db`.
+   - A small `main.db` holds the list of companies, their plan and their billing.
+3. **Bring your data across.**
+   - Your current data.json becomes the first company's file, in a one-time import.
+   - The import is first tested on a copy and compared number by number: users, reviews, scores.
+4. **One web address per company**, for example `acme.q-smart.app`. The app opens the file of the company in the address, so people of one company can never see another.
+5. **Sign-up for a new company:**
+   1. company name and address
+   2. first admin
+   3. the built-in Administration team, made by itself
+   4. starter scorecards
+   5. invite people by e-mail link
+6. **Backups per company.** Each file is copied every day, kept for 30 days and also stored off the server. One company can be restored without touching the others.
+7. **Updates.** When a new version adds something, every company file is updated by itself at start-up.
+8. **Limits and billing per company:** number of users, storage and AI budget, linked to the plan they pay for.
+
+**Why one file per company?**
+- One company's data can never show up for another.
+- A backup, a data export or deleting a company is one file.
+- A very large customer can later get its own server.
+
+The cost is a little more work for updates (step 7), which the app does by itself.

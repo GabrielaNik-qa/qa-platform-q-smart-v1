@@ -156,7 +156,7 @@ None of these block today's use as a personal portfolio project with test data. 
 ### R-26 · Developer tools in a SaaS version
 "Reset to the seed data" (`POST /api/demo/reset`) and "Refresh seed.js" (`POST /api/seed/refresh`) are useful while building, but a customer's admin must never reset the whole database or write a file in the app folder. Before selling, switch them off in production (an environment setting), or keep them only for the platform owner.
 
-### R-27 · Same Filters / Columns on the other tables
+### R-27 · Same Filters / Columns on the other tables — done
 The kit is ready (`public/js/tablekit.js`); only the Reviews table uses it so far. Waiting for the go-ahead (DECISIONS_FOR_YOU.md, A4).
 
 ### R-28 · Sidebar panels (Admin, Learning, Back) — done
