@@ -41,7 +41,7 @@ const NDEL = new Set();                          // notifications deleted a mome
 let ENT = null, ENT0 = '', EDITID = '', SE = null;
 // data of the other sections (loaded when you open them)
 let SKL = { skills: [], languages: [], counts: { skills: {}, languages: {} } }, WSP = [], RCS = [], CATLIB = [], ACAT = [], AQC = [], AQI = { ai: false };
-let AUD = [], TASKS = [], TPLS = [], SESS = [], CALS = [], KB = { folders: [], articles: [], reads: {}, newsletters: [], attempts: [] }, QZ = [], QATT = [], PROG = [], AIS = { enabled: false };
+let AUD = [], TASKS = [], TPLS = [], SESS = [], CALS = [], KB = { folders: [], articles: [], reads: {}, newsletters: [], attempts: [] }, QZ = [], QATT = [], PROG = [], AIS = { enabled: false }, AISET = null;
 // misc preferences
 // COLP = the sidebar setting you chose; COL = what is shown (on screens 1100px wide or less the sidebar is always compact)
 let COLP = LS.get('qa_col', false), COL = COLP || innerWidth <= 1100;
@@ -244,6 +244,7 @@ async function load() {
   if (route === 'rexp' && ed) want.push(['xp', '/api/exports']);
   if (route === 'backup' && adm) want.push(['bk', '/api/backups']);
   if (route === 'integ') want.push(['ai', '/api/ai/status']);
+  if (route === 'integ' && adm) want.push(['ais', '/api/ai/settings']);
   if (['kb', 'news', 'acad', 'coach', 'quiz'].includes(route)) want.push(['kb', '/api/kb']);
   if (route === 'dash' && ME && ME.role === 'agent') want.push(['kb', '/api/kb'], ['qz', '/api/quizzes']);
   if (['quiz', 'acad'].includes(route)) want.push(['qz', '/api/quizzes']);
@@ -279,6 +280,7 @@ async function load() {
   if (R.qz) { const q = JSON.parse(R.qz); QZ = q.quizzes; QATT = q.attempts; }
   if (R.pg) PROG = JSON.parse(R.pg);
   if (R.ai) AIS = JSON.parse(R.ai);
+  if (R.ais) AISET = JSON.parse(R.ais);
   if (R.sk) SKL = JSON.parse(R.sk);
   if (R.rc) RCS = JSON.parse(R.rc);
   if (R.ws) WSP = JSON.parse(R.ws);

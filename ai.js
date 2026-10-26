@@ -1,17 +1,31 @@
-// Optional AI helpers (Anthropic API). Without ANTHROPIC_API_KEY everything still works,
-// the import falls back to a simple splitter and quiz generation is simply switched off.
-const MODEL = () => process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
-const enabled = () => !!process.env.ANTHROPIC_API_KEY;
+// Optional AI helpers (Anthropic API). Without a key everything still works: the import falls back to a simple splitter and
+// quiz generation and AI rating are switched off. The key, the model and the monthly budget come from Admin › Integrations
+// (server.js hands them over with setConfig); $env:ANTHROPIC_API_KEY / ANTHROPIC_MODEL still work when nothing is set there.
+// Prices per million tokens (in, out) — used to keep the monthly budget.
+const PRICE = { 'claude-opus-5-5': [4, 20], 'claude-sonnet-5-5': [2, 10], 'claude-haiku-5-5': [0.1, 0.5] };
+let CFG = () => ({ key: process.env.ANTHROPIC_API_KEY || '', model: process.env.ANTHROPIC_MODEL || 'claude-opus-5-5', budget: 0, used: 0 });
+let USE = () => {};
+const setConfig = (cfg, onUse) => { CFG = cfg; if (onUse) USE = onUse; };
+const MODEL = () => CFG().model;
+const enabled = () => !!CFG().key;
+const costOf = (model, u) => { const p = PRICE[model] || PRICE['claude-opus-5-5'], i = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0); return (i * p[0] + (u.output_tokens || 0) * p[1]) / 1e6; };
 
 async function ask(system, content, max = 8000) {
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
+  const c = CFG();
+  if (!c.key) throw new Error('The AI is not connected. An admin can add the key in Admin › Integrations.');
+  if (c.budget > 0 && c.used >= c.budget) throw new Error("This month's AI budget is used up. An admin can raise it in Admin › Integrations.");
+  const r = await fetch((process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com') + '/v1/messages', {
     method: 'POST',
-    headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: MODEL(), max_tokens: max, system, messages: [{ role: 'user', content }] }),
+    headers: { 'x-api-key': c.key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({ model: c.model, max_tokens: max, system, messages: [{ role: 'user', content }] }),
     signal: AbortSignal.timeout(180000)                                           // a request that hangs gives up after 3 minutes instead of waiting forever
   }).catch(e => { throw new Error(e.name === 'TimeoutError' ? 'The AI took too long to answer. Try again or use a shorter text.' : 'Could not reach the AI service'); });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error((j.error && j.error.message) || 'Anthropic API error ' + r.status);
+  if (r.status === 401 || r.status === 403) throw new Error('The AI key was not accepted. Check it in Admin › Integrations.');
+  if (r.status === 429 || r.status === 529) throw new Error('The AI service is busy right now. Try again in a minute.');
+  if (!r.ok) throw new Error('The AI service answered with an error (' + r.status + '). Try again later.');
+  if (j.usage) USE(costOf(c.model, j.usage));                                  // counts towards this month's budget
+  if (j.stop_reason === 'refusal') throw new Error('The AI declined this request. Try a different text.');
   return (j.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
 }
 const parseJson = t => {
@@ -62,7 +76,7 @@ async function draftArticles({ text, pdf, filename, folders }) {
 }
 
 async function draftQuiz({ text, count }) {
-  if (!enabled()) throw new Error('Connect the AI (ANTHROPIC_API_KEY) to generate questions automatically, or add them by hand.');
+  if (!enabled()) throw new Error('Connect the AI (Admin › Integrations) to generate questions automatically, or add them by hand.');
   const n = Math.min(20, Math.max(3, Number(count) || 5));
   const system = `You write multiple-choice quiz questions for call-center agents. Use ONLY the material you are given. Write exactly ${n} questions, each with 4 options, one correct answer and a one-sentence explanation. `
     + 'Write in the same language as the material. Reply with JSON only: {"questions":[{"q":"","opts":["","","",""],"a":0,"why":""}]} where "a" is the index (0-3) of the correct option.';
@@ -74,7 +88,7 @@ async function draftQuiz({ text, count }) {
 
 // rate one conversation for every Auto QA category (0-100 each)
 async function scoreConversation(text, cats) {
-  if (!enabled()) throw new Error('Connect the AI (ANTHROPIC_API_KEY) to rate conversations with AI.');
+  if (!enabled()) throw new Error('Connect the AI (Admin › Integrations) to rate conversations with AI.');
   const system = 'You are a call-center quality analyst. Rate ONLY what the agent said in the conversation for each category from 0 (very poor) to 100 (excellent). '
     + 'Be strict and consistent. Reply with JSON only: {"scores":{"<categoryId>":{"score":0,"reason":"one short sentence"}}}';
   const list = cats.map(c => `- ${c.id}: ${c.name}${c.desc ? ' (' + c.desc + ')' : ''}`).join('\n');
@@ -84,4 +98,6 @@ async function scoreConversation(text, cats) {
   if (!w) throw new Error('The AI did not return scores.');
   return { scores, total: Math.round(tot / w), mode: 'ai', at: new Date().toISOString() };
 }
-module.exports = { enabled, MODEL, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };
+// a tiny request to check that the key and the model work (Admin › Integrations › Test)
+const ping = async () => { const t = await ask('Reply with the single word OK.', [{ type: 'text', text: 'Test' }], 64); return { ok: true, model: MODEL(), reply: str(t, 20) }; };
+module.exports = { enabled, MODEL, PRICE, setConfig, ping, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };

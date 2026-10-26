@@ -9,3 +9,5 @@ node_modules/
 data.backup.json
 backups/
 data.json.tmp
+.qsmart-key
+ai-usage.json

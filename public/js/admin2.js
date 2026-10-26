@@ -22,8 +22,41 @@ PG.integ = function () {
   const v = SET.integ || {};
   return head('Integrations', 'Links to your CRM, telephony and help desk, used all over the app', bellBtn())
     + card('Links', `<div class=form style="max-width:none">${INTF.map(([k, n, ph, h]) => `<label>${n}<input id=ig_${k} value="${esc(v[k] || '')}" placeholder="${esc(ph)}"><small class=mu>${esc(h)}</small></label>`).join('')}<button class=btn style="justify-self:start" onclick="setX('integ',Object.fromEntries(INTF.map(([k])=>[k,$('#ig_'+k).value.trim()])),'Integrations saved')">Save</button></div>`)
-    + card('AI', `<p style="margin:0">${AIS.enabled ? `✓ AI is switched on (${esc(AIS.model || '')}).` : 'AI is not switched on yet.'} The key is kept in the <b>.env</b> file on the server (never in the browser) — send it to your developer when you are ready.</p>`);
+    + aiCard();
 };
+// AI and voice: the Claude key (kept encrypted on the server; only its last 4 characters ever come back), the model, the monthly
+// budget with what was used, a test, and the voice keys for the call simulator
+function aiCard() {
+  const s = AISET; if (!s) return card('AI', `<p class=mu style="margin:0">${AIS.enabled ? '✓ AI is switched on.' : 'AI is not switched on yet.'}</p>`);
+  const key = (n, label, id, ph) => { const x = s.keys[n]; return `<label>${label}<div class=row style="gap:8px;flex-wrap:wrap"><input id=${id} type=password autocomplete=new-password placeholder="${x.set ? '•••• ' + esc(x.last4) + ' · saved (type a new key to replace it)' : esc(ph)}" style="flex:1;min-width:220px">${x.set ? `<button class=ib onclick="aiKeyDel('${n}')">Remove</button>` : ''}</div>${x.env ? '<small class=mu>The key from the server settings file (.env) is used.</small>' : ''}</label>`; };
+  const u = s.usage, pct = s.budget ? Math.min(100, u.usd / s.budget * 100) : 0, mod = s.models.find(m => m.id === s.model);
+  return card('AI and voice', `<div class=form style="max-width:none">
+<p style="margin:0">${s.enabled ? `<span class="pill ok">Connected</span> ${esc(mod ? mod.name : s.model)}` : '<span class="pill wn">Not connected</span> Add your Claude API key to switch on AI scoring, quiz writing and smart import.'}</p>
+${key('anthropic', 'Claude API key (console.anthropic.com)', 'ai_key', 'sk-ant-…')}
+<div class=eg2><label>Model<select id=ai_model>${s.models.map(m => `<option value="${m.id}" ${m.id === s.model ? 'selected' : ''}>${esc(m.name)} · $${m.price[0]} / $${m.price[1]} per million tokens</option>`).join('')}</select></label>
+<label>Monthly AI budget in USD (0 = no limit)<input id=ai_budget type=number min=0 step=1 value="${s.budget}"></label></div>
+<div><small>Used in ${esc(u.month)}: <b>$${u.usd.toFixed(2)}</b>${s.budget ? ` of $${s.budget}` : ''} · ${u.calls} AI requests</small>${s.budget ? bar(pct, pct >= 90 ? 'var(--bad)' : pct >= 70 ? 'var(--wn)' : 'var(--ok)') : ''}</div>
+<b style="margin-top:6px">Voice for the call simulator</b>
+<div class=eg2><label>Voice provider<select id=ai_voice>${[['browser', 'Built into the browser (free)'], ['elevenlabs', 'ElevenLabs'], ['openai', 'OpenAI']].map(([v, n]) => `<option value=${v} ${s.voice === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+<label>ElevenLabs voice (name or ID)<input id=ai_ev value="${esc(s.elevenVoice)}" placeholder="Rachel"></label></div>
+${key('elevenlabs', 'ElevenLabs API key', 'ai_ek', 'xi-…')}${key('openai', 'OpenAI API key', 'ai_ok', 'sk-…')}
+<div style="display:flex;gap:8px;flex-wrap:wrap"><button class=btn onclick="aiSave()">Save</button><button class=ib onclick="aiTest()">Test the connection</button></div>
+<small class=mu>Keys are stored encrypted on the server and are never shown again in full. Every AI request counts towards the monthly budget; when it is used up, the AI features pause until next month or until you raise it.</small></div>`);
+}
+async function aiSave() {
+  const v = id => ($('#' + id) || {}).value || '', b = { model: v('ai_model'), budget: +v('ai_budget') || 0, voice: v('ai_voice'), elevenVoice: v('ai_ev').trim() };
+  [['ai_key', 'anthropicKey'], ['ai_ek', 'elevenKey'], ['ai_ok', 'openaiKey']].forEach(([id, f]) => { if (v(id).trim()) b[f] = v(id).trim(); });
+  const r = await api('/api/ai/settings', b, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true);
+  AISET = await r.json(); AIS = { enabled: AISET.enabled, model: AISET.model }; render(); toast('AI settings saved');
+}
+const aiKeyDel = n => ask('Remove this key?', 'The features that use it stop until a new key is added.', async () => {
+  const r = await api('/api/ai/settings', { [{ anthropic: 'anthropicKey', elevenlabs: 'elevenKey', openai: 'openaiKey' }[n]]: '' }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not remove the key'), true);
+  AISET = await r.json(); AIS = { enabled: AISET.enabled, model: AISET.model }; render(); toast('Key removed');
+}, { yes: 'Yes, remove', no: 'Cancel', danger: true });
+const aiTest = () => once('aitest', async () => {
+  const r = await api('/api/ai/test', {}); if (!r.ok) return toast(await errOf(r, 'The test failed'), true);
+  const j = await r.json(), s = await api('/api/ai/settings'); if (s.ok) AISET = await s.json(); render(); toast(`The AI answered · ${j.model}`);
+});
 // a lead ID turned into the CRM link (when a pattern is set)
 const crmLink = id => { const p = (SET.integ || {}).crm; return p && id ? p.replace('{id}', encodeURIComponent(String(id).trim())) : ''; };
 
