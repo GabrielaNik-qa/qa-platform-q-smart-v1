@@ -38,11 +38,11 @@ const lead = e => `<b class=mono style="color:var(--ac)">${esc(e.id)}</b> <small
 
 // jump to Call Reviews with some filters already set (used by the dashboard cards)
 function goCalls(o = {}) {
-  Q = ''; FS = ''; FF = ''; FC = o.ch || ''; FSC = o.sc || null; FA = o.agent || ''; FT = o.agent ? teamOf(o.agent) : (o.team || T || ''); PN = 1;
+  Q = ''; FS = ''; FF = ''; FC = o.ch || ''; FSC = o.sc || null; FA = o.agent || ''; FT = o.agent ? teamOf(o.agent) : (o.team || T || ''); PN = 1; RF = { st: '', fl: '', rv: '', scid: '' };
   if (P === 'year') { FP = 'custom'; F1 = ds(-365); F2 = ds(0); } else if (P === 'custom') { FP = 'custom'; F1 = DF; F2 = DT; } else FP = P;
   KQ = true; if (location.hash === '#calls') render(); else location.hash = 'calls';
 }
-function viewHist() { Q = ''; FS = ''; FF = ''; FC = ''; FSC = null; FT = ''; FA = ''; PN = 1; KQ = true; if (location.hash === '#calls') render(); else location.hash = 'calls'; }
+function viewHist() { Q = ''; FS = ''; FF = ''; FC = ''; FSC = null; FT = ''; FA = ''; PN = 1; RF = { st: '', fl: '', rv: '', scid: '' }; KQ = true; if (location.hash === '#calls') render(); else location.hash = 'calls'; }
 const goPage = h => { location.hash = h; };
 
 const PG = {

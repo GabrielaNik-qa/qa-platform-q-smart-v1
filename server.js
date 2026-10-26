@@ -116,6 +116,12 @@ const cleanPrefs = p => {
   Object.entries(p.off && typeof p.off === 'object' && !Array.isArray(p.off) ? p.off : {}).slice(0, 100).forEach(([k, v]) => { if (PREF_ID.test(k)) off[k] = String(v || '').slice(0, 30); });
   const out = { info: p.info !== false, confirm: p.confirm !== false, off };
   if (LANGS.includes(p.lang)) out.lang = p.lang;                  // the language of the app (My account > Language); nothing saved = English
+  // the columns each person shows in a table, in their order: { calls: ['id', 'ag', 'sc'] } (short lowercase keys only)
+  const cols = {};
+  Object.entries(p.cols && typeof p.cols === 'object' && !Array.isArray(p.cols) ? p.cols : {}).slice(0, 20).forEach(([k, v]) => {
+    if (/^[a-z]{1,20}$/.test(k) && Array.isArray(v)) cols[k] = [...new Set(v.filter(c => typeof c === 'string' && /^[a-z]{1,12}$/.test(c)))].slice(0, 30);
+  });
+  if (Object.keys(cols).length) out.cols = cols;
   return out;
 };
 const pub = u => ({ username: u.username, name: u.name, firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {}, prefs: cleanPrefs(u.prefs), views: u.views || {} });
@@ -252,6 +258,7 @@ app.post('/api/password/first', authed, (req, res) => {   // the pop-up every ne
 //   { info: true|false }      welcome messages and tips on / off       { confirm: true|false }  routine confirmations on / off
 //   { dismiss: ['tip.roots'] } "Don't show me this again"               { restore: ['tip.roots'] } show one again
 //   { clear: true }            show every dismissed message again        { defaults: true }         everything back to the start
+//   { cols: { page: 'calls', keys: ['id', 'ag', 'sc'] } }  the columns shown in a table, in that order (keys: null = the standard columns)
 app.put('/api/prefs', need(), (req, res) => {
   const db = load(), u = userBy(db, req.session.user.username), b = req.body || {};
   if (!u) return res.status(401).json({ error: 'login required' });
@@ -263,6 +270,12 @@ app.put('/api/prefs', need(), (req, res) => {
   for (const id of list(b.restore, 30, 40)) delete p.off[id];
   for (const id of list(b.dismiss, 30, 40)) { if (!PREF_ID.test(id)) return bad(res, 'Unknown message'); p.off[id] = iso(); }
   if (Object.keys(p.off).length > 100) return bad(res, 'Too many dismissed messages');
+  if (b.cols !== undefined) {                                     // { cols: { page: 'calls', keys: ['id', 'ag'] } } — keys null = the standard columns again
+    const c = b.cols || {}, page = String(c.page || '');
+    if (!/^[a-z]{1,20}$/.test(page) || (c.keys !== null && !Array.isArray(c.keys))) return bad(res, 'Unknown table');
+    const all = { ...(p.cols || {}) }; if (c.keys === null) delete all[page]; else all[page] = c.keys;
+    const cols = cleanPrefs({ cols: all }).cols; if (cols) p.cols = cols; else delete p.cols;
+  }
   u.prefs = p; save(db); req.session.user = pub(u); res.json(req.session.user);
 });
 

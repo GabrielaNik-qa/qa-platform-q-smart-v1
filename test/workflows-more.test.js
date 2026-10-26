@@ -101,6 +101,19 @@ test('a dashboard widget can be as wide (any of the 60 columns) and as high as y
   assert.deepEqual(l.map(x => [x.size, x.h]), [[13, 223], [30, undefined], [30, 1400], [30, 1000]]);
 });
 
+test('everyone keeps their own table columns (short keys only, no doubles; null = the standard columns again)', async () => {
+  const a = await as('a.two');
+  let r = await a.put('/api/prefs', { cols: { page: 'calls', keys: ['id', 'ag', 'ag', 'sc', 'BAD', '<x>', 'res'] } });
+  assert.equal(r.status, 200); assert.deepEqual(r.json.prefs.cols, { calls: ['id', 'ag', 'sc', 'res'] });
+  r = await a.put('/api/prefs', { cols: { page: 'users', keys: ['n'] } });
+  assert.deepEqual(r.json.prefs.cols, { calls: ['id', 'ag', 'sc', 'res'], users: ['n'] });
+  r = await a.put('/api/prefs', { cols: { page: 'calls', keys: null } });
+  assert.deepEqual(r.json.prefs.cols, { users: ['n'] });
+  assert.equal((await a.put('/api/prefs', { cols: { page: '../x', keys: [] } })).status, 400);
+  assert.equal((await a.put('/api/prefs', { cols: { page: 'calls', keys: 'id' } })).status, 400);
+  assert.deepEqual(db().users.find(u => u.username === 'a.two').prefs.cols, { users: ['n'] });
+});
+
 test('deleting a scorecard keeps the reviews made with it', async () => {
   const adm = await as('t.admin');
   assert.equal((await adm.del('/api/scorecards/' + SCID)).status, 200);
