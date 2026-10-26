@@ -791,6 +791,6 @@ button.fchip { border: 0; font: inherit; font-size: 13px; padding: 7px 12px } bu
 .spsep { height: 1px; margin: 10px 12px; background: rgba(255,255,255,.12) }
 .spt { padding: 2px 14px 8px; font: 700 12px var(--font); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.5) }
 .grp.spb .gh { color: rgba(255,255,255,.78) } .grp.spb .gh i { background: rgba(255,255,255,.07) }
-#n[data-sp=learn] .gh em, #n[data-sp=admin] .gh em { display: none }
+
 .sb.co .spt { display: none } .sb.co .spsep { margin: 8px 10px }
 @media(max-width:760px){ .spsep { width: 1px; height: auto; margin: 4px 6px; flex: none } .spt { display: none } }

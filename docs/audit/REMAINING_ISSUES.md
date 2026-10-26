@@ -160,4 +160,4 @@ None of these block today's use as a personal portfolio project with test data. 
 The kit is ready (`public/js/tablekit.js`); only the Reviews table uses it so far. Waiting for the go-ahead (DECISIONS_FOR_YOU.md, A4).
 
 ### R-28 · Sidebar panels (Admin, Learning, Back) — done
-Built after Gabriela's yes (DECISIONS_FOR_YOU.md, A1). Not done: opening the icon menus by hovering instead of clicking (optional).
+Built after Gabriela's yes (DECISIONS_FOR_YOU.md, A1), with foldable panel sections and hover-to-open in the icons-only menu.

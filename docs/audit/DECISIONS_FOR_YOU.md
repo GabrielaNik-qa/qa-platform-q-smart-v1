@@ -9,7 +9,7 @@ Nothing was merged into `main` and nothing was pushed.
 
 ### A1. The side menu: separate panels with a "Back" button (your points 2 and 10) — ✅ BUILT after your yes
 
-Built on 26 October as proposed. The only change is the name: "Admin ›" reads **"Set-up ›"** for QA, team leads and trainers, because they only have the scorecard pages in it. The hover pop-out for the icons-only menu was not added; say if you want it. The proposal was:
+Built on 26 October as proposed. "Admin ›" reads **"Set-up ›"** for QA, team leads and trainers, because they only have the scorecard pages in it. The sections inside both panels fold and unfold like the main menu, and in the icons-only menu resting the mouse on an icon opens its list. The proposal was:
 
 **How it would work** (like Modjo's settings, or Facebook's menus):
 
