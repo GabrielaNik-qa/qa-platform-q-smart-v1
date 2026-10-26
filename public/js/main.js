@@ -89,8 +89,8 @@ function render() {
   $$('.chat').forEach(c => { c.scrollTop = c.scrollHeight; });
   a11y($('#m')); refocus(fk); fitTables();
 }
-// a table wider than its card gets a second sideways scrollbar on top (kept in step with the one below) and ends at the bottom of
-// the screen, so a sideways scrollbar is always at hand, even with 100 rows per page (the column titles stay pinned on top)
+// a table wider than its card ends at the bottom of the screen, so its sideways scrollbar is at hand even with 100 rows per page (the
+// column titles stay pinned on top); while that scrollbar is below the screen, a second one shows above the table, kept in step with it
 function fitTables() {
   $$('#m .sc').forEach(sc => {
     sc.style.maxHeight = '';
@@ -102,10 +102,21 @@ function fitTables() {
       top.addEventListener('scroll', () => { if (sc.scrollLeft !== top.scrollLeft) sc.scrollLeft = top.scrollLeft; });
       sc.addEventListener('scroll', () => { if (top.scrollLeft !== sc.scrollLeft) top.scrollLeft = sc.scrollLeft; });
     }
-    top.firstChild.style.width = sc.scrollWidth + 'px'; top.scrollLeft = sc.scrollLeft;
+    top.hidden = true; top.firstChild.style.width = sc.scrollWidth + 'px';
     sc.style.maxHeight = Math.max(320, innerHeight - Math.max(sc.getBoundingClientRect().top, 0) - 16) + 'px';
   });
+  topBars();
 }
+// the scrollbar above a table shows only while the table's own one, at its bottom, is below the edge of the screen
+function topBars() {
+  $$('#m .sctop').forEach(top => {
+    const sc = top.nextElementSibling, show = !!sc && sc.getBoundingClientRect().bottom > innerHeight;
+    if (top.hidden === !show) return;
+    top.hidden = !show; if (show) top.scrollLeft = sc.scrollLeft;
+  });
+}
+let TBF = 0;
+addEventListener('scroll', () => { if (ME && !TBF) TBF = requestAnimationFrame(() => { TBF = 0; topBars(); }); }, { passive: true });
 addEventListener('resize', () => { if (ME) fitTables(); });
 // ---------------------------------------------------------------- accessibility (the page area and pop-ups only - the sidebar is left as it is)
 //  - icon-only buttons get a name and a tooltip (Edit, Delete ...); fields without a label are named after their table row and column, or their first choice
