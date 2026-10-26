@@ -65,7 +65,7 @@ const aiTest = () => once('aitest', async () => {
 const crmLink = id => { const p = (SET.integ || {}).crm; return p && id ? p.replace('{id}', encodeURIComponent(String(id).trim())) : ''; };
 
 // ---- notification rules: which roles receive which notifications
-const NOTIFT = { review: 'A new review', dispute: 'A review is disputed', msg: 'A new dispute message', resolved: 'A dispute is resolved', remind: 'A reminder to open a review', task: 'A new task', taskdone: 'A task is completed / a session is signed', quiz: 'A new quiz', news: 'A new newsletter', cal: 'A calibration session', flag: 'A quick flag', kudos: 'Kudos', pip: 'An improvement plan', goal: 'A new goal', risk: 'A risk case assigned', reg: 'A new registration request', att: 'A late arrival or a missing check-in', fix: 'An attendance correction', leave: 'A time off request or decision', brief: 'The morning brief of a team' };
+const NOTIFT = { review: 'A new review', dispute: 'A review is disputed', msg: 'A new dispute message', resolved: 'A dispute is resolved', remind: 'A reminder to open a review', task: 'A new task', taskdone: 'A task is completed / a session is signed', quiz: 'A new quiz', news: 'A new newsletter', cal: 'A calibration session', flag: 'A quick flag', kudos: 'Kudos', pip: 'An improvement plan', goal: 'A new goal', risk: 'A risk case assigned', reg: 'A new registration request', att: 'A late arrival or a missing check-in', fix: 'An attendance correction', leave: 'A time off request or decision', brief: 'The morning brief of a team', cap: 'The leads of the month of an agent' };
 PG.notifs = function () {
   const off = SET.notifOff || {};
   return head('Notification rules', 'Which roles get which notifications in the bell (and the sound)', bellBtn())

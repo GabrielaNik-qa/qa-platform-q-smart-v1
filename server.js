@@ -805,6 +805,7 @@ require('./routes-ai')(ctx);          // AI and voice settings: keys (encrypted)
 require('./routes-wf')(ctx);          // Workforce: work calendars, shifts and patterns, the rota of every team
 const att = require('./routes-att')(ctx);   // Workforce: check-ins, the status of every day, corrections, time off and balances
 require('./routes-today')({ ...ctx, att });   // Workforce: Team today, the morning brief, the Bradford score, attendance reports
+require('./routes-cap')({ ...ctx, att });     // Workforce: Capacity planning, the fair split of the leads of every campaign among the agents
 
 app.use(express.static(path.join(__dirname, 'public')));
 // any error that reaches this point: a short message for the browser (the details, with the folder paths of this computer, only go to the terminal)

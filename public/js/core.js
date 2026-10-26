@@ -241,6 +241,7 @@ async function load() {
   if (route === 'leave' && LTAB === 'cal') want.push(['lvcal', '/api/leave/calendar?team=' + encodeURIComponent(LTM) + '&m=' + LCM]);
   if (route === 'leave' && ed && LTAB === 'bal') want.push(['lvbal', '/api/leave/team?team=' + encodeURIComponent(LTM)]);
   if (route === 'today' || (route === 'dash' && ed)) want.push(['tdy', '/api/wf/today?team=' + (route === 'today' ? encodeURIComponent(TDT) : '')]);
+  if (route === 'cap' || (route === 'dash' && ME && ME.role === 'agent')) want.push(['cap', '/api/cap?month=' + (route === 'cap' ? cpMon() : '') + '&plan=' + encodeURIComponent(CPP) + (route === 'cap' && CPFR ? '&from=' + CPFR : '')]);
   if (route === 'att' && ed && ATAB === 'rep' && ATRQ) want.push(['atrep', '/api/att/report?team=' + encodeURIComponent(ATRTM) + '&from=' + ATRF + '&to=' + ATRT]);
   if (['coach', 'o2o', 'acad'].includes(route) || (route === 'dash' && ME && ME.role === 'agent')) want.push(['se', '/api/sessions']);
   if (route === 'audit' && adm) want.push(['au', '/api/audit']);
@@ -304,6 +305,7 @@ async function load() {
   if (R.lvcal) { LCAL = JSON.parse(R.lvcal); if (LCAL.team) LTM = LCAL.team; LCM = LCAL.m; }
   if (R.lvbal) { LBAL = JSON.parse(R.lvbal); if (LBAL.team) LTM = LBAL.team; }
   if (R.tdy) TDY = JSON.parse(R.tdy);
+  if (R.cap) { CAP = JSON.parse(R.cap); if (CAP.plan) CPP = CAP.plan.id; }
   if (R.atrep) { ATREP = JSON.parse(R.atrep); ATRQ = false; ATRF = ATREP.from; ATRT = ATREP.to; }
   if (R.aa) AIA = JSON.parse(R.aa);
   if (R.ais) AISET = JSON.parse(R.ais);

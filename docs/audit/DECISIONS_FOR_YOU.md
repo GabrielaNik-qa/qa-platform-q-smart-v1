@@ -665,3 +665,43 @@ Nobody is planned before their start date or after their last working day.
   - the reports counted the days before tracking started as planned days, so "present" looked too low. Those days are now left out, with a note saying from when attendance is tracked.
   - Bradford levels that do not go up (for example 200 / 125 / 400) are now refused with a message, instead of quietly going back to 50 / 125 / 400
   - four "Open … ›" links and the "Nothing to watch" line stayed in English in Bulgarian and French. They are translated now, and hours show as "ч" in Bulgarian.
+
+## P. Workforce, Phase 4 built (27 October): Capacity planning, the fair split of the leads
+
+**Where things are**
+- **Workforce › Capacity planning** (the last item of the Workforce group, as approved):
+  - **Plans per month:** each plan covers one or more teams, and their agents share the leads. Admins and team leads plan their own teams; QA specialists and trainers can look.
+  - **Campaigns:** "Paste from Excel" (campaign, brand, segment, leads; a header row is fine, and "1 240" is read as 1240), or add them one by one. When new leads arrive in the middle of the month, paste them with "Add these leads". Segments are free text, so each company names its own (0-30, 30-60 … 360+).
+  - **People:** the hours each agent can work in the days left come from the rota, public holidays and approved time off. Each person also has a share: 100% as usual, 50% for somebody still learning, 0% to leave somebody out.
+  - **Split:** before publishing, the plan shows every agent's leads of every campaign, their total, the exact fair number and the leads per day. "Publish to the agents" sends it.
+  - **By day:** every agent's leads for every day of the month.
+  - **History:** every split, who made it, and why.
+- **The formula** (in cap.js):
+  - each agent's share = their hours in the days left × their share %, divided by everybody's
+  - every agent gets that same share of **every** campaign, so everybody has the same mix of brands and segments
+  - whole leads only, and three things always hold:
+    - every campaign adds up exactly
+    - every agent gets their exact share of each campaign, rounded down or up
+    - every agent's total is their exact fair total, rounded down or up, so nobody is ever a whole lead away from fair
+  - the leads left over after rounding down are handed out with a "max-flow" method, which is guaranteed to keep all three. When people are level for an extra lead, the order between them changes with every split, so it is not always the same person who gets it.
+  - each agent's leads are spread over their working days the same way: every day gets its share, rounded down or up
+  - tested on 3,000 random cases and on the sample of the proposal. It splits 300 campaigns among 150 agents in about 40 ms.
+- **When something changes** (your decision 5), the plan shows "Things changed since the last split" with the reasons:
+  - new leads, a new campaign, or a campaign removed
+  - somebody's hours in the days left changed (time off, the rota), a share changed, somebody joined or left the team
+  - leads not worked: days that are over when the agent was absent or away (from the check-ins)
+
+  It then suggests a new split of the leads not worked yet, from tomorrow (or from today), shows each person's numbers before and after, and a team lead or an admin approves it. Until then, agents keep their current numbers.
+- **Agents** see only their own numbers: today, this week, this month and what is left, campaign by campaign, their share, and every working day of the month. They get a notification when their leads are published or change, and a "My leads today" card on their dashboard.
+
+**Please decide when you are ready**
+1. **Leads worked:** for now, a lead counts as worked when its day is over and the agent was at work that day. When your dialer (Voiso, Ringover) can send the real number of worked leads, the next split can use those numbers instead. Tell me which dialer, and I will prepare the import.
+2. **End of the month:** a plan covers one month. Leads not worked by the end of the month are not carried over to the next month yet. That can be a next step.
+3. **The word "leads":** I used "лийдове" in Bulgarian and "leads" in French. Tell me if your teams say something else (for example "контакти" or "fiches").
+4. **The patent:** the method is in cap.js and described above. Before you show it outside the company, please talk to a patent attorney. I can write the full technical description for them.
+
+**Good to know**
+- Found and fixed during the browser check:
+  - with many campaigns, the totals were off-screen on the right. They now come first.
+  - a change of share was described as "84 h less". It now says "share 100% → 50%".
+  - some labels were half translated in Bulgarian and French (for example "Добави a campaign"). They are fixed, and "Left" no longer reads as "left the company".

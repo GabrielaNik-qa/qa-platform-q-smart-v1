@@ -864,3 +864,9 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .tdw { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px } .tdd { padding: 8px 4px; border-radius: 8px; background: color-mix(in srgb, var(--ok) 10%, transparent); display: flex; flex-direction: column; gap: 2px; text-align: center }
 .tdd b { font-size: 18px } .tdd b small { font-size: 12px; color: var(--mu) } .tdd small { font-size: 11px; color: var(--mu) } .tdd.warn { background: color-mix(in srgb, var(--bad) 14%, transparent) } .tdd.warn b { color: var(--bad) }
 @media (max-width: 700px) { .tdw { grid-template-columns: repeat(4, minmax(0, 1fr)) } }
+/* Workforce › Capacity planning: the days of an agent's month, and the grid of every person and day */
+.cpd { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 6px; margin-top: 12px }
+.cpd > div { padding: 6px 4px; border-radius: 8px; background: color-mix(in srgb, var(--ac) 10%, transparent); display: flex; flex-direction: column; align-items: center; gap: 2px }
+.cpd small { font-size: 11px; color: var(--mu) } .cpd b { font-size: 16px } .cpd .past { opacity: .55 } .cpd .now { outline: 2px solid var(--ac) } .cpd .lost b { color: var(--bad); text-decoration: line-through }
+.cpg th, .cpg td { text-align: center; padding: 5px 6px; font-size: 12.5px; white-space: nowrap } .cpg th:first-child, .cpg td:first-child { text-align: left }
+.cpg th.tdy { color: var(--ac) } .cpg td.past { color: var(--mu) } .cpg td.lost { color: var(--bad); text-decoration: line-through }

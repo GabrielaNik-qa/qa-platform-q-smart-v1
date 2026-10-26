@@ -14,7 +14,7 @@ const GROUPS = [
   { id: 'coaching', name: 'Coaching', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration']] },
   { id: 'performance', name: 'Performance', icon: 'g_perf', items: [['goals', 'Goals & KPIs'], ['pips', 'Improvement plans'], ['kudos', 'Recognition']] },
   { id: 'planning', name: 'Planning', icon: 'g_plan', items: [['planner', 'Review planner'], ['workload', 'QA workload'], ['calendar', 'Calendar']] },
-  { id: 'workforce', name: 'Workforce', icon: 'g_wf', items: [['today', 'Team today'], ['att', 'Attendance'], ['leave', 'Time off'], ['rota', 'Shifts and rota']] },
+  { id: 'workforce', name: 'Workforce', icon: 'g_wf', items: [['today', 'Team today'], ['att', 'Attendance'], ['leave', 'Time off'], ['rota', 'Shifts and rota'], ['cap', 'Capacity planning']] },
   { id: 'comply', name: 'Compliance & CX', icon: 'g_comply', items: [['compliance', 'Compliance'], ['risks', 'Risk register'], ['complaints', 'Complaints'], ['csat', 'Surveys (CSAT)']] },
   { id: 'reports', name: 'Reports', icon: 'g_reports', items: [['rbuild', 'Report builder'], ['rsaved', 'Saved & scheduled'], ['rexp', 'Export centre']] },
   { id: 'learning', name: 'Learning', icon: 'g_learning', space: 'learn', items: [['acad', 'My Learning'], ['kb', 'Knowledge Base'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },
