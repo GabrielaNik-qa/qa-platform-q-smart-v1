@@ -768,5 +768,13 @@ button.fchip { border: 0; font: inherit; font-size: 13px; padding: 7px 12px } bu
 /* ---- tasks: compact cards like Jira (▸ opens one card), detailed cards, or a list (October 2026) */
 .tkx.tkc { padding: 9px 12px; gap: 6px } .tkc .tkh b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px }
 .tkx.tkc { position: relative } .tkc .tkac { display: none; position: absolute; top: 5px; right: 40px; z-index: 2; background: var(--pn); border: 1px solid var(--bd); border-radius: 9px; box-shadow: 0 2px 8px #0003 } .tkc:hover .tkac, .tkc:focus-within .tkac { display: inline-flex }
-.tkxp { flex: none } .tkxp svg { transition: transform .15s; transform: rotate(-90deg) } .tkxp.on svg { transform: rotate(90deg) }
+.tkxp, .tmf { flex: none } .tkxp svg, .tmf svg { transition: transform .15s; transform: rotate(-90deg) } .tkxp.on svg, .tmf.on svg { transform: rotate(90deg) }
 .tkpb { height: 3px; border-radius: 2px; background: var(--bd); overflow: hidden } .tkpb i { display: block; height: 100%; background: var(--ok) }
+
+/* ---- Category Stats: category tiles that open a pop-up, team heat map (October 2026) */
+.cstl { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px }
+.cst { display: grid; gap: 6px; align-content: start; text-align: left; background: var(--pn2); border: 1px solid var(--bd); border-radius: 14px; padding: 14px; color: var(--tx); font: inherit; cursor: pointer; transition: border-color .12s, transform .12s, box-shadow .12s }
+.cst:hover, .cst:focus-visible { border-color: var(--tx); transform: translateY(-1px); box-shadow: var(--sh-2, 0 6px 18px #0002) }
+.cstn { font-size: 13px; color: var(--mu); font-weight: 600; line-height: 1.3; min-height: 34px } .cst > b { font: 700 26px var(--font-d, inherit) }
+.cstm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
+.heat { display: inline-block; min-width: 54px; text-align: center; padding: 3px 8px; border-radius: 7px; background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); font: 600 13px var(--font-m, inherit) }
