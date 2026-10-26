@@ -361,3 +361,28 @@ There is also an "AI trainer" card on the **Trainer** dashboard.
 **To decide (no rush):**
 1. Do you want your own scenarios, for example your real products and offers? I can add a "New scenario" form.
 2. Should the AI trainer suggest a practice scenario to an agent who is weak in a category?
+
+## J. AI analyst (built 26 October)
+
+Where: **AutoQA › AI analyst** (admin, QA, team leads and trainers; agents never see it). Also a card on the **Analytics deep-dive** dashboard.
+
+- **Ask a question** in your own words, or tap a ready-made one:
+  - which team improved the most
+  - where we lose points
+  - which agents need help
+  - are reviewers consistent
+  - calls vs chats vs e-mails
+- Choose the period (last 30 or 90 days, this month, last month) and a team.
+- **How it works:** the app first works out the real numbers:
+  - scores, pass rate and the previous period
+  - teams, categories, channels and weeks
+  - best and lowest agents, reviewers
+  - disputes, and the AI reviewer agreement
+
+  The AI then writes a short report **from those numbers only**, ending with recommended actions. Under every report you see how many reviews it is based on.
+- **Monthly report:** a button, plus an optional switch in Admin › Integrations for the 1st of every month from 08:00, when the admins get a notification. The switch is off now.
+- Reports are kept. **Copy** puts one in your clipboard for an e-mail. The author or an admin can delete it.
+- Privacy: people limited to some teams only see and ask about their own teams.
+
+**To decide (no rush):**
+1. Should the monthly report also be e-mailed to the admins, once e-mail is set up?

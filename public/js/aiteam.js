@@ -12,7 +12,7 @@ function aiSim(list) {
   ok.forEach(d => { const sc = SCS.find(s => s.id === d.scid); (d.sim.cats || []).forEach((v, i) => { const n = sc && sc.cats[i] ? sc.cats[i].n : '#' + (i + 1); if (v != null) (cats[n] = cats[n] || []).push(v); }); });
   return { n: ok.length, v: ok.length ? avg(ok.map(d => d.sim.items)) : null, diff: ok.length ? avg(ok.map(d => Math.abs((d.fsc || 0) - (d.sc || 0)))) : null, cats: Object.entries(cats).map(([n, l]) => ({ n, v: avg(l) })).sort((p, q) => p.v - q.v) };
 }
-const aiTabs = () => aiRev() || aiLeadOk() ? `<div class=sg role=tablist style="margin:0 0 14px"><button role=tab class="${!['ai', 'lead', 'train'].includes(AQTAB) ? 'on' : ''}" onclick="aqTab('auto')">AutoQA</button>${aiRev() ? `<button role=tab class="${AQTAB === 'ai' ? 'on' : ''}" onclick="aqTab('ai')">AI reviewer${AIDR.filter(d => d.status === 'draft').length ? ` · ${AIDR.filter(d => d.status === 'draft').length}` : ''}</button>` : ''}<button role=tab class="${AQTAB === 'lead' ? 'on' : ''}" onclick="aqTab('lead')">AI team lead${AIL.risk.length ? ` · ${AIL.risk.length}` : ''}</button><button role=tab class="${AQTAB === 'train' ? 'on' : ''}" onclick="aqTab('train')">AI trainer${AIT.needs.length ? ` · ${AIT.needs.length}` : ''}</button></div>` : '';
+const aiTabs = () => aiRev() || aiLeadOk() ? `<div class=sg role=tablist style="margin:0 0 14px"><button role=tab class="${!['ai', 'lead', 'train', 'ana'].includes(AQTAB) ? 'on' : ''}" onclick="aqTab('auto')">AutoQA</button>${aiRev() ? `<button role=tab class="${AQTAB === 'ai' ? 'on' : ''}" onclick="aqTab('ai')">AI reviewer${AIDR.filter(d => d.status === 'draft').length ? ` · ${AIDR.filter(d => d.status === 'draft').length}` : ''}</button>` : ''}<button role=tab class="${AQTAB === 'lead' ? 'on' : ''}" onclick="aqTab('lead')">AI team lead${AIL.risk.length ? ` · ${AIL.risk.length}` : ''}</button><button role=tab class="${AQTAB === 'train' ? 'on' : ''}" onclick="aqTab('train')">AI trainer${AIT.needs.length ? ` · ${AIT.needs.length}` : ''}</button><button role=tab class="${AQTAB === 'ana' ? 'on' : ''}" onclick="aqTab('ana')">AI analyst</button></div>` : '';
 function aiRevPage() {
   const wait = AIDR.filter(d => d.status === 'draft'), done = AIDR.filter(d => d.status !== 'draft'), m = aiSim(AIDR.filter(aiMonth)), all = aiSim(AIDR);
   const row = d => [d.dt, `<b>${esc(d.agn || an(d.agent))}</b>`, `<span class=mono>${esc(d.lead)}</span>`, chTag(d.ch), esc(d.scn), `<b class=mono style="color:${col(d.sc)}">${d.sc}%</b>`];
@@ -66,7 +66,7 @@ const aiReject = () => ask('Reject this AI review?', 'Nothing is published. You 
 let AIPV = null, AILT = '';                                   // AIPV = the coaching plan being checked; AILT = the team shown
 const aiLeadOk = () => ['admin', 'qa', 'lead', 'trainer'].includes(ME.role);
 const aiSumOk = () => ['admin', 'qa', 'lead'].includes(ME.role);
-function aiTabPage() { return AQTAB === 'ai' && aiRev() ? aiRevPage() : AQTAB === 'lead' && aiLeadOk() ? aiLeadPage() : AQTAB === 'train' && aiLeadOk() ? aiTrainPage() : ''; }
+function aiTabPage() { return AQTAB === 'ai' && aiRev() ? aiRevPage() : AQTAB === 'lead' && aiLeadOk() ? aiLeadPage() : AQTAB === 'train' && aiLeadOk() ? aiTrainPage() : AQTAB === 'ana' && aiLeadOk() ? aiAnaPage() : ''; }
 function aiLeadPage() {
   const risk = AIL.risk.filter(x => !AILT || x.team === AILT), wait = AIL.plans.filter(p => p.status === 'draft'), sums = AIL.summaries.filter(x => !AILT || x.team === AILT);
   return `<div class=row style="margin:0 0 12px;gap:8px;flex-wrap:wrap"><select onchange="AILT=this.value;render()" style="max-width:220px"><option value="">All teams</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${t.id}" ${AILT === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select><span style="flex:1"></span>${aiSumOk() ? `<button class=btn id=ail_sum onclick="aiSumNow()">${IC.plus} Write this week's summary</button>` : ''}</div>`
@@ -164,3 +164,37 @@ const aiSimFinish = () => once('aisimf', async () => {
 // dashboard: the training needs (in the Trainer and Learning dashboards)
 wdef('dash', 'ai_train', 'AI trainer', 30, (c, s, x) => card(`${wt(x, 'AI trainer')} <span class=bg>${AIT.needs.length}</span>`, (AIT.needs.length ? AIT.needs.slice(0, 5).map(n => `<div class=row style="padding:4px 0;border-bottom:1px solid var(--bd)"><span>${esc(n.cat)}</span><small class=mu>${n.below.length} below target · <b class=mono>${Math.round(n.avg)}%</b></small></div>`).join('') : '<p class=mu style="margin:0">✓ No category is below target in the last 30 days.</p>')
   + `<a href="javascript:void(0)" class=agl style="display:inline-block;margin-top:8px" onclick="AQTAB='train';LS.set('qa_aqtab','train');goPage('autoqa')">Open the AI trainer ›</a>`), 'Training needs from the reviews and the quizzes drafted by AI', 'Lists');
+
+// ===================== AI analyst (AutoQA › "AI analyst"): questions about the quality data, answered as a short report =====================
+// The server works out the numbers (scores, teams, categories, channels, agents, reviewers, disputes) for the period and the team;
+// the AI only writes the report from them. Reports are kept so they can be read again and copied into an e-mail.
+let AIQ = { q: '', period: '30', team: '' };
+const AIQS = ['Which team improved the most, and why?', 'Where do we lose the most points?', 'Which agents need help first?', 'Are our reviewers scoring the same way?', 'How do calls, chats and e-mails compare?'];
+function aiAnaPage() {
+  const busy = !!BUSY.aiana, P = AIA.periods || {}, list = AIA.reports;
+  const one = (x, open) => `<div class=row style="align-items:flex-start;gap:10px"><div style="flex:1"><b>${esc(x.q)}</b><br><small class=mu>${esc(tr(P[x.period] || x.period))} · ${esc(x.team ? tn(x.team) : tr('All teams'))} · ${x.auto ? tr('written by the AI analyst on the 1st') : esc(x.by)} · ${fdt(x.at)}</small></div>`
+    + `<button class=ib onclick="aiAnaCopy(${jsq(x.id)})" title="Copy the report">${IC.copy} Copy</button>${ME.role === 'admin' || x.byU === ME.username ? `<button class=ib onclick="aiAnaDel(${jsq(x.id)})" title="Delete">✕</button>` : ''}</div>`
+    + `<div class=prose style="margin-top:8px">${md(x.text)}</div>${x.pack ? `<small class=mu>${tr(`Based on ${x.pack.thisPeriod.reviews} reviews`)} · ${esc(x.pack.from)} – ${esc(x.pack.to)}</small>` : ''}`;
+  return card('Ask the AI analyst', `<p class=mu style="margin:0 0 10px">Ask anything about your quality numbers. The app works out the numbers; the AI writes the answer from them only.</p>
+<textarea id=aan_q rows=2 style="width:100%" placeholder="For example: which team improved the most this month, and why?" oninput="AIQ.q=this.value">${esc(AIQ.q)}</textarea>
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">${AIQS.map(q => `<button class=ib onclick="AIQ.q=tr(${jsq(q)});render()">${esc(tr(q))}</button>`).join('')}</div>
+<div class=row style="gap:8px;flex-wrap:wrap"><select onchange="AIQ.period=this.value">${Object.entries(P).map(([k, v]) => `<option value="${k}" ${AIQ.period === k ? 'selected' : ''}>${esc(tr(v))}</option>`).join('')}</select><select onchange="AIQ.team=this.value"><option value="">All teams</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${t.id}" ${AIQ.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select><span style="flex:1"></span>
+<button class=ib onclick="AIQ.q='';aiAsk()" ${busy ? 'disabled' : ''}>Monthly report</button><button class=btn onclick="aiAsk()" ${busy ? 'disabled' : ''}>${busy ? tr('The AI analyst is reading your data…') : tr('Ask')}</button></div>`)
+    + (list.length ? card(`Reports <span class=bg>${list.length}</span>`, one(list[0]) + list.slice(1, 20).map(x => `<details class=aisum><summary style="cursor:pointer"><b>${esc(x.q)}</b> <small class=mu>${esc(x.team ? tn(x.team) : tr('All teams'))} · ${fdt(x.at)}</small></summary><div style="margin-top:8px">${one(x)}</div></details>`).join(''))
+      : card('Reports', `<p class=mu style="margin:0">No report yet. Ask a question, or press "Monthly report".${ME.role === 'admin' ? ' ' + tr('You can also switch on the monthly report on the 1st in Admin › Integrations.') : ''}</p>`));
+}
+const aiAsk = () => once('aiana', async () => {
+  render();
+  const r = await api('/api/ai/analyst', { q: AIQ.q.trim(), period: AIQ.period, team: AIQ.team });
+  if (!r.ok) { setTimeout(render); return toast(await errOf(r, 'The AI analyst could not answer'), true); }
+  AIA.reports.unshift(await r.json()); AIQ.q = ''; setTimeout(render); toast('Report ready');
+});
+const aiAnaCopy = async id => { const x = AIA.reports.find(r => r.id === id); try { await navigator.clipboard.writeText(x.q + '\n\n' + x.text); toast('Copied'); } catch (e) { toast('Could not copy', true); } };
+const aiAnaDel = id => ask('Delete this report?', 'It is removed for everyone.', async () => {
+  const r = await api('/api/ai/analyst/' + id, null, 'DELETE'); if (!r.ok) return toast(await errOf(r, 'Could not delete'), true);
+  AIA.reports = AIA.reports.filter(x => x.id !== id); render(); toast('Report deleted');
+}, { yes: 'Yes, delete', no: 'Cancel', danger: true });
+// dashboard: the latest AI analyst report (in the Analytics dashboard)
+wdef('dash', 'ai_ana', 'AI analyst', 60, (c, s, x) => { const r = AIA.reports[0];
+  return card(wt(x, 'AI analyst'), (r ? `<b>${esc(r.q)}</b> <small class=mu>${fdt(r.at)}</small><div class=prose style="margin-top:6px">${md(r.text)}</div>` : '<p class=mu style="margin:0">No report yet.</p>')
+    + `<a href="javascript:void(0)" class=agl style="display:inline-block;margin-top:8px" onclick="AQTAB='ana';LS.set('qa_aqtab','ana');goPage('autoqa')">Ask the AI analyst ›</a>`); }, 'The latest report of the AI analyst', 'Lists');

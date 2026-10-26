@@ -22,7 +22,8 @@ test.before(async () => {
       const reviewer = ok && /quality reviewer/.test(JSON.parse(b).system || '');   // the AI QA reviewer: the first item No, the rest Yes
       const sys = ok ? JSON.parse(b).system || '' : '', summary = /weekly quality summary/.test(sys), plan = /coaching plan/.test(sys);
       const customer = /play the CUSTOMER/.test(sys), trainer = /call-center trainer/.test(sys), quiz = /multiple-choice quiz/.test(sys), said = ok ? JSON.stringify(JSON.parse(b).messages) : '';
-      const text = customer ? (/sorry/i.test(said.split('Agent:').pop()) ? 'Thank you, that really helps. [END]' : 'That is not good enough!') : trainer ? JSON.stringify({ score: 88, good: ['You said sorry'], tips: ['Offer a date'] }) : quiz ? JSON.stringify({ questions: [1, 2, 3].map(i => ({ q: 'Question ' + i, opts: ['A', 'B', 'C', 'D'], a: 0, why: 'Because' })) }) : summary ? '**Team A** had a hard week: the average fell. Help **k.agent** with the greeting.' : plan ? JSON.stringify({ title: 'Greet every customer', goals: 'Reach the target in two weeks', focus: ['Opening'], actions: [{ t: 'Listen to two calls with a great greeting', days: 3 }, { t: 'Use the greeting on every call', days: 99 }], notes: 'Talk about the greeting.' }) : reviewer ? JSON.stringify({ answers: DEFAULT_SC.cats.map((c, ci) => c.it.map((i, ii) => ({ a: ci === 0 && ii === 0 ? 'n' : 'y', cm: ci === 0 && ii === 0 ? 'No greeting at the start' : '' }))), comment: 'Good call, greet the customer first.', confidence: 82 }) : 'OK';
+      const analyst = /senior data analyst/.test(sys), pack = analyst ? JSON.parse(JSON.parse(b).messages[0].content[0].text.split('Data (JSON):\n')[1]) : null;
+      const text = analyst ? '**' + pack.thisPeriod.reviews + ' reviews**, average ' + pack.thisPeriod.average + '%.\n\n## Recommended actions\n- Coach ' + pack.lowestAgents.map(x => x.agent).join(', ') : customer ? (/sorry/i.test(said.split('Agent:').pop()) ? 'Thank you, that really helps. [END]' : 'That is not good enough!') : trainer ? JSON.stringify({ score: 88, good: ['You said sorry'], tips: ['Offer a date'] }) : quiz ? JSON.stringify({ questions: [1, 2, 3].map(i => ({ q: 'Question ' + i, opts: ['A', 'B', 'C', 'D'], a: 0, why: 'Because' })) }) : summary ? '**Team A** had a hard week: the average fell. Help **k.agent** with the greeting.' : plan ? JSON.stringify({ title: 'Greet every customer', goals: 'Reach the target in two weeks', focus: ['Opening'], actions: [{ t: 'Listen to two calls with a great greeting', days: 3 }, { t: 'Use the greeting on every call', days: 99 }], notes: 'Talk about the greeting.' }) : reviewer ? JSON.stringify({ answers: DEFAULT_SC.cats.map((c, ci) => c.it.map((i, ii) => ({ a: ci === 0 && ii === 0 ? 'n' : 'y', cm: ci === 0 && ii === 0 ? 'No greeting at the start' : '' }))), comment: 'Good call, greet the customer first.', confidence: 82 }) : 'OK';
       res.end(JSON.stringify(ok ? { content: [{ type: 'text', text }], usage: { input_tokens: 10000, output_tokens: 10000 }, stop_reason: 'end_turn', model: JSON.parse(b).model } : { error: { message: 'invalid x-api-key' } }));
     });
   });
@@ -46,7 +47,7 @@ async function as(username) {
     return { status: r.status, json };
   };
   assert.equal((await call('POST', '/api/login', { username, password: 'password' })).status, 200);
-  return { get: u => call('GET', u), put: (u, b) => call('PUT', u, b), post: (u, b = {}) => call('POST', u, b) };
+  return { get: u => call('GET', u), put: (u, b) => call('PUT', u, b), post: (u, b = {}) => call('POST', u, b), del: u => call('DELETE', u) };
 }
 
 test('the admin manages the AI key, model and budget; keys are encrypted and never come back; the budget is kept', async () => {
@@ -170,4 +171,25 @@ test('the AI trainer: practice calls with an AI customer (switched on by the adm
   const saved = db().quizzes.find(x => x.id === q.json.id); assert.deepEqual([saved.ai.cat, saved.assign.users, saved.kind], ['Opening', ['k.agent'], 'category']);
   assert.ok(!(await ag.get('/api/quizzes')).json.quizzes.some(x => x.id === q.json.id), 'agents do not see it before it is published');
   assert.equal((await lead.get('/api/ai/trainer')).json.quizzes[0].id, q.json.id);
+});
+
+test('the AI analyst answers questions about the quality data from numbers worked out by the app; reports are kept and can be deleted', async () => {
+  const a = await as('k.admin'), lead = await as('k.lead');
+  await a.put('/api/ai/settings', { anthropicKey: GOOD, analystAuto: true });
+  assert.equal((await (await as('k.agent')).get('/api/ai/analyst')).status, 403, 'agents never see the AI analyst');
+  assert.equal((await a.post('/api/ai/analyst', { period: 'year' })).status, 400);
+  assert.equal((await a.post('/api/ai/analyst', { team: 't-admin' })).status, 400, 'not the Administration team');
+  const none = await a.post('/api/ai/analyst', { team: 't-b' }); assert.deepEqual([none.status, none.json.error], [400, 'There are no reviews in this period']);
+  const r = await a.post('/api/ai/analyst', { period: '30' });
+  assert.equal(r.status, 200); assert.match(r.json.q, /monthly quality report/, 'an empty question asks for the monthly report');
+  const n = db().evaluations.filter(e => Date.now() - new Date(e.d) < 30 * 864e5).length;
+  assert.equal(r.json.pack.thisPeriod.reviews, n); assert.ok(r.json.text.startsWith('**' + n + ' reviews**'), 'the AI wrote from the numbers it was given');
+  assert.ok(r.json.pack.byTeam.some(t => t.team === 'Team A') && r.json.pack.byCategory.some(c => c.category === 'Opening'));
+  assert.ok(r.json.pack.lowestAgents.some(x => x.agent === 'k.agent'));
+  const q = await lead.post('/api/ai/analyst', { q: 'Where do we lose the most points?', period: '90', team: 't-a' });
+  assert.deepEqual([q.status, q.json.q, q.json.team, q.json.pack.team], [200, 'Where do we lose the most points?', 't-a', 'Team A']);
+  const L = (await lead.get('/api/ai/analyst')).json; assert.equal(L.reports.length, 2); assert.equal(L.auto, true); assert.equal(L.periods.lastmonth, 'Last month');
+  assert.equal((await lead.del('/api/ai/analyst/' + r.json.id)).status, 404, 'only your own report (or an admin)');
+  assert.equal((await a.del('/api/ai/analyst/' + q.json.id)).status, 200);
+  assert.equal((await a.get('/api/ai/analyst')).json.reports.length, 1);
 });

@@ -39,6 +39,7 @@ ${key('anthropic', 'Claude API key (console.anthropic.com)', 'ai_key', 'sk-ant-â
 <label>Company rules for the AI team (playbook)<textarea id=ai_pb rows=4 placeholder="Three reviews per agent, per category, per month. A missing identity check is always a critical fail.">${esc(s.playbook || '')}</textarea><small class=mu>The AI reviewer follows these rules together with your scorecards. Plain words are enough.</small></label>
 <label class=rad style="align-items:center;gap:8px"><input type=checkbox id=ai_la ${s.leadAuto ? 'checked' : ''}> Every Monday from 08:00 the AI team lead writes the weekly summary of every team</label>
 <label class=rad style="align-items:center;gap:8px"><input type=checkbox id=ai_rp ${s.rolePlay ? 'checked' : ''}> Agents can practise with an AI customer in the Call Simulator (every message uses the AI budget)</label>
+<label class=rad style="align-items:center;gap:8px"><input type=checkbox id=ai_an ${s.analystAuto ? 'checked' : ''}> On the 1st of every month from 08:00 the AI analyst writes last month's quality report</label>
 <b style="margin-top:6px">Voice for the call simulator</b>
 <div class=eg2><label>Voice provider<select id=ai_voice>${[['browser', 'Built into the browser (free)'], ['elevenlabs', 'ElevenLabs'], ['openai', 'OpenAI']].map(([v, n]) => `<option value=${v} ${s.voice === v ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
 <label>ElevenLabs voice (name or ID)<input id=ai_ev value="${esc(s.elevenVoice)}" placeholder="Rachel"></label></div>
@@ -47,7 +48,7 @@ ${key('elevenlabs', 'ElevenLabs API key', 'ai_ek', 'xi-â€¦')}${key('openai', 'Op
 <small class=mu>Keys are stored encrypted on the server and are never shown again in full. Every AI request counts towards the monthly budget; when it is used up, the AI features pause until next month or until you raise it.</small></div>`);
 }
 async function aiSave() {
-  const v = id => ($('#' + id) || {}).value || '', b = { model: v('ai_model'), budget: +v('ai_budget') || 0, voice: v('ai_voice'), elevenVoice: v('ai_ev').trim(), playbook: v('ai_pb'), leadAuto: !!($('#ai_la') || {}).checked, rolePlay: !!($('#ai_rp') || {}).checked };
+  const v = id => ($('#' + id) || {}).value || '', b = { model: v('ai_model'), budget: +v('ai_budget') || 0, voice: v('ai_voice'), elevenVoice: v('ai_ev').trim(), playbook: v('ai_pb'), leadAuto: !!($('#ai_la') || {}).checked, rolePlay: !!($('#ai_rp') || {}).checked, analystAuto: !!($('#ai_an') || {}).checked };
   [['ai_key', 'anthropicKey'], ['ai_ek', 'elevenKey'], ['ai_ok', 'openaiKey']].forEach(([id, f]) => { if (v(id).trim()) b[f] = v(id).trim(); });
   const r = await api('/api/ai/settings', b, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true);
   AISET = await r.json(); AIS = { enabled: AISET.enabled, model: AISET.model }; render(); toast('AI settings saved');

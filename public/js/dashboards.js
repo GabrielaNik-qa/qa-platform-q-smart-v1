@@ -78,7 +78,7 @@ const DTPL = [
   ['t-agent', 'Agent · my progress', 'My score, my next step', 'g_perf', wl(['kpi_avg', 20], ['kpi_pass', 20], ['kpi_trend', 20], ['coach_new', 60], ['todo', 60], ['strong', 30], ['needs', 30], ['last5', 60])],
   ['t-perf', 'Performance and KPIs', 'Goals, CSAT, pass rate', 'g_perf', wl(['kpi_avg', 15], ['kpi_pass', 15], ['csat', 15], ['complaints', 15], ['goals', 30], ['kudos', 30], ['top', 30], ['low', 30])],
   ['t-speed', 'Speed and workload', 'Plan, backlog, open work', 'g_plan', wl(['plan_kpi', 20], ['kpi_disputes', 20], ['kpi_total', 20], ['planner', 30], ['tasks', 30], ['inbox', 60])],
-  ['t-analytics', 'Analytics deep-dive', 'Categories, root causes, trends', 'g_analytics', wl(['qtime', 60], ['cattime', 60], ['catins', 60], ['channels', 30], ['cat0', 30], ['distribution', 30], ['teams', 30])],
+  ['t-analytics', 'Analytics deep-dive', 'Categories, root causes, trends', 'g_analytics', wl(['ai_ana', 60], ['qtime', 60], ['cattime', 60], ['catins', 60], ['channels', 30], ['cat0', 30], ['distribution', 30], ['teams', 30])],
   ['t-ai', 'AI and automation', 'AI vs human agreement', 'g_tools', wl(['ai_sim', 60], ['brief', 60], ['channels', 30], ['distribution', 30])],
   ['t-learn', 'Learning', 'Quizzes, reading, overdue', 'g_learning', wl(['learn_prog', 30], ['needs', 30], ['cat0', 30], ['strong', 30], ['todo', 60])]
 ].map(([id, name, desc, ic, items]) => ({ id, name, desc, ic, items, kind: 'tpl' }));

@@ -33,7 +33,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   const show = db => {
     const c = conf(db), k = n => { const v = unseal(c[KEYS[n]]); return { set: !!v, last4: v ? v.slice(-4) : '', env: !v && n === 'anthropic' && !!process.env.ANTHROPIC_API_KEY }; };
     return { model: ai.MODEL(), models: MODELS.map(([id, name]) => ({ id, name, price: ai.PRICE[id] })), budget: Number(c.budget) || 0, usage: usage(),
-      playbook: c.playbook || '', leadAuto: !!c.leadAuto, rolePlay: !!c.rolePlay, voice: VOICES.includes(c.voice) ? c.voice : 'browser', elevenVoice: c.elevenVoice || '', keys: { anthropic: k('anthropic'), elevenlabs: k('elevenlabs'), openai: k('openai') }, enabled: ai.enabled() };
+      playbook: c.playbook || '', leadAuto: !!c.leadAuto, rolePlay: !!c.rolePlay, analystAuto: !!c.analystAuto, voice: VOICES.includes(c.voice) ? c.voice : 'browser', elevenVoice: c.elevenVoice || '', keys: { anthropic: k('anthropic'), elevenlabs: k('elevenlabs'), openai: k('openai') }, enabled: ai.enabled() };
   };
   app.get('/api/ai/settings', need('admin'), (req, res) => res.json(show(load())));
   // { model, budget, voice, elevenVoice, anthropicKey, elevenKey, openaiKey } — a key: text to set it, "" to remove it, left out to keep it
@@ -44,6 +44,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     if (b.voice !== undefined) { if (!VOICES.includes(b.voice)) return bad(res, 'Unknown voice provider'); c.voice = b.voice; }
     if (b.playbook !== undefined) c.playbook = str(b.playbook, 4000);
     if (b.leadAuto !== undefined) c.leadAuto = b.leadAuto === true;          // the AI team lead writes every team's summary on Monday morning   // the company's rules the AI team follows
+    if (b.analystAuto !== undefined) c.analystAuto = b.analystAuto === true;  // the AI analyst writes last month's report on the 1st of every month
     if (b.rolePlay !== undefined) c.rolePlay = b.rolePlay === true;          // agents may practise with an AI customer (every message uses the budget)
     if (b.elevenVoice !== undefined) c.elevenVoice = String(b.elevenVoice || '').trim().slice(0, 80);
     for (const [field, slot] of [['anthropicKey', 'key'], ['elevenKey', 'elevenKey'], ['openaiKey', 'openaiKey']]) {
@@ -183,6 +184,74 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   };
   if (!process.env.NO_SCHEDULE) setInterval(weekly, 36e5).unref();
   app.locals.aiWeekly = weekly;
+
+  // ---- AI analyst: a question about the quality data, answered from numbers worked out here (the AI only writes the words)
+  const PERIODS = { 30: 'Last 30 days', 90: 'Last 90 days', month: 'This month', lastmonth: 'Last month' };
+  function spanOf(p, now = new Date()) {
+    const d = (y, m) => new Date(y, m, 1);
+    if (p === 'month') { const f = d(now.getFullYear(), now.getMonth()); return [f, now, d(now.getFullYear(), now.getMonth() - 1)]; }
+    if (p === 'lastmonth') { const f = d(now.getFullYear(), now.getMonth() - 1), t = d(now.getFullYear(), now.getMonth()); return [f, t, d(now.getFullYear(), now.getMonth() - 2)]; }
+    const n = Number(p) * DAYMS, t = now; return [new Date(t - n), t, new Date(t - 2 * n)];
+  }
+  function packOf(db, see, period, team) {
+    const [from, to, pfrom] = spanOf(period), tmOf = e => e.tid || (db.users.find(u => u.username === e.agent) || {}).team;
+    const all = db.evaluations.filter(e => { const t = tmOf(e); return see(t) && (!team || t === team); }), at = e => new Date(e.d);
+    const cur = all.filter(e => at(e) >= from && at(e) < to), prev = all.filter(e => at(e) >= pfrom && at(e) < from), t = passOf(db, team);
+    const per = l => ({ reviews: l.length, average: avgOf(l.map(e => Number(e.sc))), passRate: l.length ? Math.round(l.filter(e => Number(e.sc) >= passOf(db, tmOf(e))).length / l.length * 100) : null, criticalFails: l.filter(e => Number(e.sc) === 0).length });
+    const groupBy = (l, k) => l.reduce((m, e) => { const v = k(e) || 'unknown'; (m[v] = m[v] || []).push(e); return m; }, {});
+    const tname = id => (db.teams.find(x => x.id === id) || {}).name || (id && id !== 'unknown' ? 'Removed team (' + id + ')' : 'No team');
+    const byTeam = Object.entries(groupBy(cur, tmOf)).map(([id, l]) => ({ team: tname(id), ...per(l), previousAverage: avgOf(prev.filter(e => tmOf(e) === id).map(e => Number(e.sc))) }));
+    const byChannel = Object.entries(groupBy(cur, e => e.ch || 'call')).map(([ch, l]) => ({ channel: ch, ...per(l) }));
+    const pc = catAvgs(prev), byCategory = catAvgs(cur).map(c => ({ category: c.n, average: c.v, previous: (pc.find(x => x.n === c.n) || {}).v ?? null, reviews: c.k }));
+    const wk = e => { const x = new Date(e.d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x.toISOString().slice(0, 10); };
+    const weeks = Object.entries(groupBy(cur, wk)).sort().map(([w, l]) => ({ weekOf: w, reviews: l.length, average: avgOf(l.map(e => Number(e.sc))) }));
+    const ag = Object.entries(groupBy(cur, e => e.agent)).filter(([, l]) => l.length >= 2).map(([a, l]) => ({ agent: (db.users.find(u => u.username === a) || {}).name || l[0].agn || a, team: tname(tmOf(l[0])), reviews: l.length, average: avgOf(l.map(e => Number(e.sc))) })).sort((a, b) => b.average - a.average);
+    const reviewers = Object.entries(groupBy(cur, e => e.rv || e.by)).map(([r, l]) => ({ reviewer: r, reviews: l.length, average: avgOf(l.map(e => Number(e.sc))) })).sort((a, b) => b.reviews - a.reviews).slice(0, 15);
+    const dps = all.filter(e => e.dp && e.dp.at && new Date(e.dp.at) >= from && new Date(e.dp.at) < to);
+    const sims = (db.aiDrafts || []).filter(x => x.status === 'approved' && x.sim && new Date(x.decided || x.at) >= from && new Date(x.decided || x.at) < to).map(x => x.sim.items);
+    return { period: PERIODS[period], from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10), team: team ? tname(team) : 'All teams', target: t,
+      thisPeriod: per(cur), previousPeriod: per(prev), byTeam, byChannel, byCategory, weeks, bestAgents: ag.slice(0, 5), lowestAgents: ag.slice(-5).reverse(), reviewers,
+      disputes: { opened: dps.length, open: dps.filter(e => e.dp.status === 'open').length, outcomes: dps.reduce((m, e) => { const o = (e.dp.res || {}).outcome; if (o) m[o] = (m[o] || 0) + 1; return m; }, {}) },
+      aiReviewerAgreement: sims.length ? { approvedDrafts: sims.length, averageSimilarity: avgOf(sims) } : null };
+  }
+  const seesAll = (db, u) => !scopeOf(db, u);
+  async function writeReport(db0, see, q, period, team, by, byU, auto) {
+    const pack = packOf(db0, see, period, team); if (!pack.thisPeriod.reviews) throw new Error('There are no reviews in this period');
+    const text = await ai.analystReport(pack, q, conf(db0).playbook), db = load();
+    const x = { id: 'a' + hex(5), q, period, team: team || '', text, pack, at: iso(), by, byU, auto: !!auto };
+    db.aiReports = [x, ...(db.aiReports || [])].slice(0, 200); save(db); return x;
+  }
+  const MONTHLY = 'Write the monthly quality report: how we did, what changed against the month before, which teams, categories and agents need attention.';
+  app.get('/api/ai/analyst', need(...LEADS), (req, res) => {
+    const db = load(), see = inTeams(db, req.session.user), all = seesAll(db, req.session.user);
+    res.json({ enabled: ai.enabled(), auto: !!conf(db).analystAuto, periods: PERIODS, reports: (db.aiReports || []).filter(x => x.team ? see(x.team) : all).slice(0, 50) });
+  });
+  app.post('/api/ai/analyst', need(...LEADS), async (req, res) => {
+    const db = load(), b = req.body || {}, me = req.session.user, team = str(b.team, 40), period = String(b.period || '30'), q = str(b.q, 500) || MONTHLY;
+    if (!PERIODS[period]) return bad(res, 'Choose the period');
+    if (team ? !db.teams.some(t => t.id === team && !t.system) || !inTeams(db, me)(team) : !seesAll(db, me)) return bad(res, 'Choose a team');
+    if (!ai.enabled()) return bad(res, 'Connect the AI (Admin › Integrations) to ask the AI analyst.');
+    if (limited('ai-ana:' + me.username, 20, 36e5)) return res.status(429).json({ error: 'Too many questions to the AI analyst in one hour. Try again later.' });
+    try { res.json(await writeReport(db, inTeams(db, me), q, period, team, me.name, me.username, false)); } catch (e) { bad(res, e.message); }
+  });
+  app.delete('/api/ai/analyst/:id', need(...LEADS), (req, res) => {
+    const db = load(), me = req.session.user, x = (db.aiReports || []).find(r => r.id === req.params.id);
+    if (!x || !(me.role === 'admin' || x.byU === me.username)) return res.status(404).json({ error: 'not found' });
+    db.aiReports = db.aiReports.filter(r => r !== x); save(db); res.json({ ok: 1 });
+  });
+  // on the 1st of every month from 08:00, when switched on: last month's report for all teams; the admins are told
+  let mbusy = false;
+  const monthly = async () => {
+    if (mbusy) return; const now = new Date(); if (now.getDate() !== 1 || now.getHours() < 8) return;
+    const db = load(), c = conf(db), mon = now.toISOString().slice(0, 7); if (!c.analystAuto || !ai.enabled() || (db.aiReports || []).some(x => x.auto && x.at.slice(0, 7) === mon)) return;
+    mbusy = true;
+    try {
+      const x = await writeReport(db, () => true, MONTHLY, 'lastmonth', '', 'AI analyst', '', true), d2 = load();
+      d2.users.filter(u => u.role === 'admin' && u.active !== false).forEach(u => notify(d2, u.username, 'news', 'Monthly AI quality report ready', { aireport: x.id })); save(d2);
+    } catch (e) { /* no reviews last month, or the AI is busy: tried again next hour */ } finally { mbusy = false; }
+  };
+  if (!process.env.NO_SCHEDULE) setInterval(monthly, 36e5).unref();
+  app.locals.aiMonthly = monthly;
 
   // ---- AI trainer: practice calls with an AI customer (Call Simulator), training needs from the reviews, quiz drafts a person publishes
   const SCEN = [

@@ -154,4 +154,12 @@ async function roleScore(sc, msgs, playbook) {
   const l = v => (Array.isArray(v) ? v : []).map(x => str(x, 200)).filter(Boolean).slice(0, 3);
   return { score: Math.max(0, Math.min(100, Math.round(Number(j.score) || 0))), good: l(j.good), tips: l(j.tips) };
 }
-module.exports = { enabled, MODEL, PRICE, setConfig, ping, reviewDraft, teamSummary, coachPlan, roleCustomer, roleScore, talk, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };
+// AI analyst: answers a question about the quality data from the numbers it is given (never invents any)
+async function analystReport(pack, question, playbook) {
+  const system = 'You are a senior data analyst for a call-center quality team. Answer the question using ONLY the numbers in the data you are given; never invent numbers, names or causes. '
+    + 'Compare with the previous period when it helps. If the data cannot answer the question, say so plainly and say what data would be needed. '
+    + 'Write in plain English for managers, in Markdown: a one-line answer first, then short sections with ## headings and bullet points, at most 300 words, and end with "## Recommended actions" (2 or 3 bullets).'
+    + (playbook ? '\nCompany rules (use them to judge what matters):\n' + String(playbook).slice(0, 4000) : '');
+  return str(await ask(system, [{ type: 'text', text: 'Question: ' + question + '\n\nData (JSON):\n' + JSON.stringify(pack).slice(0, 60000) }], 3000), 8000);
+}
+module.exports = { enabled, MODEL, PRICE, setConfig, ping, reviewDraft, teamSummary, coachPlan, roleCustomer, roleScore, talk, analystReport, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };
