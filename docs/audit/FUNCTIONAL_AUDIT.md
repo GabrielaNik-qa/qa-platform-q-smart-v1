@@ -141,3 +141,10 @@ Security fixes S-1 to S-27 are in SECURITY_AUDIT.md.
 - **Excel dates use the US format** (mm/dd/yyyy) for every language.
 - **The Export centre** says "too big to keep a copy (over 5000 rows)". Copies above 2 MB are now also not kept, so the "(over 5000 rows)" part is not always the reason. The text was left as it is, to avoid an untranslated message.
 - No live e-mail or AI was tested, no screen reader was used, and dark mode was not reviewed page by page.
+
+## Round 3 (26 October 2026)
+
+- **F-11 · Library categories had no name (fixed).** The 7 categories of the real data were saved by the seed with their name in `n`; the app reads `name`. The Categories page showed them without a name and "Add category from library" copied them into a scorecard without one. `GET /api/categories` now sends `name` for them too (test added).
+- **F-12 · A page could silently stop loading (prevented).** Two page scripts declaring the same top-level name (it happened with `catList` while building the new Categories page) stop the second script, and its whole page shows the dashboard instead. Fixed before committing; a test now fails on any such clash.
+- **F-13 · Saved columns could jump back on quick clicks (fixed before committing).** Only the answer to the newest save is used now.
+- Every page opens for every role without a script error (see TEST_RESULTS, round 3).

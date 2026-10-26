@@ -150,3 +150,14 @@ None of these block today's use as a personal portfolio project with test data. 
 ### R-20 · Not tested in this audit
 - Live SMTP e-mail, live AI, the Cloudflare tunnel and TLS settings, a dynamic scanner (ZAP), load tests, real mobile devices, screen readers and colour contrast.
 - **Next step:** an independent penetration test and a staging environment with real e-mail and AI before launch.
+
+## Round 3 (26 October 2026)
+
+### R-26 · Developer tools in a SaaS version
+"Reset to the seed data" (`POST /api/demo/reset`) and "Refresh seed.js" (`POST /api/seed/refresh`) are useful while building, but a customer's admin must never reset the whole database or write a file in the app folder. Before selling, switch them off in production (an environment setting), or keep them only for the platform owner.
+
+### R-27 · Same Filters / Columns on the other tables
+The kit is ready (`public/js/tablekit.js`); only the Reviews table uses it so far. Waiting for the go-ahead (DECISIONS_FOR_YOU.md, A4).
+
+### R-28 · Sidebar panels (Admin, Learning, Back)
+A proposal only, waiting for a decision (DECISIONS_FOR_YOU.md, A1). The sidebar was not changed.

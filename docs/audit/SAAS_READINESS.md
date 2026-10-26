@@ -118,3 +118,9 @@ Not implemented: no plans, seat counts, billing or usage limits. No payment prov
 9. [ ] CSP after removing inline handlers; ESLint in the project
 10. [ ] Automated browser (end-to-end) tests for the main workflows
 11. [ ] **Independent penetration test** on the staging environment before the first paying customer
+
+## Round 3 (26 October 2026)
+
+- The questions that need a decision before the SQLite step (one database per company or one shared database, the sign-up of a new company, AI models, voices and budgets) are explained in plain words in **DECISIONS_FOR_YOU.md**.
+- Developer tools that must be switched off for customers: R-26.
+- Access control was tested route by route for every role (TEST_RESULTS, round 3). It is a good base for adding the company boundary (tenant) on every route in the SQLite step.

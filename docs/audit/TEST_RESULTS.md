@@ -91,3 +91,34 @@ A comment placed in the middle of a line in `public/js/comply.js` (round 2) stop
 ## Remaining failures
 
 None. All 129 automated tests pass. The open items are design and architecture limits, not failing tests (REMAINING_ISSUES.md).
+
+## Round 3 (26 October 2026): every action, every role
+
+**Automated tests: 135, all passing** (`npm test`, about 16 seconds). New in this round:
+
+| Test | What it proves |
+|---|---|
+| `role-matrix.test.js` | All **142 server routes** (read from the source, so new routes are covered by themselves) are tried by admin, QA, team lead, trainer, agent and a signed-out visitor, with an empty body and with a body of wrong types: no 500 anywhere, **459 correct 403s**, **253 correct 401s**, nothing of a wrong type saved, and the project's `seed.js` / `data.json` come out byte for byte the same |
+| `md-and-syntax.test.js` › no two page scripts declare the same top-level name | a clash silently stops a whole page from loading (it happened once during this round) |
+| `workflows-more.test.js` › widget sizes, table columns, old-style library categories | the new dashboard sizes and saved columns are cleaned by the server; categories saved by the seed come back with their name |
+
+**Browser sweep (copy of the real data, port 3199):** every page (48) opened as each role:
+
+| Role | Pages that open | Script errors | Pages sent back to the dashboard (as the rules say) |
+|---|---|---|---|
+| Admin | 48 | 0 | none |
+| QA | 38 | 0 | the 10 admin pages |
+| Team lead | 34 | 0 | QA Entry, scorecard set-up (3), admin pages |
+| Trainer | 32 | 0 | as team lead + Review planner, QA workload |
+| Agent | 19 | 0 | everything for staff; the agent sees only their own reviews and AutoQA conversations |
+
+New features checked by hand in the browser:
+- dashboard chips (add, choose, ✕, Reset), widget resize by mouse (width snaps to the grid, height free, saved), Dashboard / Views tabs
+- Reviews Filters panel (live count) and Columns (hide, show, drag, saved on the server, survives a reload, fast clicks)
+- tasks Compact / Detailed / List
+- Team Review fold and views
+- Category Stats tiles and the three pop-ups
+- scorecard tabs, category search, cards / table
+- top scrollbar only while the bottom one is off screen
+
+`npm audit --omit=dev`: unchanged since round 2 (the moderate `uuid` advisory through `exceljs`, R-19).

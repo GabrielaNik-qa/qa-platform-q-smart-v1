@@ -179,3 +179,9 @@ Details, impact and next steps are in REMAINING_ISSUES.md.
 ## Residual risk and recommendation
 
 All confirmed problems found in the two rounds are fixed and covered by tests. The app is still **not ready** to be sold to independent companies until R-1 to R-4 are resolved. After that, an independent penetration test should be done before going live.
+
+## Round 3 (26 October 2026)
+
+- **S-28 · "Refresh seed.js" could overwrite the project's seed.js from a copy of the app (fixed).** The admin action always wrote `seed.js` in the app folder, even when the server ran on another data file (tests, a demo copy). The new every-route test triggered it and replaced seed.js with made-up users. seed.js was restored from git; data.json was never touched. The action now refuses unless the app runs on its own data.json, and the test checks both files are unchanged after every run.
+- **Every route × every role:** 142 routes, 6 identities, empty and wrong-type bodies. No 500, no route that lets in a role it should refuse, nothing of a wrong type stored. AutoQA conversations and reviews are limited per person on the server (an agent sees only their own).
+- New screens use `esc()` for every value they show and `jsq()` for every value inside `onclick`. Team colours are only accepted as `#rrggbb`.
