@@ -802,3 +802,14 @@ button.fchip { border: 0; font: inherit; font-size: 13px; padding: 7px 12px } bu
 .ttp { right: 0; left: auto; min-width: 250px; max-height: 360px; overflow: auto; padding: 12px; gap: 10px } .ttp label { display: grid; gap: 4px; font-size: 12px; color: var(--mu) } .ttp b { font-size: 13px }
 .ttpc label { display: flex; gap: 8px; align-items: center; color: var(--tx); font-size: 13px }
 th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } th.tts-a::after { content: " \25B2"; font-size: 10px } th.tts-d::after { content: " \25BC"; font-size: 10px }
+
+/* ---- Team pulse widgets and the Dashboards gallery (October 2026) */
+.dbrief { display: flex; gap: 12px; align-items: flex-start; line-height: 1.65; font-size: 15px } .dbrief > div > span { margin-right: 4px } .dbi { color: var(--ac); flex: none; margin-top: 2px }
+.dinb { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--bd) } .dinb:first-of-type { border-top: 0 } .dinb > span:nth-child(2) { flex: 1; font-size: 14px } .dinb .ib { min-height: 30px; padding: 0 10px; font-size: 13px }
+.dheat { display: grid; gap: 4px; align-items: center; font-size: 13px } .dheat small { color: var(--mu); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis } .dheat a { color: inherit; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis } .dheat .heat { min-width: 0; width: 100%; border: 0; cursor: pointer; font: 600 12px var(--font-m, inherit) } .dhn { text-align: center; color: var(--mu); font-style: normal }
+.dgal { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px }
+.dgc { display: grid; gap: 8px; align-content: start; background: var(--pn); border: 1px solid var(--bd); border-radius: 14px; padding: 14px; text-align: left; color: var(--tx); font: inherit } .dgc.rec { border: 2px solid var(--ac) } .dgc b { font-size: 15px }
+.dgi { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--sunk); color: var(--ac) } .dgi svg { width: 20px; height: 20px }
+.dthumb { display: flex; flex-wrap: wrap; gap: 3px } .dthumb i { height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--ac) 22%, var(--sunk)) }
+.dgb { display: flex; gap: 6px; flex-wrap: wrap } .dgb .ib { min-height: 32px; padding: 0 10px; font-size: 13px }
+.dgnew { border-style: dashed; place-items: center; text-align: center; color: var(--mu); cursor: pointer; min-height: 150px } .dgnew:hover { color: var(--tx); border-color: var(--tx) }

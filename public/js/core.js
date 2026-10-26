@@ -248,13 +248,13 @@ async function load() {
   if (['kb', 'news', 'acad', 'coach', 'quiz'].includes(route)) want.push(['kb', '/api/kb']);
   if (route === 'dash' && ME && ME.role === 'agent') want.push(['kb', '/api/kb'], ['qz', '/api/quizzes']);
   if (['quiz', 'acad'].includes(route)) want.push(['qz', '/api/quizzes']);
-  if (['kb', 'acad', 'coach'].includes(route) && ed) want.push(['pg', '/api/kb/progress']);
+  if (['kb', 'acad', 'coach', 'dash'].includes(route) && ed) want.push(['pg', '/api/kb/progress']);
   if (['kb', 'quiz'].includes(route)) want.push(['ai', '/api/ai/status']);
   want.push(['sk', '/api/skills'], ['rc', '/api/root-causes'], ['qf', '/api/qflags']);
   if (['users', 'teams', 'wsp', 'sco', 'skills', 'dash'].includes(route)) want.push(['ws', '/api/workspaces']);
   if (['sco', 'scat'].includes(route)) want.push(['cl', '/api/categories']);
   if (['autoqa', 'aqcats', 'aqlist', 'aqgaps', 'dash'].includes(route)) want.push(['ac', '/api/auto-cats']);
-  if (['autoqa', 'aqlist', 'aqgaps'].includes(route)) want.push(['aq', '/api/autoqa']);
+  if (['autoqa', 'aqlist', 'aqgaps', 'dash'].includes(route)) want.push(['aq', '/api/autoqa']);
   const got = await Promise.all(want.map(w => g(w[1]))), R = {};
   want.forEach((w, k) => { R[w[0]] = got[k]; });
   const sig = got.join('|'), changed = sig !== LASTSIG; LASTSIG = sig;

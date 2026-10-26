@@ -31,9 +31,9 @@ const viewsFor = page => { const r = WPREV || ME.role; return [{ id: 'std', name
 let DV = LS.get('qa_dv', 'main');   // the tab of the dashboard: 'main' = your Standard view, 'views' = the named views (kept apart so the main one never gets messed up)
 const namedOf = page => page === 'dash' ? viewsFor(page).slice(1) : viewsFor(page);
 const curView = (page, vid) => { const l = viewsFor(page); if (vid) return l.find(v => v.id === vid) || l[0]; if (page === 'dash' && DV !== 'views') return l[0];
-  const o = namedOf(page), id = LS.get('qa_view_' + page, ''); return o.find(v => v.id === id) || o.find(v => v.kind === 'shared' && !canShare()) || o[0] || l[0]; };
+  const o = [...namedOf(page), ...(page === 'dash' && typeof dashTpls === 'function' ? dashTpls() : [])], id = LS.get('qa_view_' + page, ''); return o.find(v => v.id === id) || o.find(v => v.kind === 'shared' && !canShare()) || o[0] || l[0]; };
 const itemsOf = (page, v) => v.kind === 'std' ? stdLayout(page, WPREV || ME.role) : (v.items || []).map(wNorm).filter(x => WREG[page][x.id]);
-const canEditView = page => { const v = curView(page); return !WPREV && (v.kind !== 'shared' || canShare()); };
+const canEditView = page => { const v = curView(page); return !WPREV && v.kind !== 'tpl' && (v.kind !== 'shared' || canShare()); };   // a ready-made dashboard is copied, not changed
 const setView = (page, id) => { LS.set('qa_view_' + page, id); render(); };
 
 // ---- saving: every change goes straight into the view you are looking at (you can undo the last one)
@@ -129,8 +129,9 @@ function wBar(page, chips = '') {
   const tabs = page !== 'dash' || DV === 'views', l = namedOf(page), cv = curView(page), ed = canEditView(page), adm = ME.role === 'admin';
   const vt = `<div class=wvt>${l.map(v => `<button class="${v.id === cv.id ? 'on' : ''}" onclick="setView('${page}',${jsq(v.id)})" title="${v.kind === 'shared' ? 'Shared with ' + esc(v.roles.map(r => r === 'all' ? 'everyone' : ROLE[r]).join(', ')) + (v.by ? ' · by ' + esc(v.by) : '') : v.kind === 'mine' ? 'Only you see this view' : 'The standard view of your role'}">${v.kind === 'shared' ? TIC.team : ''}${esc(v.name)}</button>`).join('')}<button class=wvn2 onclick="wNewView('${page}')" title="Make a new view">${IC.plus} New view</button></div>`;
   const tools = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${WPREV ? `<span class="pill wn">Previewing as ${ROLE[WPREV]}</span>` : ''}${adm ? `<select title="See the page as another role" onchange="WPREV=this.value==='me'?'':this.value;render()"><option value=me>View as: me</option>${Object.entries(ROLE).map(([k, v]) => `<option value=${k} ${WPREV === k ? 'selected' : ''}>View as: ${v}</option>`).join('')}</select>` : ''}`
-    + (ed ? `<button class="ib ibx" onclick="WADD='${page}';render()">${IC.plus} Add widget</button><button class="ib ibx" onclick="WDISP='${page}';render()">${TIC.list || IC.list} Display</button>` : cv.kind === 'shared' ? `<button class="ib ibx" onclick="wNewView('${page}')" title="Make your own copy you can change">${IC.plus} Make my own copy</button>` : '') + `</div>`;
-  return tabs ? `<div class=wvbar>${vt}${tools}</div>${chips}` : `<div class=wvbar>${chips || '<div></div>'}${tools}</div>`;
+    + (cv.kind === 'tpl' ? `<button class="ib ibx" onclick="dvUse('${cv.id}')">${IC.g_home} Use as my home</button><button class="ib ibx" onclick="wNewView('${page}')" title="Make your own copy you can change">${IC.plus} Make my own copy</button>` : ed ? `<button class="ib ibx" onclick="WADD='${page}';render()">${IC.plus} Add widget</button><button class="ib ibx" onclick="WDISP='${page}';render()">${TIC.list || IC.list} Display</button>` : cv.kind === 'shared' ? `<button class="ib ibx" onclick="wNewView('${page}')" title="Make your own copy you can change">${IC.plus} Make my own copy</button>` : '') + `</div>`;
+  const back = `<div class=wvt style="align-items:center"><button onclick="dvGal()">${IC.back} All dashboards</button><b style="padding:0 10px">${esc(cv.name)}</b>${cv.kind === 'tpl' ? '<span class="pill ac">Ready-made</span>' : ''}</div>`;   // the Dashboards tab: back to the gallery
+  return page === 'dash' && tabs ? `<div class=wvbar>${back}${tools}</div>${chips}` : tabs ? `<div class=wvbar>${vt}${tools}</div>${chips}` : `<div class=wvbar>${chips || '<div></div>'}${tools}</div>`;
 }
 const wTb = (x, page) => `<div class=wtb2><span class=wgrip title="Drag to move" ${wGrip(page, x.k)}>⠿</span><button onclick="WSET={page:'${page}',k:${jsq(x.k)}};render()" title="Settings: title, filters, width">⚙</button><button onclick="wDel('${page}',${jsq(x.k)})" title="Remove this widget">✕</button></div>`;
 const wFilt = x => x.f && (x.f.t || x.f.p || x.f.c) ? `<span class=wfc title="This widget has its own filter">${[x.f.c ? CHP[x.f.c] : '', x.f.t ? esc(tn(x.f.t)) : '', x.f.p ? PERN[x.f.p] : ''].filter(Boolean).join(' · ')}</span>` : '';
@@ -254,12 +255,11 @@ PG.dash = function () {
       + shown.map(d => `<label class="fchip ${d.v ? 'set' : ''}">${d.n} is <select id="dfc-${d.k}" onchange="dfSet('${d.k}',this.value)">${sel(d.v, [['', 'All'], ...d.o()])}</select><button type=button class=fcx onclick="dfDel('${d.k}')" title="Remove this filter">✕</button></label>`).join('')
       + (can.length ? `<span class=fadd><button type=button class="fchip fplus" onclick="DFM=!DFM;render()" aria-expanded="${DFM}">${IC.plus} Filter</button>${DFM ? `<div class=fpop role=menu>${can.map(d => `<button role=menuitem onclick="dfOpen('${d.k}')">${d.n}</button>`).join('')}</div>` : ''}</span>` : '')
       + (any ? `<a href="javascript:void(0)" class=agl onclick="dfReset()">Reset</a>` : '') + `</div>`;
-    const nv = namedOf('dash').length, tabs = `<div class=sg role=tablist><button role=tab aria-selected="${DV !== 'views'}" class="${DV !== 'views' ? 'on' : ''}" onclick="dvTab('main')">Dashboard</button><button role=tab aria-selected="${DV === 'views'}" class="${DV === 'views' ? 'on' : ''}" onclick="dvTab('views')">Views${nv ? ` · ${nv}` : ''}</button></div>`;
+    const nv = namedOf('dash').length, tabs = `<div class=sg role=tablist><button role=tab aria-selected="${DV !== 'views'}" class="${DV !== 'views' ? 'on' : ''}" onclick="dvTab('main')">Dashboard</button><button role=tab aria-selected="${DV === 'views'}" class="${DV === 'views' ? 'on' : ''}" onclick="dvTab('views')">Dashboards</button></div>`;
     return head('Quality Dashboard', 'Personal overview of quality performance and quick actions',
       `<div style="display:flex;gap:8px;flex-wrap:wrap"><div class=sx style="width:290px"><span>${IC.search}</span><input class=qi style="padding-right:64px" placeholder="Search lead ID, agent, campaign…" onkeydown='if(event.key=="Enter"){Q=this.value.trim();KQ=true;location.hash="calls"}'><kbd class=kb>Ctrl K</kbd></div>${bellBtn()}<button class="ib ibx" onclick="viewHist()">${IC.clock} View history</button>${staff() ? `<button class="btn ibx" onclick="goPage('entry')">${IC.plus} New evaluation</button>` : ''}</div>`)
       + `<div class=hd style="margin-bottom:10px;align-items:center"><div><h2 style="margin:0;font-size:20px">Welcome back, ${esc(ME.name)} ${pill(ROLE[ME.role] || ME.role, 'ac')}</h2><p class=mu style="margin:4px 0 0">Here is a quick overview of your recent quality performance.</p></div>${tabs}</div>`
-      + (DV === 'views' && !nv ? `<div class="agem wempty"><b>No views yet.</b><br><span class=mu>Views are extra dashboards for different needs, for example one for team leads or one only for chats. Your main Dashboard stays as it is.</span><br><button class=btn style="margin-top:12px" onclick="wNewView('dash')">${IC.plus} New view</button></div>`
-        : wBar('dash', ctl) + wGrid('dash', ctxOf));
+      + (DV === 'views' && DVG ? dashGallery()        : wBar('dash', ctl) + wGrid('dash', ctxOf));
   } finally { THR = null; }
 };
 // the dashboard filters that can be added with "+ Filter" (agents only see their own reviews, so they get no team / agent / reviewer filter)
@@ -274,7 +274,7 @@ function dfSet(k, v) { dfVal(k, v); if (!DADD.includes(k)) DADD.push(k); render(
 function dfDel(k) { dfVal(k, ''); DADD = DADD.filter(x => x !== k); render(); }
 function dfOpen(k) { DFM = false; if (!DADD.includes(k)) DADD.push(k); render(); const s = $('#dfc-' + k); if (s) { s.focus(); try { s.showPicker(); } catch (e) { /* older browsers: the list opens on the next click */ } } }
 function dfReset() { P = 'all'; T = ''; DCH = ''; DRV = ''; DSC = ''; DAG = ''; DADD = []; render(); }
-function dvTab(t) { DV = t; LS.set('qa_dv', t); WDISP = null; WADD = null; render(); }
+function dvTab(t) { if (t === 'views') DVG = true; DV = t; LS.set('qa_dv', t); WDISP = null; WADD = null; render(); }
 document.addEventListener('click', e => { if (DFM && !e.target.closest('.fadd')) { DFM = false; render(); } });
 
 // the groups of the widget gallery
