@@ -400,3 +400,131 @@ Where: **AutoQA › AI analyst** (admin, QA, team leads and trainers; agents nev
 
 **To decide (no rush):**
 1. Do you want the more natural ElevenLabs voices next? Each call would then cost a little.
+
+## L. Proposal: Workforce (like Zoho People) and Capacity planning (fair split) — 26 October, waiting for your yes
+
+### What I studied in the Zoho People help (the links you sent, 4.0 and 5.0)
+- **Employee handbook:**
+  - attendance (check-in, views, regularization, permission, on duty, shifts, reports)
+  - leave (apply, balances, comp off, grants, cancel, holidays, resource availability)
+  - self-service
+  - approvals
+  - dashboard
+- **Admin guide:**
+  - attendance policy (strict or lenient, hours, round-off)
+  - specific policies and grace periods
+  - regularization settings
+  - shift settings, rotation, patterns, auto shift assignment
+  - leave policies (accrual, carry forward, sandwich rule)
+  - work calendar
+  - Bradford score
+  - employee information
+  - Zia (the AI) with its list of prompts
+
+### Our current people data
+Name, e-mail, role, team, title, languages, skills, phone, start date and team history. There is nothing yet for attendance, leave, shifts or campaign volumes.
+
+### What we take from Zoho, and what we leave out
+
+**Phase 1 — People and calendar (the base everything else needs)**
+- **Employee record, new fields:**
+  - employee ID
+  - employment type (full time, part time, contract, intern)
+  - hours per week
+  - reporting manager (the team lead by default, can be changed)
+  - country and location (for holidays)
+  - status (active, on leave, left)
+  - exit date and reason
+  - birthday (hidden unless the person allows it)
+  - emergency contact
+
+  Departments stay our **teams**, and positions stay the **title**.
+- **Work calendar per country:**
+  - the work week
+  - weekends, including half days
+  - public holidays (Bulgarian holidays filled in, editable)
+- **Shifts:**
+  - Shift templates: name, colour, start and end (overnight allowed), breaks, grace minutes, optional core hours, and auto check-out time for people who forget.
+  - A default shift.
+  - A **weekly rota per team** (a grid of people × days) with "copy last week".
+  - Repeating patterns, for example two-week cycles or "4 on, 4 off".
+
+**Phase 2 — Attendance and time off**
+- **Check in / check out / break** button in the app. Telephony logins (Voiso, Ringover) can be imported later.
+- **The status is worked out by itself, every day:**
+  - on time
+  - late (minutes)
+  - left early
+  - short hours
+  - absent
+  - on leave
+  - holiday
+  - day off
+- **Rules, like Zoho's "grace periods":**
+  - Grace minutes for late arrival and early departure.
+  - How many lates are allowed per week or month.
+  - What happens after that. **I recommend a warning to the person and the team lead, not a pay deduction**, because payroll is not in Q-smart.
+- **Corrections (Zoho calls them "regularization"):** for example "I forgot to check in".
+  - Allowed within X days, with a reason chosen from a list.
+  - The team lead approves.
+  - Everything is kept in the history.
+- **Time off:**
+  - leave types: paid, unpaid, sick, or by hours
+  - yearly allowance and balance, with carry-over
+  - full day, half day or hours
+  - the team lead approves, and a deputy can approve while the lead is away
+  - part of a leave can be cancelled
+  - a team calendar
+  - a warning when too many people of a team are off on the same day
+  - an optional "sandwich rule" (whether weekends inside a leave count)
+
+**Phase 3 — Team today, with the AI touch**
+- **"Team today" panel per team:**
+  - planned and available now
+  - on time, late, not checked in yet, on break, off and sick
+  - a strip for tomorrow and this week
+- **AI morning brief** to every team lead, 30 minutes after the shift starts:
+  - who is late or missing
+  - patterns, such as "late 3 times this month" or "often off on Mondays"
+  - days ahead without enough people for the capacity plan
+- **Ask in words**, through the AI analyst: "Who is off on Friday?", "How many agents do I have today?", "Who was late last week?"
+- **Bradford score:** a standard measure where many short, unplanned absences weigh more than one long one. It flags people early so a lead can talk to them.
+- **Reports:**
+  - late arrivals
+  - absences
+  - presence hours
+  - leave balances
+  - Bradford score
+  - attendance by team
+
+**Phase 4 — Capacity planning (the fair split)**
+- Import each month: campaign, brand, segment (0-30, 30-60 …, each company can name its own) and number of leads.
+- The agents and their working days come from phases 1–2 (rota, leave, part time).
+- **The formula:** each agent gets the same share of **every** campaign, sized by the days and hours they can work.
+  - Whole leads only. The leftover leads go to whoever is furthest below their fair total.
+  - Result: everyone has the same mix of segments, and no agent is more than 1 lead away from their exact fair share.
+  - Tried on sample numbers (3,349 leads, 7 agents, part time and days off): every campaign adds up, and the biggest gap is 0.69 of a lead.
+- Each agent sees their numbers for the month, week and day.
+- When someone is off or new leads arrive, only the leads not yet worked are split again among the people available for the remaining days.
+
+**Left out:** these are payroll-heavy, hardware-based, or already in Q-smart in our own way.
+- payroll, compensation and benefits
+- e-signature
+- biometric devices, kiosk, face recognition and GPS tracking
+- the Japan-only union rules
+- HR help desk (we have Tasks)
+- Zoho's own learning, performance and surveys (we already have these)
+
+### About the patent
+I can't give legal advice. Two practical points:
+- Methods made mainly of software and business rules are hard to patent, especially in Europe.
+- Showing the method publicly before filing can block a patent later.
+
+Please talk to a patent attorney before demoing it outside the company. I can write a full technical description for them.
+
+### Decisions I need from you (recommended choice first)
+1. **Menu place:** a new **Workforce** group after Planning: Team today, Attendance, Time off, Shifts and rota, Capacity planning. The settings (leave types, holidays, shift templates, rules) go in Admin › People.
+2. **How check-in times arrive first:** the Check in button in Q-smart, with the telephony import later.
+3. **After too many lates:** a warning only, not a deduction.
+4. **Fair split size:** by working days and hours, so part-timers and people on leave get less.
+5. **Mid-month change:** the app suggests the new split of the remaining leads, and a person approves it before agents see it.
