@@ -778,3 +778,11 @@ button.fchip { border: 0; font: inherit; font-size: 13px; padding: 7px 12px } bu
 .cstn { font-size: 13px; color: var(--mu); font-weight: 600; line-height: 1.3; min-height: 34px } .cst > b { font: 700 26px var(--font-d, inherit) }
 .cstm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap }
 .heat { display: inline-block; min-width: 54px; text-align: center; padding: 3px 8px; border-radius: 7px; background: color-mix(in srgb, var(--c) 18%, transparent); color: var(--c); font: 600 13px var(--font-m, inherit) }
+
+/* ---- Scorecards group: tabs with counts (as in Zendesk QA), category cards and table, root-cause shares (October 2026) */
+.sctabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 16px }
+.sctabs a { display: inline-flex; gap: 8px; align-items: center; padding: 8px 14px; border-radius: 99px; border: 1px solid var(--bd); color: var(--mu); text-decoration: none; font-weight: 600; font-size: 13.5px; background: var(--pn) }
+.sctabs a b { font: 600 12px var(--font-m, inherit); padding: 1px 8px; border-radius: 99px; background: var(--sunk); color: var(--tx) }
+.sctabs a:hover { color: var(--tx); border-color: var(--tx) } .sctabs a.on { background: color-mix(in srgb, var(--ac) 14%, var(--pn)); border-color: var(--ac); color: var(--ac) } .sctabs a.on b { background: var(--ac); color: #fff }
+.scb { gap: 8px } .scbm { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--mu) }
+.rcbars { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px 24px }

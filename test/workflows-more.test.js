@@ -114,6 +114,12 @@ test('everyone keeps their own table columns (short keys only, no doubles; null 
   assert.deepEqual(db().users.find(u => u.username === 'a.two').prefs.cols, { users: ['n'] });
 });
 
+test('library categories saved the old way (name kept in "n") are sent with their name', async () => {
+  const d = db(); d.categories.push({ id: 'cat-old', n: 'Old style', k: false, it: [{ t: 'Said hello', p: 10, k: false }] }); fs.writeFileSync(DATA, JSON.stringify(d));
+  const r = await (await as('q.qa')).get('/api/categories');
+  assert.equal(r.status, 200); assert.equal(r.json.find(c => c.id === 'cat-old').name, 'Old style');
+});
+
 test('deleting a scorecard keeps the reviews made with it', async () => {
   const adm = await as('t.admin');
   assert.equal((await adm.del('/api/scorecards/' + SCID)).status, 200);

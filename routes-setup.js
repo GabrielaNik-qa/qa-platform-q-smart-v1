@@ -54,7 +54,8 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, scopeOf, AD
   app.delete('/api/root-causes/:id', need(...EDIT), (req, res) => { const db = load(); db.rootCauses = db.rootCauses.filter(x => x.id !== req.params.id); save(db); res.json({ ok: 1 }); });
 
   // ---------------------------------------------------------------- reusable category library (scorecards copy categories from here)
-  app.get('/api/categories', need(), (req, res) => res.json(load().categories));
+  // older library categories (from the seed) keep their name in "n": they are sent with "name" like the ones made in the app
+  app.get('/api/categories', need(), (req, res) => res.json((load().categories || []).map(c => c && !c.name && c.n ? { ...c, name: c.n } : c)));
   const catBody = b => {
     const name = str(b.name, 80); if (!name) throw new Error('Give the category a name');
     if (!Array.isArray(b.it) || !b.it.length || b.it.length > 30) throw new Error('A category needs at least one item');
