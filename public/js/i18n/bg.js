@@ -983,6 +983,7 @@ I18N.add('bg', {
   "The welcome message will not show again. Switch it back on in My account › Notifications & Confirmations.": "Приветственото съобщение няма да се показва отново. Можете да го включите пак от Моят акаунт › Известия и потвърждения.",
   "Welcome": "Добре дошли", "Don't show me this again": "Не показвай това отново", "Get started": "Започнете",
   "Getting started": "Първи стъпки", "Click to see this period in detail": "Щракнете, за да видите периода подробно",
+  "Filter rows": "Филтрирай редовете", "Choose columns": "Избери колони", "Copy for Excel": "Копирай за Excel", "Sort": "Подреди", "Show columns": "Показани колони", "Contains": "Съдържа", "Any text in the row": "Произволен текст в реда", "Clear filters": "Изчисти филтрите", "Copy every matching row, to paste into Excel": "Копирай всички намерени редове, за да ги поставите в Excel", "Copy": "Копирай", "Copied 1 row · paste it into Excel": "Копиран е 1 ред · поставете го в Excel", "This browser did not allow copying. Use the Excel export instead.": "Браузърът не позволи копиране. Използвайте експорта към Excel.",
   "Back to the main menu": "Назад към главното меню", "Set-up": "Настройка", "Quality set-up": "Настройка на качеството", "Practice": "Практика",
   "Average in reviews": "Средно в оценките", "How often each root cause is chosen": "Колко често се избира всяка основна причина", "No categories found": "Няма намерени категории", "Not in any review yet": "Още не е използвана в оценка", "Used in": "Използвана в", "— click one in Analytics › Category Stats to see the items and agents behind it": "— щракнете върху причина в Анализи › Статистика по категории, за да видите точките и агентите зад нея",
   "Answered No": "Отговор „Не“", "BEST AGENTS": "НАЙ-ДОБРИ АГЕНТИ", "BY TEAM": "ПО ЕКИПИ", "Best agent": "Най-добър агент", "Cards": "Карти", "Expand": "Разгъни", "Minimise": "Сгъни", "FOR THESE ITEMS": "ЗА ТЕЗИ ТОЧКИ", "ITEMS ANSWERED NO": "ТОЧКИ С ОТГОВОР „НЕ“", "LATEST REVIEWS": "ПОСЛЕДНИ ОЦЕНКИ", "LATEST REVIEWS WITH NO": "ПОСЛЕДНИ ОЦЕНКИ С „НЕ“", "LOWEST REVIEWS": "НАЙ-НИСКИ ОЦЕНКИ", "Minimised — press ⌄ to see every agent.": "Сгънато — натиснете ⌄, за да видите всички агенти.", "NEEDS SUPPORT": "НУЖДАЕ СЕ ОТ ПОДКРЕПА", "Needs help": "Нуждае се от помощ", "No items": "Няма точки", "No root causes were chosen for this item.": "За тази точка не са избрани основни причини.", "Nobody": "Никой", "ROOT CAUSES": "ОСНОВНИ ПРИЧИНИ", "Share of answers": "Дял от отговорите", "Table": "Таблица", "WHO MISSES IT": "КОЙ Я ПРОПУСКА", "— click one to see where it comes from": "— щракнете върху категория, за да видите откъде идва", "with at least one No": "с поне едно „Не“",
@@ -1459,4 +1460,8 @@ I18N.add("bg", {
   ["{n} scorecards", {"one":"{n} оценъчна карта","other":"{n} оценъчни карти"}],
   ["+ {n} more", "+ още {n}"],
   ["Open {~x}", "Отвори {~x}"],
+  ["Copied {n} rows · paste them into Excel", {"one":"Копиран е {n} ред · поставете го в Excel","other":"Копирани са {n} реда · поставете ги в Excel"}],
+  ["{n} rows", {"one":"{n} ред","other":"{n} реда"}],
+  ["{n} of {n2}", "{n} от {n2}"],
+  ["Contains “{x}”", "Съдържа „{x}“"],
 ]);

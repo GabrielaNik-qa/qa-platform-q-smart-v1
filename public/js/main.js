@@ -115,6 +115,7 @@ function render() {
 // a table wider than its card ends at the bottom of the screen, so its sideways scrollbar is at hand even with 100 rows per page (the
 // column titles stay pinned on top); while that scrollbar is below the screen, a second one shows above the table, kept in step with it
 function fitTables() {
+  tblTools();                                             // every table gets its toolbar first (filter, columns, sort, copy)
   $$('#m .sc').forEach(sc => {
     sc.style.maxHeight = '';
     const wide = !sc.closest('.ov') && sc.scrollWidth > sc.clientWidth + 1, prev = sc.previousElementSibling;

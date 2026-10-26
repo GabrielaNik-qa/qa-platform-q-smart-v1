@@ -982,6 +982,7 @@ I18N.add('fr', {
   "The welcome message will not show again. Switch it back on in My account › Notifications & Confirmations.": "Le message de bienvenue ne s'affichera plus. Réactivez-le dans Mon compte › Notifications et confirmations.",
   "Welcome": "Bienvenue", "Don't show me this again": "Ne plus afficher", "Get started": "Commencer",
   "Getting started": "Premiers pas", "Click to see this period in detail": "Cliquez pour voir cette période en détail",
+  "Filter rows": "Filtrer les lignes", "Choose columns": "Choisir les colonnes", "Copy for Excel": "Copier pour Excel", "Sort": "Trier", "Show columns": "Colonnes affichées", "Contains": "Contient", "Any text in the row": "N’importe quel texte de la ligne", "Clear filters": "Effacer les filtres", "Copy every matching row, to paste into Excel": "Copier toutes les lignes trouvées, pour les coller dans Excel", "Copy": "Copier", "Copied 1 row · paste it into Excel": "1 ligne copiée · collez-la dans Excel", "This browser did not allow copying. Use the Excel export instead.": "Le navigateur n’a pas autorisé la copie. Utilisez plutôt l’export Excel.",
   "Back to the main menu": "Retour au menu principal", "Set-up": "Configuration", "Quality set-up": "Configuration qualité", "Practice": "Pratique",
   "Average in reviews": "Moyenne dans les évaluations", "How often each root cause is chosen": "Fréquence de choix de chaque cause racine", "No categories found": "Aucune catégorie trouvée", "Not in any review yet": "Pas encore utilisée dans une évaluation", "Used in": "Utilisée dans", "— click one in Analytics › Category Stats to see the items and agents behind it": "— cliquez sur une cause dans Analyses › Statistiques par catégorie pour voir les points et les agents concernés",
   "Answered No": "Réponses « Non »", "BEST AGENTS": "MEILLEURS AGENTS", "BY TEAM": "PAR ÉQUIPE", "Best agent": "Meilleur agent", "Cards": "Cartes", "Expand": "Déplier", "Minimise": "Replier", "FOR THESE ITEMS": "POUR CES POINTS", "ITEMS ANSWERED NO": "POINTS RÉPONDUS « NON »", "LATEST REVIEWS": "DERNIÈRES ÉVALUATIONS", "LATEST REVIEWS WITH NO": "DERNIÈRES ÉVALUATIONS AVEC « NON »", "LOWEST REVIEWS": "ÉVALUATIONS LES PLUS BASSES", "Minimised — press ⌄ to see every agent.": "Replié — appuyez sur ⌄ pour voir tous les agents.", "NEEDS SUPPORT": "À ACCOMPAGNER", "Needs help": "À aider", "No items": "Aucun point", "No root causes were chosen for this item.": "Aucune cause racine n’a été choisie pour ce point.", "Nobody": "Personne", "ROOT CAUSES": "CAUSES RACINES", "Share of answers": "Part des réponses", "Table": "Tableau", "WHO MISSES IT": "QUI LE MANQUE", "— click one to see where it comes from": "— cliquez sur une catégorie pour voir d’où cela vient", "with at least one No": "avec au moins un « Non »",
@@ -1457,4 +1458,8 @@ I18N.add("fr", {
   ["{n} scorecards", {"one":"{n} grille","other":"{n} grilles"}],
   ["+ {n} more", "+ {n} de plus"],
   ["Open {~x}", "Ouvrir {~x}"],
+  ["Copied {n} rows · paste them into Excel", {"one":"{n} ligne copiée · collez-la dans Excel","other":"{n} lignes copiées · collez-les dans Excel"}],
+  ["{n} rows", {"one":"{n} ligne","other":"{n} lignes"}],
+  ["{n} of {n2}", "{n} sur {n2}"],
+  ["Contains “{x}”", "Contient « {x} »"],
 ]);
