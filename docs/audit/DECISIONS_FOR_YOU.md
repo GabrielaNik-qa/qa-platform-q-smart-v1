@@ -386,3 +386,17 @@ Where: **AutoQA › AI analyst** (admin, QA, team leads and trainers; agents nev
 
 **To decide (no rush):**
 1. Should the monthly report also be e-mailed to the admins, once e-mail is set up?
+
+## K. Voice in the Call Simulator (built 26 October, free browser voice)
+
+- **The customer talks.** Every customer line is read aloud by the computer's own voice, in the app's language (English, Bulgarian or French). This works both with the AI customer and in the simple simulator.
+  - The "Customer voice on/off" button switches it off, and each person's choice is remembered.
+  - When the computer has no voice for the language, a tip says how to add one: Windows Settings › Time & language › Speech.
+- **The agent can answer by talking.** Press "Answer by voice", speak, and the reply is written and sent when you stop.
+  - It works in Chrome and Edge. Elsewhere the button is hidden and typing works as before.
+  - The browser asks once for permission to use the microphone.
+- **No cost and no outside voice service.** ElevenLabs or OpenAI voices (keys already in Admin › Integrations) can come later for more natural voices.
+- Checked: speaking in English and Bulgarian, the on/off switch, both simulators. Not checked with a real microphone: the test browser cannot speak into it. Please try it once in Chrome.
+
+**To decide (no rush):**
+1. Do you want the more natural ElevenLabs voices next? Each call would then cost a little.

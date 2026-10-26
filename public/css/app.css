@@ -821,3 +821,8 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 
 /* ---- AI team lead: weekly summaries */
 .aisum { border-top: 1px solid var(--bd); padding-top: 10px; margin-top: 10px } .aisum:first-child { border-top: 0; margin-top: 0; padding-top: 0 } .aisum .prose { font-size: 14px; line-height: 1.6 }
+
+/* ---- Call Simulator voice: the microphone button while it listens */
+#vmic.rec { background: var(--bad); color: #fff; border-color: var(--bad); animation: vpulse 1.2s ease-in-out infinite }
+@keyframes vpulse { 50% { opacity: .65 } }
+@media (prefers-reduced-motion: reduce) { #vmic.rec { animation: none } }

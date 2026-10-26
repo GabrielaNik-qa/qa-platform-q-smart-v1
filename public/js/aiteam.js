@@ -143,21 +143,21 @@ function aiSimPage() {
 <div class=row style="margin-top:8px"><small class=mu>Saved on your Agents page (tab Simulations).</small><span style="flex:1"></span><button class=ib onclick="aiSimStart(${jsq(s.sc)})">Same scenario again</button><button class=btn onclick="aiSimReset()">Choose another scenario</button></div>`);
   if (!sc) return top + `<div class=g style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">${AIRP.scenarios.map(x => card(esc(x.name), `<p class=mu style="margin:0 0 8px">${esc(x.who)}</p><div class=msg>${esc(x.open)}</div><button class=btn style="margin-top:10px" onclick="aiSimStart(${jsq(x.id)})">Start the call</button>`)).join('')}</div>`;
   return top + card(`${esc(sc.name)} · ${esc(sc.who)}`, s.msgs.map(m => `<div class="msg ${m.r === 'a' ? 'me' : ''}">${esc(m.t)}</div>`).join('') + (s.busy ? `<div class=msg><i class=mu>${tr('The customer is typing…')}</i></div>` : '')
-    + (s.end ? `<p class=mu>${tr('The customer has ended the call. Press "Finish and get my score".')}</p>` : `<div class=row style="margin-top:10px"><input id=si style="flex:1" placeholder="Type your reply…" onkeydown='if(event.key=="Enter")aiSimSend()' ${s.busy ? 'disabled' : ''}><button class=btn onclick="aiSimSend()" ${s.busy ? 'disabled' : ''}>Send</button></div>`)
+    + (s.end ? `<p class=mu>${tr('The customer has ended the call. Press "Finish and get my score".')}</p>` : `<div class=row style="margin-top:10px"><input id=si style="flex:1" placeholder="Type your reply…" onkeydown='if(event.key=="Enter")aiSimSend()' ${s.busy ? 'disabled' : ''}><button class=btn onclick="aiSimSend()" ${s.busy ? 'disabled' : ''}>Send</button></div>${voxBar('aiSimSend')}`)
     + `<div style="display:flex;gap:8px;margin-top:12px"><button class=pb onclick="aiSimFinish()">Finish and get my score</button><button class=ib onclick="aiSimReset()">Start again</button></div>`);
 }
-const aiSimStart = id => { const sc = AIRP.scenarios.find(x => x.id === id); AIRS = { sc: id, msgs: [{ r: 'c', t: sc.open }], t0: Date.now(), busy: false, end: false, res: null }; render(); setTimeout(() => { const i = $('#si'); if (i) i.focus(); }, 50); };
-const aiSimReset = () => { AIRS = { sc: null, msgs: [], t0: 0, busy: false, end: false, res: null }; render(); };
+const aiSimStart = id => { const sc = AIRP.scenarios.find(x => x.id === id); AIRS = { sc: id, msgs: [{ r: 'c', t: tr(sc.open) }], t0: Date.now(), busy: false, end: false, res: null }; render(); voxSay(tr(sc.open)); setTimeout(() => { const i = $('#si'); if (i) i.focus(); }, 50); };
+const aiSimReset = () => { voxStop(); AIRS = { sc: null, msgs: [], t0: 0, busy: false, end: false, res: null }; render(); };
 async function aiSimSend() {
   const i = $('#si'), t = i && i.value.trim(); if (!t || AIRS.busy) return;
   AIRS.msgs.push({ r: 'a', t }); AIRS.busy = true; render();
   const r = await api('/api/ai/roleplay/turn', { sc: AIRS.sc, msgs: AIRS.msgs }); AIRS.busy = false;
   if (!r.ok) { AIRS.msgs.pop(); render(); const n = $('#si'); if (n) n.value = t; return toast(await errOf(r, 'The customer could not answer'), true); }
-  const j = await r.json(); AIRS.msgs.push({ r: 'c', t: j.reply }); AIRS.end = !!j.end; render(); const n = $('#si'); if (n) n.focus();
+  const j = await r.json(); AIRS.msgs.push({ r: 'c', t: j.reply }); AIRS.end = !!j.end; render(); voxSay(j.reply); const n = $('#si'); if (n) n.focus();
 }
 const aiSimFinish = () => once('aisimf', async () => {
   if (!AIRS.msgs.some(m => m.r === 'a')) return toast('Write at least one reply first', true);
-  toast('The AI trainer is scoring your call…');
+  voxStop(); toast('The AI trainer is scoring your call…');
   const r = await api('/api/ai/roleplay/finish', { sc: AIRS.sc, msgs: AIRS.msgs, minutes: Math.ceil((Date.now() - AIRS.t0) / 60000) }); if (!r.ok) return toast(await errOf(r, 'Could not score the call'), true);
   AIRS.res = await r.json(); render();
 });
@@ -198,3 +198,35 @@ const aiAnaDel = id => ask('Delete this report?', 'It is removed for everyone.',
 wdef('dash', 'ai_ana', 'AI analyst', 60, (c, s, x) => { const r = AIA.reports[0];
   return card(wt(x, 'AI analyst'), (r ? `<b>${esc(r.q)}</b> <small class=mu>${fdt(r.at)}</small><div class=prose style="margin-top:6px">${md(r.text)}</div>` : '<p class=mu style="margin:0">No report yet.</p>')
     + `<a href="javascript:void(0)" class=agl style="display:inline-block;margin-top:8px" onclick="AQTAB='ana';LS.set('qa_aqtab','ana');goPage('autoqa')">Ask the AI analyst ›</a>`); }, 'The latest report of the AI analyst', 'Lists');
+
+// ===================== voice for the Call Simulator (free, built into the browser) =====================
+// The customer's lines are read aloud in the language of the app (when the computer has such a voice), and the agent can
+// answer by talking: the browser turns speech into text and sends it. Speech to text works in Chrome and Edge; elsewhere
+// the microphone button is hidden and typing works as before. Nothing is sent to an outside voice service.
+const VSR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let VOX = LS.get('qa_vox', true), VREC = null;
+if (window.speechSynthesis) speechSynthesis.getVoices();                          // the computer's voices load in the background: ask early
+const voxHas = () => { const S = window.speechSynthesis, vs = S ? S.getVoices() : [], l = I18N.locale().slice(0, 2); return !vs.length || vs.some(v => v.lang.slice(0, 2) === l); };
+function voxSay(t) {
+  const S = window.speechSynthesis; if (!VOX || !S || !t) return;
+  S.cancel(); const u = new SpeechSynthesisUtterance(t), lang = I18N.locale(), vs = S.getVoices();
+  u.lang = lang; u.voice = vs.find(v => v.lang === lang) || vs.find(v => v.lang.slice(0, 2) === lang.slice(0, 2)) || null; S.speak(u);
+}
+const voxStop = () => { if (window.speechSynthesis) speechSynthesis.cancel(); if (VREC) { try { VREC.abort(); } catch (e) { /* already stopped */ } VREC = null; } };
+const voxToggle = () => { VOX = !VOX; LS.set('qa_vox', VOX); if (!VOX) voxStop(); render(); };
+// the microphone: what you say appears in the reply box while you talk, and is sent when you stop
+function voxMic(send) {
+  if (!VSR) return toast('Answering by voice works in Chrome and Edge', true);
+  if (VREC) { VREC.stop(); return; }
+  if (window.speechSynthesis) speechSynthesis.cancel();
+  const r = VREC = new VSR(), b = $('#vmic'); r.lang = I18N.locale(); r.interimResults = true; r.maxAlternatives = 1;
+  if (b) b.classList.add('rec');
+  r.onresult = e => { const i = $('#si'), t = [...e.results].map(x => x[0].transcript).join(' '); if (i) i.value = t; if (e.results[e.results.length - 1].isFinal && t.trim()) { VREC = null; window[send](); } };
+  r.onerror = e => { VREC = null; const m = $('#vmic'); if (m) m.classList.remove('rec'); if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('Allow the microphone for this site to answer by voice', true); else if (e.error !== 'no-speech' && e.error !== 'aborted') toast('Could not hear you. Try again or type your reply.', true); };
+  r.onend = () => { if (VREC === r) VREC = null; const m = $('#vmic'); if (m) m.classList.remove('rec'); };
+  try { r.start(); } catch (e) { VREC = null; if (b) b.classList.remove('rec'); }
+}
+// the voice buttons under the reply box: speak the customer on/off, and the microphone (only where the browser can do it)
+const voxBar = send => `<div class=row style="gap:8px;margin-top:8px;flex-wrap:wrap"><button class="ib${VOX ? ' on' : ''}" aria-pressed="${VOX}" onclick="voxToggle()" title="Read the customer's replies aloud">${VOX ? '🔊' : '🔇'} ${tr(VOX ? 'Customer voice on' : 'Customer voice off')}</button>`
+  + (VSR ? `<button class=ib id=vmic onclick="voxMic('${send}')" title="Press, speak your reply, and it is sent when you stop">🎤 ${tr('Answer by voice')}</button>` : `<small class=mu>${tr('Answering by voice works in Chrome and Edge.')}</small>`)
+  + (VOX && !voxHas() ? `<small class=mu>${tr('This computer has no voice for this language, so another voice reads it. Add one in Windows Settings › Time & language › Speech.')}</small>` : '') + '</div>';
