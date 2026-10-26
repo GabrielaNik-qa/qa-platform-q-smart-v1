@@ -41,7 +41,7 @@ const NDEL = new Set();                          // notifications deleted a mome
 let ENT = null, ENT0 = '', EDITID = '', SE = null;
 // data of the other sections (loaded when you open them)
 let SKL = { skills: [], languages: [], counts: { skills: {}, languages: {} } }, WSP = [], RCS = [], CATLIB = [], ACAT = [], AQC = [], AQI = { ai: false };
-let AUD = [], TASKS = [], TPLS = [], SESS = [], CALS = [], KB = { folders: [], articles: [], reads: {}, newsletters: [], attempts: [] }, QZ = [], QATT = [], PROG = [], AIS = { enabled: false }, AISET = null, AIDR = [], AIL = { risk: [], summaries: [], plans: [] };
+let AUD = [], TASKS = [], TPLS = [], SESS = [], CALS = [], KB = { folders: [], articles: [], reads: {}, newsletters: [], attempts: [] }, QZ = [], QATT = [], PROG = [], AIS = { enabled: false }, AISET = null, AIDR = [], AIL = { risk: [], summaries: [], plans: [] }, AIT = { needs: [], quizzes: [], plays: [], on: false }, AIRP = { on: false, scenarios: [] };
 // misc preferences
 // COLP = the sidebar setting you chose; COL = what is shown (on screens 1100px wide or less the sidebar is always compact)
 let COLP = LS.get('qa_col', false), COL = COLP || innerWidth <= 1100;
@@ -231,7 +231,7 @@ async function load() {
   if (adm) want.push(['us', '/api/users'], ['rg', '/api/registrations']);
   if (route === 'tasks') { want.push(['tk', '/api/tasks']); if (ed) want.push(['tp', '/api/task-templates']); }
   if (route === 'agents') want.push(['se', '/api/sessions'], ['tk', '/api/tasks'], ['sm', '/api/simulations']);
-  if (route === 'sim') want.push(['sm', '/api/simulations']);
+  if (route === 'sim') want.push(['sm', '/api/simulations'], ['rp', '/api/ai/roleplay']);
   if (['coach', 'o2o', 'acad'].includes(route) || (route === 'dash' && ME && ME.role === 'agent')) want.push(['se', '/api/sessions']);
   if (route === 'audit' && adm) want.push(['au', '/api/audit']);
   if (route === 'tasks' || route === 'coach' || route === 'dash') want.push(['tk', '/api/tasks']);
@@ -256,7 +256,7 @@ async function load() {
   if (['autoqa', 'aqcats', 'aqlist', 'aqgaps', 'dash'].includes(route)) want.push(['ac', '/api/auto-cats']);
   if (['autoqa', 'aqlist', 'aqgaps', 'dash'].includes(route)) want.push(['aq', '/api/autoqa']);
   if (['autoqa', 'dash'].includes(route) && ME && ['admin', 'qa'].includes(ME.role)) want.push(['ad', '/api/ai/drafts']);
-  if (['autoqa', 'dash'].includes(route) && ed) want.push(['al', '/api/ai/lead']);
+  if (['autoqa', 'dash'].includes(route) && ed) want.push(['al', '/api/ai/lead'], ['at', '/api/ai/trainer']);
   const got = await Promise.all(want.map(w => g(w[1]))), R = {};
   want.forEach((w, k) => { R[w[0]] = got[k]; });
   const sig = got.join('|'), changed = sig !== LASTSIG; LASTSIG = sig;
@@ -284,6 +284,8 @@ async function load() {
   if (R.ai) AIS = JSON.parse(R.ai);
   if (R.ad) AIDR = JSON.parse(R.ad);
   if (R.al) AIL = JSON.parse(R.al);
+  if (R.at) AIT = JSON.parse(R.at);
+  if (R.rp) AIRP = JSON.parse(R.rp);
   if (R.ais) AISET = JSON.parse(R.ais);
   if (R.sk) SKL = JSON.parse(R.sk);
   if (R.rc) RCS = JSON.parse(R.rc);

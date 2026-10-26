@@ -330,3 +330,34 @@ Where: **AutoQA › AI team lead** (admin, QA, team leads and trainers; agents n
 **To decide (no rush):**
 1. Should the Monday summary be on by default for new companies?
 2. Should a trainer also be able to write summaries? Now only admin, QA and team leads can.
+
+## I. AI trainer (built 26 October)
+
+**1. Practice calls with an AI customer**
+- Where: **Call Simulator**.
+- An agent picks one of 5 scenarios and talks to an AI customer:
+  - price objection
+  - late delivery
+  - cancellation
+  - technical problem
+  - identity check
+- The customer pushes back when the agent is vague and calms down when they listen.
+- At the end, the AI trainer gives a score, what went well and tips. The result is saved on the Agents page (tab Simulations).
+- It is **off** until an admin ticks "Agents can practise with an AI customer" in Admin › Integrations, because every message uses the AI budget. While it is off, the old simple simulator stays.
+
+**2. AI trainer tab**
+- Where: **AutoQA › AI trainer**, for admin, QA, team leads and trainers.
+- **Training needs:** the categories where agents were below target in the last 30 days, with their names.
+- **Draft a quiz with AI:** the AI writes 5 questions from:
+  - the scorecard items
+  - what agents missed
+  - the matching knowledge base articles
+
+  The quiz is saved as a **draft**, given to those agents. A person checks it in Quizzes and publishes it; only then do the agents see it.
+- **Practice calls:** you can read every AI practice call with its score and tips.
+
+There is also an "AI trainer" card on the **Trainer** dashboard.
+
+**To decide (no rush):**
+1. Do you want your own scenarios, for example your real products and offers? I can add a "New scenario" form.
+2. Should the AI trainer suggest a practice scenario to an agent who is weak in a category?

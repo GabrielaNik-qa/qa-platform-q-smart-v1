@@ -12,7 +12,7 @@ function aiSim(list) {
   ok.forEach(d => { const sc = SCS.find(s => s.id === d.scid); (d.sim.cats || []).forEach((v, i) => { const n = sc && sc.cats[i] ? sc.cats[i].n : '#' + (i + 1); if (v != null) (cats[n] = cats[n] || []).push(v); }); });
   return { n: ok.length, v: ok.length ? avg(ok.map(d => d.sim.items)) : null, diff: ok.length ? avg(ok.map(d => Math.abs((d.fsc || 0) - (d.sc || 0)))) : null, cats: Object.entries(cats).map(([n, l]) => ({ n, v: avg(l) })).sort((p, q) => p.v - q.v) };
 }
-const aiTabs = () => aiRev() || aiLeadOk() ? `<div class=sg role=tablist style="margin:0 0 14px"><button role=tab class="${AQTAB !== 'ai' && AQTAB !== 'lead' ? 'on' : ''}" onclick="aqTab('auto')">AutoQA</button>${aiRev() ? `<button role=tab class="${AQTAB === 'ai' ? 'on' : ''}" onclick="aqTab('ai')">AI reviewer${AIDR.filter(d => d.status === 'draft').length ? ` · ${AIDR.filter(d => d.status === 'draft').length}` : ''}</button>` : ''}<button role=tab class="${AQTAB === 'lead' ? 'on' : ''}" onclick="aqTab('lead')">AI team lead${AIL.risk.length ? ` · ${AIL.risk.length}` : ''}</button></div>` : '';
+const aiTabs = () => aiRev() || aiLeadOk() ? `<div class=sg role=tablist style="margin:0 0 14px"><button role=tab class="${!['ai', 'lead', 'train'].includes(AQTAB) ? 'on' : ''}" onclick="aqTab('auto')">AutoQA</button>${aiRev() ? `<button role=tab class="${AQTAB === 'ai' ? 'on' : ''}" onclick="aqTab('ai')">AI reviewer${AIDR.filter(d => d.status === 'draft').length ? ` · ${AIDR.filter(d => d.status === 'draft').length}` : ''}</button>` : ''}<button role=tab class="${AQTAB === 'lead' ? 'on' : ''}" onclick="aqTab('lead')">AI team lead${AIL.risk.length ? ` · ${AIL.risk.length}` : ''}</button><button role=tab class="${AQTAB === 'train' ? 'on' : ''}" onclick="aqTab('train')">AI trainer${AIT.needs.length ? ` · ${AIT.needs.length}` : ''}</button></div>` : '';
 function aiRevPage() {
   const wait = AIDR.filter(d => d.status === 'draft'), done = AIDR.filter(d => d.status !== 'draft'), m = aiSim(AIDR.filter(aiMonth)), all = aiSim(AIDR);
   const row = d => [d.dt, `<b>${esc(d.agn || an(d.agent))}</b>`, `<span class=mono>${esc(d.lead)}</span>`, chTag(d.ch), esc(d.scn), `<b class=mono style="color:${col(d.sc)}">${d.sc}%</b>`];
@@ -66,7 +66,7 @@ const aiReject = () => ask('Reject this AI review?', 'Nothing is published. You 
 let AIPV = null, AILT = '';                                   // AIPV = the coaching plan being checked; AILT = the team shown
 const aiLeadOk = () => ['admin', 'qa', 'lead', 'trainer'].includes(ME.role);
 const aiSumOk = () => ['admin', 'qa', 'lead'].includes(ME.role);
-function aiTabPage() { return AQTAB === 'ai' && aiRev() ? aiRevPage() : AQTAB === 'lead' && aiLeadOk() ? aiLeadPage() : ''; }
+function aiTabPage() { return AQTAB === 'ai' && aiRev() ? aiRevPage() : AQTAB === 'lead' && aiLeadOk() ? aiLeadPage() : AQTAB === 'train' && aiLeadOk() ? aiTrainPage() : ''; }
 function aiLeadPage() {
   const risk = AIL.risk.filter(x => !AILT || x.team === AILT), wait = AIL.plans.filter(p => p.status === 'draft'), sums = AIL.summaries.filter(x => !AILT || x.team === AILT);
   return `<div class=row style="margin:0 0 12px;gap:8px;flex-wrap:wrap"><select onchange="AILT=this.value;render()" style="max-width:220px"><option value="">All teams</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${t.id}" ${AILT === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select><span style="flex:1"></span>${aiSumOk() ? `<button class=btn id=ail_sum onclick="aiSumNow()">${IC.plus} Write this week's summary</button>` : ''}</div>`
@@ -115,3 +115,52 @@ wdef('dash', 'ai_lead', 'AI team lead', 60, (c, s, x) => {
   return card(`${wt(x, 'AI team lead')} <span class=bg>${risk.length} at risk</span>`, (risk.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${risk.slice(0, 6).map(z => `<button class=ib onclick="openAgent(${jsq(z.agent)})" title="${esc(z.why.join(', '))}">${esc(z.name)}</button>`).join('')}</div>` : '<p class=mu style="margin:0 0 8px">✓ No agent is at risk right now.</p>')
     + (sum ? `<div class="prose aisum">${md(sum.text)}</div>` : '<p class=mu style="margin:0">No weekly summary yet.</p>') + `<a href="javascript:void(0)" class=agl onclick="AQTAB='lead';LS.set('qa_aqtab','lead');goPage('autoqa')">Open the AI team lead ›</a>`);
 }, 'The weekly AI summary and the agents at risk', 'Lists');
+
+// ===================== AI trainer (AutoQA › "AI trainer"): training needs, quiz drafts, practice calls with an AI customer =====================
+// Training needs are the categories where agents were below target in the last 30 days (no AI needed). For any of them the AI
+// drafts a quiz from the scorecard, the missed items and the matching knowledge base articles; it stays a draft until a person
+// checks and publishes it in Quizzes. When an admin switches it on, the Call Simulator lets agents talk to an AI customer.
+function aiTrainPage() {
+  const nd = AIT.needs, qz = AIT.quizzes, pl = AIT.plays;
+  return card(`Training needs <span class=bg>${nd.length}</span>`, nd.length ? tbl(['Category', 'Average', 'Agents below target', ''], nd.map(x => [`<b>${esc(x.cat)}</b>`, `<b class=mono>${x.avg}%</b> <small class=mu>${tr(`${x.agents} agents`)}</small>`, x.below.slice(0, 6).map(a => `${agLink(a.agent, a.name)} <small class=mono>${a.avg}%</small>`).join(', ') + (x.below.length > 6 ? ` <small class=mu>+${x.below.length - 6}</small>` : ''), `<button class=ib onclick="aiQuizNew(${jsq(x.cat)})">Draft a quiz with AI</button>`])) : '<p class=mu style="margin:0">✓ No category is below target in the last 30 days.</p>')
+    + card(`Quizzes drafted by the AI trainer <span class=bg>${qz.length}</span>`, qz.length ? tbl(['Quiz', 'Questions', 'Given to', 'Status', 'Made', ''], qz.map(q => [esc(q.title), q.qs, q.n || '—', q.status === 'published' ? pill('Published', 'ok') : pill('Draft', 'wn'), fdt(q.created), `<button class=ib onclick="aiOpenQuiz(${jsq(q.id)})">${q.status === 'published' ? tr('Open') : tr('Check and publish')}</button>`])) : '<p class=mu style="margin:0">No quiz yet. Use "Draft a quiz with AI" next to a training need: you check the questions before agents see them.</p>')
+    + card(`Practice calls with the AI customer <span class=bg>${pl.length}</span>`, (AIT.on ? '' : `<p class=mu style="margin:0 0 8px">${ME.role === 'admin' ? tr('Switch on "Agents can practise with an AI customer" in Admin › Integrations.') : tr('An admin can switch on practice with an AI customer in Admin › Integrations.')}</p>`)
+      + (pl.length ? tbl(['Agent', 'Scenario', 'Score', 'Date', ''], pl.map(s => [agLink(s.agent, s.name), esc(s.scenario), `<b class=mono style="color:${scol(s.score)}">${s.score}%</b>`, fdt(s.date), `<details><summary class=agl style="cursor:pointer">Read the call</summary><div class=aisum style="white-space:pre-wrap;max-width:560px">${esc(s.tx || '')}</div>${(s.tips || []).length ? `<p style="margin:6px 0 0"><b>Tips:</b> ${s.tips.map(esc).join(' · ')}</p>` : ''}</details>`])) : '<p class=mu style="margin:0">No practice call yet.</p>'));
+}
+const aiQuizNew = cat => once('aiquiz', async () => {
+  const x = AIT.needs.find(n => n.cat === cat); toast('The AI trainer is writing the quiz…');
+  const r = await api('/api/ai/trainer/quiz', { cat, agents: x ? x.below.map(a => a.agent) : [] }); if (!r.ok) return toast(await errOf(r, 'The AI could not write the quiz'), true);
+  AIT.quizzes.unshift(await r.json()); render(); toast('Quiz draft ready: check it, then publish');
+});
+// opens the draft in the quiz editor once the Quizzes page has loaded its list
+const aiOpenQuiz = async id => { goPage('quiz'); const ready = () => route === 'quiz' && QZ.some(q => q.id === id) && document.querySelector('#m [onclick*="editQuiz"]'); for (let i = 0; i < 60 && !ready(); i++) await new Promise(ok => setTimeout(ok, 100)); if (ready()) editQuiz(id); };
+
+// ---- Call Simulator with an AI customer (used instead of the scripted practice call when switched on)
+let AIRS = { sc: null, msgs: [], t0: 0, busy: false, end: false, res: null };
+function aiSimPage() {
+  const s = AIRS, sc = AIRP.scenarios.find(x => x.id === s.sc), top = head('Call Simulator', 'Practise with an AI customer. When you finish, the AI trainer scores the call and gives you tips.');
+  if (s.res) return top + card(`${tr('Your score')}: <b class=mono style="color:${scol(s.res.score)}">${s.res.score}%</b>`, `<div class=row style="gap:16px;align-items:flex-start;flex-wrap:wrap"><div style="flex:1;min-width:240px"><b>What went well</b><ul>${(s.res.good || []).map(g => `<li>${esc(g)}</li>`).join('')}</ul></div><div style="flex:1;min-width:240px"><b>Try next time</b><ul>${(s.res.tips || []).map(g => `<li>${esc(g)}</li>`).join('')}</ul></div></div>
+<div class=row style="margin-top:8px"><small class=mu>Saved on your Agents page (tab Simulations).</small><span style="flex:1"></span><button class=ib onclick="aiSimStart(${jsq(s.sc)})">Same scenario again</button><button class=btn onclick="aiSimReset()">Choose another scenario</button></div>`);
+  if (!sc) return top + `<div class=g style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">${AIRP.scenarios.map(x => card(esc(x.name), `<p class=mu style="margin:0 0 8px">${esc(x.who)}</p><div class=msg>${esc(x.open)}</div><button class=btn style="margin-top:10px" onclick="aiSimStart(${jsq(x.id)})">Start the call</button>`)).join('')}</div>`;
+  return top + card(`${esc(sc.name)} · ${esc(sc.who)}`, s.msgs.map(m => `<div class="msg ${m.r === 'a' ? 'me' : ''}">${esc(m.t)}</div>`).join('') + (s.busy ? `<div class=msg><i class=mu>${tr('The customer is typing…')}</i></div>` : '')
+    + (s.end ? `<p class=mu>${tr('The customer has ended the call. Press "Finish and get my score".')}</p>` : `<div class=row style="margin-top:10px"><input id=si style="flex:1" placeholder="Type your reply…" onkeydown='if(event.key=="Enter")aiSimSend()' ${s.busy ? 'disabled' : ''}><button class=btn onclick="aiSimSend()" ${s.busy ? 'disabled' : ''}>Send</button></div>`)
+    + `<div style="display:flex;gap:8px;margin-top:12px"><button class=pb onclick="aiSimFinish()">Finish and get my score</button><button class=ib onclick="aiSimReset()">Start again</button></div>`);
+}
+const aiSimStart = id => { const sc = AIRP.scenarios.find(x => x.id === id); AIRS = { sc: id, msgs: [{ r: 'c', t: sc.open }], t0: Date.now(), busy: false, end: false, res: null }; render(); setTimeout(() => { const i = $('#si'); if (i) i.focus(); }, 50); };
+const aiSimReset = () => { AIRS = { sc: null, msgs: [], t0: 0, busy: false, end: false, res: null }; render(); };
+async function aiSimSend() {
+  const i = $('#si'), t = i && i.value.trim(); if (!t || AIRS.busy) return;
+  AIRS.msgs.push({ r: 'a', t }); AIRS.busy = true; render();
+  const r = await api('/api/ai/roleplay/turn', { sc: AIRS.sc, msgs: AIRS.msgs }); AIRS.busy = false;
+  if (!r.ok) { AIRS.msgs.pop(); render(); const n = $('#si'); if (n) n.value = t; return toast(await errOf(r, 'The customer could not answer'), true); }
+  const j = await r.json(); AIRS.msgs.push({ r: 'c', t: j.reply }); AIRS.end = !!j.end; render(); const n = $('#si'); if (n) n.focus();
+}
+const aiSimFinish = () => once('aisimf', async () => {
+  if (!AIRS.msgs.some(m => m.r === 'a')) return toast('Write at least one reply first', true);
+  toast('The AI trainer is scoring your call…');
+  const r = await api('/api/ai/roleplay/finish', { sc: AIRS.sc, msgs: AIRS.msgs, minutes: Math.ceil((Date.now() - AIRS.t0) / 60000) }); if (!r.ok) return toast(await errOf(r, 'Could not score the call'), true);
+  AIRS.res = await r.json(); render();
+});
+// dashboard: the training needs (in the Trainer and Learning dashboards)
+wdef('dash', 'ai_train', 'AI trainer', 30, (c, s, x) => card(`${wt(x, 'AI trainer')} <span class=bg>${AIT.needs.length}</span>`, (AIT.needs.length ? AIT.needs.slice(0, 5).map(n => `<div class=row style="padding:4px 0;border-bottom:1px solid var(--bd)"><span>${esc(n.cat)}</span><small class=mu>${n.below.length} below target · <b class=mono>${Math.round(n.avg)}%</b></small></div>`).join('') : '<p class=mu style="margin:0">✓ No category is below target in the last 30 days.</p>')
+  + `<a href="javascript:void(0)" class=agl style="display:inline-block;margin-top:8px" onclick="AQTAB='train';LS.set('qa_aqtab','train');goPage('autoqa')">Open the AI trainer ›</a>`), 'Training needs from the reviews and the quizzes drafted by AI', 'Lists');

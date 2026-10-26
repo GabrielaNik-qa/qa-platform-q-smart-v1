@@ -135,4 +135,23 @@ async function coachPlan(data, playbook) {
   return { title: str(j.title, 150) || 'Coaching plan', goals: str(j.goals, 2000), focus: (Array.isArray(j.focus) ? j.focus : []).map(x => str(x, 80)).filter(Boolean).slice(0, 6),
     actions: (Array.isArray(j.actions) ? j.actions : []).map(a => ({ t: str(a && a.t, 200), days: Math.max(1, Math.min(60, Math.round(Number(a && a.days) || 7))) })).filter(a => a.t).slice(0, 6), notes: str(j.notes, 3000) };
 }
-module.exports = { enabled, MODEL, PRICE, setConfig, ping, reviewDraft, teamSummary, coachPlan, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };
+// AI trainer: plays the customer in a practice call (role-play), then scores what the agent did
+const talk = msgs => msgs.map(m => (m.r === 'a' ? 'Agent: ' : 'Customer: ') + m.t).join('\n');
+const rules = playbook => playbook ? '\nCompany rules the agent should follow:\n' + String(playbook).slice(0, 4000) : '';
+async function roleCustomer(sc, msgs, playbook) {
+  const system = 'You play the CUSTOMER in a call-center training role-play; the trainee is the agent. Stay in character: never act as the agent, never give advice, never say that this is a role-play or that you are an AI. '
+    + 'Who you are: ' + sc.persona + '. Your situation: ' + sc.brief + ' '
+    + 'Reply with 1 to 3 short, natural sentences, in the same language as the agent. Be realistic: push back when the agent is vague or ignores you, calm down when they listen and offer a real solution. '
+    + 'When your problem is fully handled, or the agent has clearly lost you, end your reply with the tag [END].' + rules(playbook);
+  const t = await ask(system, [{ type: 'text', text: 'The call so far:\n' + talk(msgs) + "\n\nWrite only the customer's next reply." }], 400);
+  return { reply: str(t.replace(/\[END\]/gi, '').replace(/^\s*customer:\s*/i, ''), 600) || '…', end: /\[END\]/i.test(t) };
+}
+async function roleScore(sc, msgs, playbook) {
+  const system = 'You are an experienced call-center trainer. Score how well the AGENT handled this practice call, from 0 to 100. Judge only what the agent said: listening and empathy, clear questions, a real solution, the company rules, a good close. '
+    + 'Write in plain, encouraging words, in the language of the call.' + rules(playbook)
+    + '\nReply with JSON only: {"score":0,"good":["what went well"],"tips":["one concrete thing to do differently"]} with 1 to 3 items in each list.';
+  const j = parseJson(await ask(system, [{ type: 'text', text: 'Scenario: ' + sc.name + '. ' + sc.brief + '\n\nThe call:\n' + talk(msgs).slice(0, 30000) }], 1500));
+  const l = v => (Array.isArray(v) ? v : []).map(x => str(x, 200)).filter(Boolean).slice(0, 3);
+  return { score: Math.max(0, Math.min(100, Math.round(Number(j.score) || 0))), good: l(j.good), tips: l(j.tips) };
+}
+module.exports = { enabled, MODEL, PRICE, setConfig, ping, reviewDraft, teamSummary, coachPlan, roleCustomer, roleScore, talk, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };

@@ -21,7 +21,8 @@ test.before(async () => {
       res.writeHead(ok ? 200 : 401, { 'Content-Type': 'application/json' });
       const reviewer = ok && /quality reviewer/.test(JSON.parse(b).system || '');   // the AI QA reviewer: the first item No, the rest Yes
       const sys = ok ? JSON.parse(b).system || '' : '', summary = /weekly quality summary/.test(sys), plan = /coaching plan/.test(sys);
-      const text = summary ? '**Team A** had a hard week: the average fell. Help **k.agent** with the greeting.' : plan ? JSON.stringify({ title: 'Greet every customer', goals: 'Reach the target in two weeks', focus: ['Opening'], actions: [{ t: 'Listen to two calls with a great greeting', days: 3 }, { t: 'Use the greeting on every call', days: 99 }], notes: 'Talk about the greeting.' }) : reviewer ? JSON.stringify({ answers: DEFAULT_SC.cats.map((c, ci) => c.it.map((i, ii) => ({ a: ci === 0 && ii === 0 ? 'n' : 'y', cm: ci === 0 && ii === 0 ? 'No greeting at the start' : '' }))), comment: 'Good call, greet the customer first.', confidence: 82 }) : 'OK';
+      const customer = /play the CUSTOMER/.test(sys), trainer = /call-center trainer/.test(sys), quiz = /multiple-choice quiz/.test(sys), said = ok ? JSON.stringify(JSON.parse(b).messages) : '';
+      const text = customer ? (/sorry/i.test(said.split('Agent:').pop()) ? 'Thank you, that really helps. [END]' : 'That is not good enough!') : trainer ? JSON.stringify({ score: 88, good: ['You said sorry'], tips: ['Offer a date'] }) : quiz ? JSON.stringify({ questions: [1, 2, 3].map(i => ({ q: 'Question ' + i, opts: ['A', 'B', 'C', 'D'], a: 0, why: 'Because' })) }) : summary ? '**Team A** had a hard week: the average fell. Help **k.agent** with the greeting.' : plan ? JSON.stringify({ title: 'Greet every customer', goals: 'Reach the target in two weeks', focus: ['Opening'], actions: [{ t: 'Listen to two calls with a great greeting', days: 3 }, { t: 'Use the greeting on every call', days: 99 }], notes: 'Talk about the greeting.' }) : reviewer ? JSON.stringify({ answers: DEFAULT_SC.cats.map((c, ci) => c.it.map((i, ii) => ({ a: ci === 0 && ii === 0 ? 'n' : 'y', cm: ci === 0 && ii === 0 ? 'No greeting at the start' : '' }))), comment: 'Good call, greet the customer first.', confidence: 82 }) : 'OK';
       res.end(JSON.stringify(ok ? { content: [{ type: 'text', text }], usage: { input_tokens: 10000, output_tokens: 10000 }, stop_reason: 'end_turn', model: JSON.parse(b).model } : { error: { message: 'invalid x-api-key' } }));
     });
   });
@@ -138,4 +139,35 @@ test('the AI team lead: agents at risk from the reviews, the weekly summary, coa
   const p2 = (await a.post('/api/ai/lead/plan', { agent: 'k.agent' })).json, rj = await a.post('/api/ai/lead/plan/' + p2.id + '/reject', {});
   assert.deepEqual([rj.status, rj.json.status], [200, 'rejected']);
   L = (await lead.get('/api/ai/lead')).json; assert.equal(L.plans.length, 2); assert.equal(L.summaries.length, 1);
+});
+
+test('the AI trainer: practice calls with an AI customer (switched on by the admin), training needs from the reviews, quiz drafts a person publishes', async () => {
+  const a = await as('k.admin'), ag = await as('k.agent'), lead = await as('k.lead');
+  await a.put('/api/ai/settings', { anthropicKey: GOOD, rolePlay: false });
+  assert.equal((await ag.get('/api/ai/roleplay')).json.on, false, 'off until the admin switches it on');
+  const call = [{ r: 'c', t: 'My order is a week late and nobody answers my e-mails!' }, { r: 'a', t: 'Where is it?' }];
+  assert.equal((await ag.post('/api/ai/roleplay/turn', { sc: 'late', msgs: call })).status, 400);
+  assert.equal((await a.put('/api/ai/settings', { rolePlay: true })).json.rolePlay, true);
+  const rp = (await ag.get('/api/ai/roleplay')).json; assert.equal(rp.on, true); assert.ok(rp.scenarios.some(x => x.id === 'late' && x.open) && !rp.scenarios[0].brief, 'the hidden brief stays on the server');
+  let t = await ag.post('/api/ai/roleplay/turn', { sc: 'late', msgs: call }); assert.deepEqual([t.status, t.json.reply, t.json.end], [200, 'That is not good enough!', false]);
+  call.push({ r: 'c', t: t.json.reply }, { r: 'a', t: 'I am so sorry, I will send it today with express delivery.' });
+  t = await ag.post('/api/ai/roleplay/turn', { sc: 'late', msgs: call }); assert.deepEqual([t.json.reply, t.json.end], ['Thank you, that really helps.', true], 'the [END] tag is taken out');
+  assert.equal((await ag.post('/api/ai/roleplay/turn', { sc: 'nope', msgs: call })).status, 400);
+  assert.equal((await ag.post('/api/ai/roleplay/turn', { sc: 'late', msgs: [...call, { r: 'c', t: 'ok' }] })).status, 400, 'the agent speaks first');
+  const fin = await ag.post('/api/ai/roleplay/finish', { sc: 'late', msgs: call, minutes: 4 });
+  assert.equal(fin.status, 200); assert.deepEqual([fin.json.score, fin.json.result, fin.json.tips, fin.json.agent, fin.json.ai], [88, 'winner', ['Offer a date'], 'k.agent', true]);
+  assert.match(fin.json.tx, /Agent: I am so sorry/);
+  assert.ok((await ag.get('/api/simulations')).json.some(x => x.id === fin.json.id), 'saved on the Agents page');
+
+  // training needs and quiz drafts
+  assert.equal((await ag.get('/api/ai/trainer')).status, 403, 'agents never see the AI trainer');
+  const T = (await lead.get('/api/ai/trainer')).json, op = T.needs.find(n => n.cat === 'Opening');
+  assert.ok(op && op.below.some(x => x.agent === 'k.agent') && !op.below.some(x => x.agent === 'k.agent2'), 'only the agent below target');
+  assert.ok(T.plays.some(p => p.id === fin.json.id && p.name === 'k.agent'));
+  assert.equal((await lead.post('/api/ai/trainer/quiz', { cat: 'Nope' })).status, 400);
+  const q = await lead.post('/api/ai/trainer/quiz', { cat: 'Opening', agents: ['k.agent', 'k.qa'] });
+  assert.deepEqual([q.status, q.json.status, q.json.qs, q.json.n], [200, 'draft', 3, 1], 'a draft with 3 questions, given only to the agent');
+  const saved = db().quizzes.find(x => x.id === q.json.id); assert.deepEqual([saved.ai.cat, saved.assign.users, saved.kind], ['Opening', ['k.agent'], 'category']);
+  assert.ok(!(await ag.get('/api/quizzes')).json.quizzes.some(x => x.id === q.json.id), 'agents do not see it before it is published');
+  assert.equal((await lead.get('/api/ai/trainer')).json.quizzes[0].id, q.json.id);
 });

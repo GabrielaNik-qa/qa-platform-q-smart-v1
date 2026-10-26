@@ -33,7 +33,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   const show = db => {
     const c = conf(db), k = n => { const v = unseal(c[KEYS[n]]); return { set: !!v, last4: v ? v.slice(-4) : '', env: !v && n === 'anthropic' && !!process.env.ANTHROPIC_API_KEY }; };
     return { model: ai.MODEL(), models: MODELS.map(([id, name]) => ({ id, name, price: ai.PRICE[id] })), budget: Number(c.budget) || 0, usage: usage(),
-      playbook: c.playbook || '', leadAuto: !!c.leadAuto, voice: VOICES.includes(c.voice) ? c.voice : 'browser', elevenVoice: c.elevenVoice || '', keys: { anthropic: k('anthropic'), elevenlabs: k('elevenlabs'), openai: k('openai') }, enabled: ai.enabled() };
+      playbook: c.playbook || '', leadAuto: !!c.leadAuto, rolePlay: !!c.rolePlay, voice: VOICES.includes(c.voice) ? c.voice : 'browser', elevenVoice: c.elevenVoice || '', keys: { anthropic: k('anthropic'), elevenlabs: k('elevenlabs'), openai: k('openai') }, enabled: ai.enabled() };
   };
   app.get('/api/ai/settings', need('admin'), (req, res) => res.json(show(load())));
   // { model, budget, voice, elevenVoice, anthropicKey, elevenKey, openaiKey } — a key: text to set it, "" to remove it, left out to keep it
@@ -44,6 +44,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     if (b.voice !== undefined) { if (!VOICES.includes(b.voice)) return bad(res, 'Unknown voice provider'); c.voice = b.voice; }
     if (b.playbook !== undefined) c.playbook = str(b.playbook, 4000);
     if (b.leadAuto !== undefined) c.leadAuto = b.leadAuto === true;          // the AI team lead writes every team's summary on Monday morning   // the company's rules the AI team follows
+    if (b.rolePlay !== undefined) c.rolePlay = b.rolePlay === true;          // agents may practise with an AI customer (every message uses the budget)
     if (b.elevenVoice !== undefined) c.elevenVoice = String(b.elevenVoice || '').trim().slice(0, 80);
     for (const [field, slot] of [['anthropicKey', 'key'], ['elevenKey', 'elevenKey'], ['openaiKey', 'openaiKey']]) {
       if (b[field] === undefined) continue;
@@ -182,4 +183,67 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   };
   if (!process.env.NO_SCHEDULE) setInterval(weekly, 36e5).unref();
   app.locals.aiWeekly = weekly;
+
+  // ---- AI trainer: practice calls with an AI customer (Call Simulator), training needs from the reviews, quiz drafts a person publishes
+  const SCEN = [
+    { id: 'price', name: 'Price objection', who: 'Price-sensitive customer', persona: 'a price-sensitive customer who likes the product', brief: 'You think the price is too high and you saw a cheaper offer. You stay if the agent shows the value and offers a fair option.', open: "Hi, I'm interested, but honestly your price is too high." },
+    { id: 'late', name: 'Late delivery', who: 'Angry customer', persona: 'an angry customer', brief: 'Your order is a week late, nobody answered your two e-mails, and you need it for a birthday on Saturday.', open: 'My order is a week late and nobody answers my e-mails!' },
+    { id: 'cancel', name: 'Cancellation', who: 'Customer who wants to leave', persona: 'a customer who wants to cancel', brief: 'You want to cancel because you hardly use the service. You might stay for a cheaper plan or a pause, but only if the agent first asks why.', open: 'I want to cancel my subscription today.' },
+    { id: 'tech', name: 'Technical problem', who: 'Confused customer', persona: 'a confused, non-technical customer', brief: 'The app keeps logging you out. You do not know your app version and need simple step-by-step help.', open: "The app keeps logging me out and I don't know what to do." },
+    { id: 'ident', name: 'Identity check', who: 'Customer in a hurry', persona: 'a customer in a hurry', brief: 'You want your delivery address changed right now and find security questions annoying, but you answer them when the agent explains why.', open: "Just change my address, I don't have time for questions." }
+  ];
+  const rpOn = db => !!conf(db).rolePlay && ai.enabled();
+  const scOf = id => SCEN.find(s => s.id === id);
+  const msgsOf = v => (Array.isArray(v) ? v : []).slice(0, 60).map(m => ({ r: m && m.r === 'a' ? 'a' : 'c', t: str(m && m.t, 600) })).filter(m => m.t);
+  app.get('/api/ai/roleplay', need(), (req, res) => res.json({ on: rpOn(load()), scenarios: SCEN.map(({ id, name, who, open }) => ({ id, name, who, open })) }));
+  app.post('/api/ai/roleplay/turn', need(), async (req, res) => {
+    const db = load(), b = req.body || {}, sc = scOf(b.sc), msgs = msgsOf(b.msgs);
+    if (!rpOn(db)) return bad(res, 'Practice with the AI customer is switched off (Admin › Integrations).');
+    if (!sc || !msgs.length || msgs[msgs.length - 1].r !== 'a') return bad(res, 'Write your reply first');
+    if (msgs.filter(m => m.r === 'a').length > 25) return bad(res, 'This practice call is long enough: finish it to get your score.');
+    if (limited('ai-rp:' + req.session.user.username, 150, 36e5)) return res.status(429).json({ error: 'Too many practice messages in one hour. Try again later.' });
+    try { res.json(await ai.roleCustomer(sc, msgs, conf(db).playbook)); } catch (e) { bad(res, e.message); }
+  });
+  app.post('/api/ai/roleplay/finish', need(), async (req, res) => {
+    const db0 = load(), b = req.body || {}, sc = scOf(b.sc), msgs = msgsOf(b.msgs), me = req.session.user;
+    if (!rpOn(db0)) return bad(res, 'Practice with the AI customer is switched off (Admin › Integrations).');
+    if (!sc || !msgs.some(m => m.r === 'a')) return bad(res, 'Write at least one reply first');
+    if (limited('ai-rpf:' + me.username, 30, 36e5)) return res.status(429).json({ error: 'Too many practice calls in one hour. Try again later.' });
+    let r; try { r = await ai.roleScore(sc, msgs, conf(db0).playbook); } catch (e) { return bad(res, e.message); }
+    const db = load(), x = { id: 'm' + hex(5), agent: me.username, scenario: sc.name, persona: sc.who, score: r.score, minutes: Math.max(1, Math.min(240, Math.round(Number(b.minutes) || 1))),
+      result: r.score >= 85 ? 'winner' : 'keep practising', tips: r.tips, good: r.good, ai: true, tx: ai.talk(msgs).slice(0, 8000), date: iso() };
+    db.simulations = [x, ...(db.simulations || [])]; save(db); res.json(x);
+  });
+  function needsOf(db, see) {
+    const m = {};
+    db.users.filter(u => u.role === 'agent' && u.active !== false && see(u.team)).forEach(u => catAvgs(db.evaluations.filter(e => e.agent === u.username && evAge(e) < 30)).forEach(c => {
+      const x = m[c.n] = m[c.n] || { cat: c.n, all: [], below: [] }; x.all.push(c.v); if (c.v < passOf(db, u.team)) x.below.push({ agent: u.username, name: u.name, avg: c.v });
+    }));
+    return Object.values(m).filter(x => x.below.length).map(x => ({ cat: x.cat, avg: avgOf(x.all), agents: x.all.length, below: x.below.sort((a, b) => a.avg - b.avg) }))
+      .sort((a, b) => b.below.length - a.below.length || a.avg - b.avg).slice(0, 20);
+  }
+  const quizRow = q => ({ id: q.id, title: q.title, status: q.status, created: q.created, cat: (q.ai || {}).cat || '', n: ((q.assign || {}).users || []).length, qs: (q.questions || []).length });
+  app.get('/api/ai/trainer', need(...LEADS), (req, res) => {
+    const db = load(), see = inTeams(db, req.session.user), seeU = a => see((db.users.find(u => u.username === a) || {}).team);
+    res.json({ on: rpOn(db), enabled: ai.enabled(), needs: needsOf(db, see), quizzes: (db.quizzes || []).filter(q => q.ai).slice(0, 30).map(quizRow),
+      plays: (db.simulations || []).filter(s => s.ai && seeU(s.agent)).slice(0, 40).map(s => ({ ...s, name: (db.users.find(u => u.username === s.agent) || {}).name || s.agent })) });
+  });
+  app.post('/api/ai/trainer/quiz', need(...LEADS), async (req, res) => {
+    const db = load(), b = req.body || {}, me = req.session.user, cat = str(b.cat, 80), see = inTeams(db, me);
+    const items = (db.scorecards || []).flatMap(s => (s.cats || []).filter(c => c.n === cat).flatMap(c => (c.it || []).map(i => i.t)));
+    if (!cat || !(items.length || db.evaluations.some(e => (e.cs || []).some(c => c.n === cat)))) return bad(res, 'Choose a category');
+    if (!ai.enabled()) return bad(res, 'Connect the AI (Admin › Integrations) to draft quizzes.');
+    if (limited('ai-quiz:' + me.username, 20, 36e5)) return res.status(429).json({ error: 'Too many AI quizzes in one hour. Try again later.' });
+    const agents = [...new Set(Array.isArray(b.agents) ? b.agents : [])].filter(a => { const u = db.users.find(x => x.username === a && x.role === 'agent'); return u && see(u.team); }).slice(0, 200);
+    const words = cat.toLowerCase().split(/[^a-z\u00c0-\u024f\u0400-\u04ff]+/).filter(w => w.length > 4);
+    const arts = (db.kbArticles || []).filter(a => { const h = (a.title + ' ' + (a.topics || []).join(' ')).toLowerCase(); return h.includes(cat.toLowerCase()) || words.some(w => h.includes(w)); }).slice(0, 6);
+    const missed = db.evaluations.filter(e => evAge(e) < 30 && (!agents.length || agents.includes(e.agent))).flatMap(e => (e.cs || []).filter(c => c.n === cat).flatMap(c => (c.it || []).filter(i => i.a === 'n').map(i => i.t + (i.cm ? ' (reviewer: ' + i.cm + ')' : '')))).slice(0, 30);
+    const text = 'Quality category: ' + cat + '\n\nWhat the scorecard checks:\n' + [...new Set(items)].map(t => '- ' + t).join('\n')
+      + (missed.length ? '\n\nWhat agents missed most in recent reviews:\n' + [...new Set(missed)].map(t => '- ' + t).join('\n') : '')
+      + arts.map(a => '\n\n# ' + a.title + '\n' + String(a.body || '').slice(0, 15000)).join('');
+    let questions; try { questions = (await ai.draftQuiz({ text, count: 5 })).questions; } catch (e) { return bad(res, e.message); }
+    const db2 = load(), q = { id: 'q' + hex(4), title: cat + ': refresher quiz', desc: 'Drafted by the AI trainer from the reviews of the last 30 days.', kind: 'category', topics: [cat], articles: arts.map(a => a.id), pass: 80, due: '',
+      assign: { all: false, teams: [], users: agents }, status: 'draft', questions, by: me.name, created: iso(), ai: { cat, model: ai.MODEL(), by: me.username } };
+    db2.quizzes = [q, ...(db2.quizzes || [])]; save(db2); res.json(quizRow(q));
+  });
 };
