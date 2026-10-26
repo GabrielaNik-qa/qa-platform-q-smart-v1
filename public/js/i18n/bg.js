@@ -671,7 +671,7 @@ I18N.add('bg', {
   "Who sees this view": "Кой вижда този изглед",
   "Day": "Ден",
   "Charts over time are grouped by": "Диаграмите във времето се групират по",
-  "Drag the rows to change the order. Untick to hide a widget without deleting it.": "Плъзнете редовете, за да промените реда. Махнете отметката, за да скриете уиджет, без да го изтривате.",
+  "Drag the rows to change the order. Untick to hide a widget without deleting it. On the page, drag the right edge, the bottom edge or the corner of a widget to make it as wide and as high as you like.": "Плъзнете редовете, за да промените реда. Махнете отметката, за да скриете уиджет, без да го изтривате. На страницата плъзнете десния ръб, долния ръб или ъгъла на уиджета, за да го направите толкова широк и висок, колкото искате.",
   "Drag": "Плъзни",
   "Show / hide": "Покажи / скрий",
   "No widgets yet.": "Все още няма уиджети.",
@@ -983,6 +983,7 @@ I18N.add('bg', {
   "The welcome message will not show again. Switch it back on in My account › Notifications & Confirmations.": "Приветственото съобщение няма да се показва отново. Можете да го включите пак от Моят акаунт › Известия и потвърждения.",
   "Welcome": "Добре дошли", "Don't show me this again": "Не показвай това отново", "Get started": "Започнете",
   "Getting started": "Първи стъпки", "Click to see this period in detail": "Щракнете, за да видите периода подробно",
+  "automatic height": "автоматична височина", "Size changed": "Размерът е променен", "Automatic height": "Автоматична височина", "Drag to change the width": "Плъзнете, за да промените ширината", "Drag to change the height (double-click: automatic height)": "Плъзнете, за да промените височината (двоен клик: автоматична височина)", "Drag to change the size (double-click: automatic height)": "Плъзнете, за да промените размера (двоен клик: автоматична височина)", "Width (% of the row)": "Ширина (% от реда)", "Height (px)": "Височина (px)", "Automatic": "Автоматично", "Tip: you can also drag the right edge, the bottom edge or the corner of the widget on the page.": "Съвет: можете също да плъзнете десния ръб, долния ръб или ъгъла на уиджета на страницата.", "Remove this filter": "Премахни този филтър", "Filter": "Филтър", "Views": "Изгледи", "No views yet.": "Все още няма изгледи.", "Views are extra dashboards for different needs, for example one for team leads or one only for chats. Your main Dashboard stays as it is.": "Изгледите са допълнителни табла за различни нужди, например едно за тийм лидерите или едно само за чатовете. Основното ви табло остава непроменено.",
   "Tags": "Етикети", "All tags": "Всички етикети", "Type a tag and press Enter": "Напишете етикет и натиснете Enter",
   "— what this scorecard is for (e.g. Calls, Chats, B2C). Tags only help to find and filter scorecards: any scorecard can be used for any review.": "— за какво е тази оценъчна карта (напр. Разговори, Чатове, B2C). Етикетите само помагат да намирате и филтрирате оценъчните карти: всяка оценъчна карта може да се използва за всяка оценка.",
 
@@ -1438,4 +1439,6 @@ I18N.add("bg", {
   ["Email Review #{x}", "Оценка на имейл №{x}"],
   ["Other Review #{x}", "Оценка на друг разговор №{x}"],
   ["points · Scorecard: {x}", "точки · Оценъчна карта: {x}"],
+  ["{n}% wide", "{n}% ширина"],
+  ["Views · {n}", "Изгледи · {n}"],
 ]);

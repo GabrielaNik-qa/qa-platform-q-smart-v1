@@ -283,7 +283,7 @@ mark{background:color-mix(in srgb,var(--yellow) 55%,transparent);color:inherit;b
 
 /* ---------------------------------------------------------------- Home widgets */
 .wgrid{display:grid;grid-template-columns:repeat(60,minmax(0,1fr));gap:var(--s4);column-gap:min(var(--s4),1.6%)}   /* 59 gaps need room: on narrower screens the gap shrinks a little so the cards still fit */
-.wgrid>.w12{grid-column:span 12}.wgrid>.w15{grid-column:span 15}.wgrid>.w20{grid-column:span 20}.wgrid>.w30{grid-column:span 30}.wgrid>.w40{grid-column:span 40}.wgrid>.w60{grid-column:span 60}
+.wgrid>.wg{grid-column:span var(--sp,30)}   /* --sp = how many of the 60 columns the widget takes (set by dragging its edge) */
 .wg{position:relative;min-width:0}.wg>.card{margin:0;height:100%}
 .wg.edit{outline:2px dashed color-mix(in srgb,var(--brand) 60%,transparent);outline-offset:3px;border-radius:var(--r-m);cursor:grab}.wg.over{outline:2px solid var(--brand)}
 .wtb{position:absolute;top:-16px;right:8px;display:flex;gap:2px;background:var(--pn);border:1px solid var(--bd2);border-radius:var(--r-s);padding:2px;z-index:5;box-shadow:var(--sh-2)}
@@ -403,8 +403,8 @@ body.auth .sb{display:none}body.auth main{padding:0}
 #lge:empty,#rge:empty,#fpe:empty{display:none}
 
 /* ---------------------------------------------------------------- responsive */
-@media(max-width:1000px){.wgrid>.w12,.wgrid>.w15{grid-column:span 20}.wgrid>.w20{grid-column:span 30}}
-@media(max-width:900px){.wgrid>.w12,.wgrid>.w15,.wgrid>.w20{grid-column:span 30}.wgrid>.w30,.wgrid>.w40{grid-column:span 60}}
+@media(max-width:1000px){.wgrid>.ws{grid-column:span 20}.wgrid>.wm{grid-column:span 30}}
+@media(max-width:900px){.wgrid>.ws,.wgrid>.wm{grid-column:span 30}.wgrid>.wl{grid-column:span 60}}
 @media(max-width:600px){.wgrid>*{grid-column:span 60!important}}
 @media(max-width:1100px){.fl{grid-template-columns:repeat(2,minmax(0,1fr))}main{padding:24px 24px 48px}}
 @media(max-width:900px){
@@ -737,3 +737,22 @@ select option { background: var(--pn); color: var(--tx) }
 .gdpill { position: fixed; right: 18px; bottom: 18px; z-index: 60; display: inline-flex; gap: 8px; align-items: center; background: var(--tx); color: var(--pn); border: 0; border-radius: 99px; padding: 9px 14px; font: 600 13px var(--font); box-shadow: 0 10px 30px rgba(0,0,0,.25); cursor: pointer }
 .gdpill b { opacity: .75 }
 @media(max-width:520px){ .gdp { left: 12px; right: 12px; width: auto } }
+
+/* ---- dashboard: widgets of any width and height, filters as chips with ✕ and "+ Filter" (October 2026) */
+.wg.hset > .card { overflow: auto }   /* a widget made lower than its content scrolls inside */
+.wrz { position: absolute; z-index: 4; opacity: 0; transition: opacity .12s; touch-action: none }
+.wrx { top: 12px; bottom: 12px; right: -7px; width: 12px; cursor: ew-resize } .wry { left: 12px; right: 12px; bottom: -7px; height: 12px; cursor: ns-resize }
+.wrxy { right: -5px; bottom: -5px; width: 16px; height: 16px; cursor: nwse-resize; border-right: 3px solid var(--ac); border-bottom: 3px solid var(--ac); border-radius: 0 0 6px 0 }
+.wrx::after, .wry::after { content: ""; position: absolute; border-radius: 3px; background: var(--ac) }
+.wrx::after { top: 50%; left: 4px; width: 4px; height: 36px; margin-top: -18px } .wry::after { left: 50%; top: 4px; height: 4px; width: 36px; margin-left: -18px }
+.wg.ed:hover .wrz, .wg.rz .wrz { opacity: .9 }
+.wg.rz { outline: 2px dashed var(--ac); outline-offset: 3px; border-radius: 14px; z-index: 5 }
+.wrtip { position: absolute; right: 10px; bottom: 10px; z-index: 6; background: var(--tx); color: var(--pn); font: 600 12px var(--font); padding: 4px 9px; border-radius: 7px; pointer-events: none; white-space: nowrap }
+body.wrzing, body.wrzing * { user-select: none !important; cursor: inherit }
+.wvbar > .fchips { margin: 0; flex: 1 1 auto; min-width: 0 }
+.fchip .fcx { border: 0; background: none; color: inherit; opacity: .6; cursor: pointer; padding: 0 6px; font-size: 12px; line-height: 1; align-self: stretch } .fchip .fcx:hover { opacity: 1; color: var(--bad) }
+.fadd { position: relative; display: inline-flex }
+.fchip.fplus { border: 1px dashed var(--bd2); background: none; padding: 7px 12px; font: inherit; font-size: 13px; color: var(--mu); gap: 6px } .fchip.fplus:hover { color: var(--tx); border-color: var(--tx) } .fchip.fplus svg { width: 14px; height: 14px }
+.fpop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; min-width: 190px; display: grid; padding: 6px; background: var(--pn); border: 1px solid var(--bd); border-radius: 12px; box-shadow: var(--sh-2, 0 8px 24px #0003) }
+.fpop button { text-align: left; background: none; border: 0; color: var(--tx); font: inherit; font-size: 13.5px; padding: 8px 10px; border-radius: 8px; cursor: pointer } .fpop button:hover, .fpop button:focus-visible { background: var(--sunk) }
+.wdw { display: inline-flex; align-items: center; gap: 2px; font-size: 12px; color: var(--mu) } .wdw input { width: 58px; padding: 3px 4px; font-size: 12px }

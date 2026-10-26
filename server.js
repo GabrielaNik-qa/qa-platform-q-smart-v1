@@ -443,11 +443,12 @@ app.put('/api/layouts/:role', need('admin'), (req, res) => {                    
   if ((req.body || {}).reset) delete db.settings.layouts[page][req.params.role]; else db.settings.layouts[page][req.params.role] = items;
   save(db); res.json(setOut(db, req.session.user));
 });
-// a widget on a page: k = its own key (the same widget can be added twice), id = the kind of widget, size, an own title and own filters (review type, team, period).
+// a widget on a page: k = its own key (the same widget can be added twice), id = the kind of widget, size and height, an own title and own filters (review type, team, period).
 // Keys and ids go inside onclick="..." on the page, so they keep only letters, numbers, - and _ (a shared view must not be able to carry code to other people)
-const SIZES = [3, 4, 6, 12, 15, 20, 30, 40, 60];
 const safeId = (v, n) => str(v, n).replace(/[^\w-]/g, '');
-const cleanLayout = a => Array.isArray(a) && a.length <= 40 ? a.filter(x => x && typeof x === 'object').map(x => ({ k: safeId(x.k, 40) || undefined, id: safeId(x.id, 30), size: SIZES.includes(Number(x.size)) ? Number(x.size) : 30, on: x.on !== false, title: str(x.title, 60) || undefined,
+// a widget is as wide as any number of the 60 columns (old layouts used 3 … 12) and as high as its content, or a height in px chosen by dragging
+const wSize = s => { s = Math.round(Number(s)); return s >= 1 && s <= 60 ? s : 30; }, wHigh = h => { h = Math.round(Number(h)); return h >= 90 ? Math.min(h, 1400) : undefined; };
+const cleanLayout = a => Array.isArray(a) && a.length <= 40 ? a.filter(x => x && typeof x === 'object').map(x => ({ k: safeId(x.k, 40) || undefined, id: safeId(x.id, 30), size: wSize(x.size), h: wHigh(x.h), on: x.on !== false, title: str(x.title, 60) || undefined,
   f: x.f && typeof x.f === 'object' ? { c: CHANNELS.includes(x.f.c) ? x.f.c : '', t: safeId(x.f.t, 40), p: safeId(x.f.p, 10) } : undefined })).filter(x => x.id) : null;
 // named dashboard views: personal ones (everybody) and shared ones (admins and QA) that are shown to chosen roles or to everyone
 const cleanViews = (a, shared) => Array.isArray(a) && a.length <= 20 ? a.filter(v => v && typeof v === 'object').map(v => ({ id: safeId(v.id, 20) || 'v' + hex(4), name: str(v.name, 40) || 'My view', items: cleanLayout(v.items) || [], ...(shared ? { roles: list(v.roles, 6, 10).filter(r => r === 'all' || ROLES.includes(r)), by: str(v.by, 60) } : {}) })) : null;

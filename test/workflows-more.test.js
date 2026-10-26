@@ -93,6 +93,14 @@ test('scorecards have free tags (trimmed, no doubles, at most 12) and any scorec
   assert.equal((await adm.del('/api/scorecards/' + sc.json.id)).status, 200);
 });
 
+test('a dashboard widget can be as wide (any of the 60 columns) and as high as you drag it; bad sizes fall back safely', async () => {
+  const a = await as('a.one');
+  const r = await a.put('/api/layout', { page: 'dash', items: [{ k: 'k1', id: 'kpi_avg', size: 13, h: 223 }, { k: 'k2', id: 'last5', size: 61, h: 50 }, { k: 'k3', id: 'top', size: 'x', h: 99999 }, { k: 'k4', id: 'low', size: 0.4, h: '1e3' }] });
+  assert.equal(r.status, 200);
+  const l = db().users.find(u => u.username === 'a.one').layouts.dash;
+  assert.deepEqual(l.map(x => [x.size, x.h]), [[13, 223], [30, undefined], [30, 1400], [30, 1000]]);
+});
+
 test('deleting a scorecard keeps the reviews made with it', async () => {
   const adm = await as('t.admin');
   assert.equal((await adm.del('/api/scorecards/' + SCID)).status, 200);

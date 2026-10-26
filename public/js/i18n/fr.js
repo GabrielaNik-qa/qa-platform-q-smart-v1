@@ -671,7 +671,7 @@ I18N.add('fr', {
   "Who sees this view": "Qui voit cette vue",
   "Day": "Jour",
   "Charts over time are grouped by": "Les graphiques dans le temps sont regroupés par",
-  "Drag the rows to change the order. Untick to hide a widget without deleting it.": "Faites glisser les lignes pour changer l'ordre. Décochez pour masquer un widget sans le supprimer.",
+  "Drag the rows to change the order. Untick to hide a widget without deleting it. On the page, drag the right edge, the bottom edge or the corner of a widget to make it as wide and as high as you like.": "Faites glisser les lignes pour changer l'ordre. Décochez pour masquer un widget sans le supprimer. Sur la page, faites glisser le bord droit, le bord inférieur ou le coin d'un widget pour lui donner la largeur et la hauteur que vous voulez.",
   "Drag": "Glisser",
   "Show / hide": "Afficher / masquer",
   "No widgets yet.": "Pas encore de widget.",
@@ -982,6 +982,7 @@ I18N.add('fr', {
   "The welcome message will not show again. Switch it back on in My account › Notifications & Confirmations.": "Le message de bienvenue ne s'affichera plus. Réactivez-le dans Mon compte › Notifications et confirmations.",
   "Welcome": "Bienvenue", "Don't show me this again": "Ne plus afficher", "Get started": "Commencer",
   "Getting started": "Premiers pas", "Click to see this period in detail": "Cliquez pour voir cette période en détail",
+  "automatic height": "hauteur automatique", "Size changed": "Taille modifiée", "Automatic height": "Hauteur automatique", "Drag to change the width": "Faites glisser pour modifier la largeur", "Drag to change the height (double-click: automatic height)": "Faites glisser pour modifier la hauteur (double-clic : hauteur automatique)", "Drag to change the size (double-click: automatic height)": "Faites glisser pour modifier la taille (double-clic : hauteur automatique)", "Width (% of the row)": "Largeur (% de la ligne)", "Height (px)": "Hauteur (px)", "Automatic": "Automatique", "Tip: you can also drag the right edge, the bottom edge or the corner of the widget on the page.": "Astuce : vous pouvez aussi faire glisser le bord droit, le bord inférieur ou le coin du widget sur la page.", "Remove this filter": "Retirer ce filtre", "Filter": "Filtre", "Views": "Vues", "No views yet.": "Aucune vue pour l’instant.", "Views are extra dashboards for different needs, for example one for team leads or one only for chats. Your main Dashboard stays as it is.": "Les vues sont des tableaux de bord supplémentaires pour différents besoins, par exemple un pour les chefs d’équipe ou un seulement pour les chats. Votre tableau de bord principal reste tel quel.",
   "Tags": "Étiquettes", "All tags": "Toutes les étiquettes", "Type a tag and press Enter": "Saisissez une étiquette et appuyez sur Entrée",
   "— what this scorecard is for (e.g. Calls, Chats, B2C). Tags only help to find and filter scorecards: any scorecard can be used for any review.": "— à quoi sert cette grille (p. ex. Appels, Chats, B2C). Les étiquettes servent uniquement à trouver et filtrer les grilles : toute grille peut être utilisée pour n'importe quelle évaluation.",
 
@@ -1436,4 +1437,6 @@ I18N.add("fr", {
   ["Email Review #{x}", "Évaluation d’e-mail n° {x}"],
   ["Other Review #{x}", "Évaluation d’autre conversation n° {x}"],
   ["points · Scorecard: {x}", "points · Grille : {x}"],
+  ["{n}% wide", "{n} % de large"],
+  ["Views · {n}", "Vues · {n}"],
 ]);
