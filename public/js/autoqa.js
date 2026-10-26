@@ -36,7 +36,7 @@ DEFL.autoqa.agent = wl(['aq_conv', 20], ['aq_avg', 20], ['aq_mod', 20], ['aq_cat
 const aqTopBar = extra => `<div style="display:flex;gap:8px;flex-wrap:wrap">${bellBtn()}${extra || ''}${ME.role === 'agent' ? '' : `<select onchange="AQF.t=this.value;render()"><option value="">All teams</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${t.id}" ${AQF.t === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>`}<div class=sg>${[['week', 'Week'], ['month', 'Month'], ['year', 'Year'], ['all', 'All']].map(([k, n]) => `<button class="${AQF.p === k ? 'on' : ''}" onclick="AQF.p='${k}';render()">${n}</button>`).join('')}</div></div>`;
 PG.autoqa = function () {
   const ex = staff() ? `<button class="ib ibx" onclick="aqAdd()">${IC.plus} Add conversation</button><button class="ib ibx" onclick="aqRun('rules')" title="Rate every conversation again with the current categories">${IC.clock} Re-rate</button>${AQI.ai ? `<button class="ib ibx" onclick="aqRun('ai')">${IC.spark} Re-rate with AI</button>` : ''}` : '';
-  return head('AutoQA', 'Every conversation is rated automatically. Click any card to go deeper; customize the page like the dashboard.', aqTopBar(ex)) + aiTabs() + (AQTAB === 'ai' && aiRev() ? aiRevPage() : wBar('autoqa') + wGrid('autoqa', {}));
+  return head('AutoQA', 'Every conversation is rated automatically. Click any card to go deeper; customize the page like the dashboard.', aqTopBar(ex)) + aiTabs() + (aiTabPage() || wBar('autoqa') + wGrid('autoqa', {}));
 };
 // ---- list of auto-reviewed conversations (opened from the cards)
 PG.aqlist = function () {

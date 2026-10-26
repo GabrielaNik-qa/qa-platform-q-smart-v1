@@ -116,4 +116,23 @@ async function reviewDraft({ text, sc, playbook }) {
   const a = sc.cats.map((c, ci) => c.it.map((i, ii) => { const x = ((j.answers || [])[ci] || [])[ii] || {}; return [['y', 'n', 'na'].includes(x.a) ? x.a : 'na', str(x.cm, 300), '']; }));
   return { a, comment: str(j.comment, 1000), confidence: Math.max(0, Math.min(100, Math.round(Number(j.confidence) || 0))) };
 }
-module.exports = { enabled, MODEL, PRICE, setConfig, ping, reviewDraft, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };
+
+// AI team lead: a short weekly summary of a team from the numbers it is given (never invents any)
+async function teamSummary(stats, playbook) {
+  const system = 'You are an experienced call-center team lead writing the weekly quality summary for your manager and your team. '
+    + 'Use ONLY the numbers and facts given. Write in plain, friendly English, at most 180 words, as Markdown with four short parts: '
+    + '"**How the week went**", "**What changed**", "**Who needs attention**" (names and why), "**Next week**" (three concrete actions). '
+    + (playbook ? 'Company rules to keep in mind:\n' + String(playbook).slice(0, 4000) + '\n' : '');
+  return str(await ask(system, [{ type: 'text', text: JSON.stringify(stats) }], 3000), 4000);
+}
+// AI team lead: a coaching plan draft for one agent (a person approves it before it becomes a coaching session)
+async function coachPlan(data, playbook) {
+  const system = 'You are an experienced call-center team lead. Draft a short, practical coaching plan for one agent from the review data given. '
+    + 'Focus on the one or two weakest areas. Base everything ONLY on the data; never invent facts. Write in plain, encouraging English. '
+    + (playbook ? 'Company rules to keep in mind:\n' + String(playbook).slice(0, 4000) + '\n' : '')
+    + 'Reply with JSON only: {"title":"","goals":"","focus":["category name"],"actions":[{"t":"what the agent does","days":7}],"notes":"what to discuss in the session"} with 2 to 4 actions, days = days from today.';
+  const j = parseJson(await ask(system, [{ type: 'text', text: JSON.stringify(data) }], 3000));
+  return { title: str(j.title, 150) || 'Coaching plan', goals: str(j.goals, 2000), focus: (Array.isArray(j.focus) ? j.focus : []).map(x => str(x, 80)).filter(Boolean).slice(0, 6),
+    actions: (Array.isArray(j.actions) ? j.actions : []).map(a => ({ t: str(a && a.t, 200), days: Math.max(1, Math.min(60, Math.round(Number(a && a.days) || 7))) })).filter(a => a.t).slice(0, 6), notes: str(j.notes, 3000) };
+}
+module.exports = { enabled, MODEL, PRICE, setConfig, ping, reviewDraft, teamSummary, coachPlan, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };

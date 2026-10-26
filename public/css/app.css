@@ -818,3 +818,6 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .aich { display: grid; gap: 12px } .aitx pre { white-space: pre-wrap; max-height: 220px; overflow: auto; background: var(--sunk); border-radius: 10px; padding: 10px 12px; font: 13px/1.55 var(--font); margin: 8px 0 0 }
 .aicat { display: grid; gap: 4px } .aiit { display: grid; grid-template-columns: minmax(0, 1fr) 90px minmax(0, .8fr); gap: 8px; align-items: center; padding: 6px 8px; border-radius: 9px; font-size: 13.5px }
 .aiit[data-ai=n] { background: color-mix(in srgb, var(--bad) 8%, transparent) } .aiit.chg { outline: 2px solid var(--wn); background: color-mix(in srgb, var(--wn) 10%, transparent) } .aiit select, .aiit input { padding: 5px 8px; font-size: 13px }
+
+/* ---- AI team lead: weekly summaries */
+.aisum { border-top: 1px solid var(--bd); padding-top: 10px; margin-top: 10px } .aisum:first-child { border-top: 0; margin-top: 0; padding-top: 0 } .aisum .prose { font-size: 14px; line-height: 1.6 }

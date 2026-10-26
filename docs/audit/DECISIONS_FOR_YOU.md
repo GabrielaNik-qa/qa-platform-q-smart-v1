@@ -311,3 +311,22 @@ The three pictures in the chat show:
 - A very large customer can later get its own server.
 
 The cost is a little more work for updates (step 7), which the app does by itself.
+
+---
+
+## H. AI team lead (built 26 October)
+
+Where: **AutoQA › AI team lead** (admin, QA, team leads and trainers; agents never see it). Also a card on the **Team lead** dashboard.
+
+- **Agents at risk** is worked out from the reviews, without AI and at no cost. An agent is at risk when:
+  - they are below target for 2 weeks,
+  - their score is falling,
+  - they had a critical fail,
+  - or they have several open disputes.
+- **Weekly summary:** the AI writes it from the numbers only. Use the button, or switch on "Every Monday from 08:00…" in Admin › Integrations (it is off now). The team lead and the admins get a notification.
+- **Coaching plan drafts:** the AI drafts a plan for one agent. A person checks it and can change anything. On approval, a normal coaching session (a one-to-one when a team lead approves) is created, and every action becomes a task for the agent. Reject creates nothing.
+- **Privacy:** people limited to some teams see and write summaries only for their own teams.
+
+**To decide (no rush):**
+1. Should the Monday summary be on by default for new companies?
+2. Should a trainer also be able to write summaries? Now only admin, QA and team leads can.

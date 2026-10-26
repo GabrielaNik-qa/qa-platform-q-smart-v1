@@ -10,7 +10,7 @@ const GOOD = 'sk-ant-good-key-1234567890ABCD', WRONG = 'sk-ant-wrong-key-0000000
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qsmart-ai-')), DATA = path.join(DIR, 'data.json');
 const H = bcrypt.hashSync('password', 4), db = () => JSON.parse(fs.readFileSync(DATA, 'utf8'));
 const person = (username, role) => ({ username, name: username, email: username + '@test.com', role, team: 't-admin', title: '', desc: '', languages: [], skills: [], phone: '', start: '', active: true, hash: H, mustChange: false });
-fs.writeFileSync(DATA, JSON.stringify({ boot: 5, users: [person('k.admin', 'admin'), person('k.qa', 'qa'), { ...person('k.agent', 'agent'), team: 't-a' }], teams: [{ id: 't-admin', name: 'Administration', lead: 'k.admin', system: true }, { id: 't-a', name: 'Team A', lead: 'k.admin' }], workspaces: [],
+fs.writeFileSync(DATA, JSON.stringify({ boot: 5, users: [person('k.admin', 'admin'), person('k.qa', 'qa'), { ...person('k.agent', 'agent'), team: 't-a' }, { ...person('k.agent2', 'agent'), team: 't-a' }, { ...person('k.lead', 'lead'), team: 't-admin' }, { ...person('k.trainer', 'trainer'), team: 't-admin' }], teams: [{ id: 't-admin', name: 'Administration', lead: 'k.admin', system: true }, { id: 't-a', name: 'Team A', lead: 'k.lead' }, { id: 't-b', name: 'Team B', lead: 'k.admin' }], sessions: [], tasks: [], workspaces: [],
   scorecards: [DEFAULT_SC], evaluations: [], settings: { pass: 85, teams: {} }, skills: [], languages: [], rootCauses: [], categories: [], autoCats: [], conversations: [] }));
 
 let BASE = '', srv = null, fake = null, CALLS = 0;
@@ -20,7 +20,8 @@ test.before(async () => {
       CALLS++; const ok = req.headers['x-api-key'] === GOOD;
       res.writeHead(ok ? 200 : 401, { 'Content-Type': 'application/json' });
       const reviewer = ok && /quality reviewer/.test(JSON.parse(b).system || '');   // the AI QA reviewer: the first item No, the rest Yes
-      const text = reviewer ? JSON.stringify({ answers: DEFAULT_SC.cats.map((c, ci) => c.it.map((i, ii) => ({ a: ci === 0 && ii === 0 ? 'n' : 'y', cm: ci === 0 && ii === 0 ? 'No greeting at the start' : '' }))), comment: 'Good call, greet the customer first.', confidence: 82 }) : 'OK';
+      const sys = ok ? JSON.parse(b).system || '' : '', summary = /weekly quality summary/.test(sys), plan = /coaching plan/.test(sys);
+      const text = summary ? '**Team A** had a hard week: the average fell. Help **k.agent** with the greeting.' : plan ? JSON.stringify({ title: 'Greet every customer', goals: 'Reach the target in two weeks', focus: ['Opening'], actions: [{ t: 'Listen to two calls with a great greeting', days: 3 }, { t: 'Use the greeting on every call', days: 99 }], notes: 'Talk about the greeting.' }) : reviewer ? JSON.stringify({ answers: DEFAULT_SC.cats.map((c, ci) => c.it.map((i, ii) => ({ a: ci === 0 && ii === 0 ? 'n' : 'y', cm: ci === 0 && ii === 0 ? 'No greeting at the start' : '' }))), comment: 'Good call, greet the customer first.', confidence: 82 }) : 'OK';
       res.end(JSON.stringify(ok ? { content: [{ type: 'text', text }], usage: { input_tokens: 10000, output_tokens: 10000 }, stop_reason: 'end_turn', model: JSON.parse(b).model } : { error: { message: 'invalid x-api-key' } }));
     });
   });
@@ -103,4 +104,38 @@ test('the AI QA reviewer drafts a review on the company scorecard; a person appr
   assert.deepEqual([rj.status, rj.json.status, rj.json.why], [200, 'rejected', 'Wrong call']);
   assert.equal((await (await as('k.qa')).post('/api/ai/drafts/' + d2.id + '/approve', {})).status, 400, 'a rejected draft cannot be approved later');
   assert.equal((await (await as('k.agent')).get('/api/ai/drafts')).status, 403, 'agents never see AI drafts');
+});
+
+test('the AI team lead: agents at risk from the reviews, the weekly summary, coaching plans a person approves (a real session) or rejects', async () => {
+  const a = await as('k.admin'), day = n => new Date(Date.now() - n * 864e5).toISOString();
+  await a.put('/api/ai/settings', { anthropicKey: GOOD, model: 'claude-haiku-5-5', budget: 0, leadAuto: true });
+  // k.agent: three low reviews in the last two weeks, one a critical fail; k.agent2 scores well
+  const ev = (agent, sc, d) => ({ rid: 'R' + Math.random().toString(36).slice(2, 8), agent, tid: 't-a', d: day(d), sc, by: 'k.qa', cm: 'Greet the customer', cs: [{ n: 'Opening', e: sc / 10, m: 10, it: [{ t: 'Greeting', a: sc < 85 ? 'n' : 'y', cm: '' }] }] });
+  const d0 = db(); d0.evaluations.push(ev('k.agent', 60, 1), ev('k.agent', 0, 3), ev('k.agent', 70, 9), ev('k.agent2', 95, 2), ev('k.agent2', 98, 5)); fs.writeFileSync(DATA, JSON.stringify(d0));
+  let L = (await a.get('/api/ai/lead')).json;
+  assert.deepEqual(L.risk.map(x => x.agent), ['k.agent'], 'only the low scorer is at risk');
+  assert.ok(L.risk[0].why.includes('below target for 2 weeks') && L.risk[0].why.includes('critical fail')); assert.equal(L.risk[0].weak[0].n, 'Opening');
+  assert.equal((await (await as('k.agent')).get('/api/ai/lead')).status, 403, 'agents never see the AI team lead');
+  assert.equal((await (await as('k.trainer')).post('/api/ai/lead/summary', { team: 't-a' })).status, 403, 'trainers do not write summaries');
+
+  // the weekly summary: written on request; the team lead is told
+  assert.equal((await a.post('/api/ai/lead/summary', { team: 't-admin' })).status, 400, 'not the Administration team');
+  const w = await a.post('/api/ai/lead/summary', { team: 't-a' });
+  assert.equal(w.status, 200); assert.match(w.json.text, /hard week/); assert.ok(w.json.stats.thisWeek.reviews >= 4, 'the reviews of this week'); assert.equal(w.json.stats.agentsAtRisk[0].name, 'k.agent');
+  assert.ok((await (await as('k.lead')).get('/api/notifications')).json.some(n => JSON.stringify(n).includes(w.json.id)), 'the team lead is told');
+
+  // a coaching plan draft; approving it needs a real session with that agent
+  assert.equal((await a.post('/api/ai/lead/plan', { agent: 'k.qa' })).status, 400, 'only agents');
+  const lead = await as('k.lead'), p = (await lead.post('/api/ai/lead/plan', { agent: 'k.agent' })).json;
+  assert.equal(p.status, 'draft'); assert.equal(p.plan.title, 'Greet every customer'); assert.equal(p.plan.actions[1].days, 60, 'days are kept within two months');
+  assert.equal((await lead.post('/api/ai/lead/plan/' + p.id + '/approve', { sid: 'nope' })).status, 400, 'no session yet');
+  const s = await lead.post('/api/sessions', { kind: 'o2o', date: day(0).slice(0, 10), agents: ['k.agent'], title: p.plan.title, goals: p.plan.goals, focus: p.plan.focus, notes: p.plan.notes, actions: p.plan.actions.map(x => ({ t: x.t, owner: 'k.agent', due: day(-x.days).slice(0, 10) })), makeTasks: true });
+  assert.equal(s.status, 200, JSON.stringify(s.json));
+  const ap = await lead.post('/api/ai/lead/plan/' + p.id + '/approve', { sid: s.json.id });
+  assert.deepEqual([ap.status, ap.json.status, ap.json.sid], [200, 'approved', s.json.id]);
+  assert.equal(db().tasks.length, 2, 'every action became a task');
+  assert.equal((await lead.post('/api/ai/lead/plan/' + p.id + '/reject', {})).status, 400, 'decided only once');
+  const p2 = (await a.post('/api/ai/lead/plan', { agent: 'k.agent' })).json, rj = await a.post('/api/ai/lead/plan/' + p2.id + '/reject', {});
+  assert.deepEqual([rj.status, rj.json.status], [200, 'rejected']);
+  L = (await lead.get('/api/ai/lead')).json; assert.equal(L.plans.length, 2); assert.equal(L.summaries.length, 1);
 });

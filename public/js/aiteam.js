@@ -12,7 +12,7 @@ function aiSim(list) {
   ok.forEach(d => { const sc = SCS.find(s => s.id === d.scid); (d.sim.cats || []).forEach((v, i) => { const n = sc && sc.cats[i] ? sc.cats[i].n : '#' + (i + 1); if (v != null) (cats[n] = cats[n] || []).push(v); }); });
   return { n: ok.length, v: ok.length ? avg(ok.map(d => d.sim.items)) : null, diff: ok.length ? avg(ok.map(d => Math.abs((d.fsc || 0) - (d.sc || 0)))) : null, cats: Object.entries(cats).map(([n, l]) => ({ n, v: avg(l) })).sort((p, q) => p.v - q.v) };
 }
-const aiTabs = () => aiRev() ? `<div class=sg role=tablist style="margin:0 0 14px"><button role=tab class="${AQTAB !== 'ai' ? 'on' : ''}" onclick="aqTab('auto')">AutoQA</button><button role=tab class="${AQTAB === 'ai' ? 'on' : ''}" onclick="aqTab('ai')">AI reviewer${AIDR.filter(d => d.status === 'draft').length ? ` · ${AIDR.filter(d => d.status === 'draft').length}` : ''}</button></div>` : '';
+const aiTabs = () => aiRev() || aiLeadOk() ? `<div class=sg role=tablist style="margin:0 0 14px"><button role=tab class="${AQTAB !== 'ai' && AQTAB !== 'lead' ? 'on' : ''}" onclick="aqTab('auto')">AutoQA</button>${aiRev() ? `<button role=tab class="${AQTAB === 'ai' ? 'on' : ''}" onclick="aqTab('ai')">AI reviewer${AIDR.filter(d => d.status === 'draft').length ? ` · ${AIDR.filter(d => d.status === 'draft').length}` : ''}</button>` : ''}<button role=tab class="${AQTAB === 'lead' ? 'on' : ''}" onclick="aqTab('lead')">AI team lead${AIL.risk.length ? ` · ${AIL.risk.length}` : ''}</button></div>` : '';
 function aiRevPage() {
   const wait = AIDR.filter(d => d.status === 'draft'), done = AIDR.filter(d => d.status !== 'draft'), m = aiSim(AIDR.filter(aiMonth)), all = aiSim(AIDR);
   const row = d => [d.dt, `<b>${esc(d.agn || an(d.agent))}</b>`, `<span class=mono>${esc(d.lead)}</span>`, chTag(d.ch), esc(d.scn), `<b class=mono style="color:${col(d.sc)}">${d.sc}%</b>`];
@@ -58,3 +58,60 @@ const aiReject = () => ask('Reject this AI review?', 'Nothing is published. You 
   const r = await api('/api/ai/drafts/' + AIDV + '/reject', { why: '' }); if (!r.ok) return toast(await errOf(r, 'Could not reject'), true);
   Object.assign(AIDR.find(x => x.id === AIDV), await r.json()); AIDV = null; render(); toast('Draft rejected');
 }, { yes: 'Yes, reject', no: 'Cancel', danger: true });
+
+// ===================== AI team lead (AutoQA › "AI team lead"): agents at risk, weekly team summary, coaching plan drafts =====================
+// Agents at risk are worked out from the reviews (below target for 2 weeks, falling score, critical fail, open disputes).
+// For any of them the AI drafts a coaching plan; a person edits it and approves it, which creates a normal coaching session
+// (its actions become tasks for the agent). The weekly summary is written on request, or every Monday when switched on.
+let AIPV = null, AILT = '';                                   // AIPV = the coaching plan being checked; AILT = the team shown
+const aiLeadOk = () => ['admin', 'qa', 'lead', 'trainer'].includes(ME.role);
+const aiSumOk = () => ['admin', 'qa', 'lead'].includes(ME.role);
+function aiTabPage() { return AQTAB === 'ai' && aiRev() ? aiRevPage() : AQTAB === 'lead' && aiLeadOk() ? aiLeadPage() : ''; }
+function aiLeadPage() {
+  const risk = AIL.risk.filter(x => !AILT || x.team === AILT), wait = AIL.plans.filter(p => p.status === 'draft'), sums = AIL.summaries.filter(x => !AILT || x.team === AILT);
+  return `<div class=row style="margin:0 0 12px;gap:8px;flex-wrap:wrap"><select onchange="AILT=this.value;render()" style="max-width:220px"><option value="">All teams</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${t.id}" ${AILT === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select><span style="flex:1"></span>${aiSumOk() ? `<button class=btn id=ail_sum onclick="aiSumNow()">${IC.plus} Write this week's summary</button>` : ''}</div>`
+    + card(`Agents at risk <span class=bg>${risk.length}</span>`, risk.length ? tbl(['Agent', 'Team', 'Last 14 days', 'Why', 'Weakest categories', ''], risk.map(x => [agLink(x.agent, x.name), esc(tn(x.team)), x.avg == null ? '—' : `<b class=mono style="color:${scol(x.avg, x.team)}">${x.avg}%</b> <small class=mu>${x.n}</small>`, x.why.map(w => pill(w, 'bad')).join(' '), x.weak.map(c => `${esc(c.n)} <small class=mono>${Math.round(c.v)}%</small>`).join('<br>') || '—', `<button class=ib onclick="aiPlanNew(${jsq(x.agent)})">Draft a coaching plan</button>`])) : '<p class=mu style="margin:0">✓ No agent is at risk right now.</p>')
+    + card(`Coaching plans waiting for you <span class=bg>${wait.length}</span>`, wait.length ? tbl(['Agent', 'Plan', 'Made', ''], wait.map(p => [`<b>${esc(p.agn)}</b>`, esc(p.plan.title), fdt(p.at), `<button class=ib onclick="AIPV=${jsq(p.id)};render()">Check</button>`])) : '<p class=mu style="margin:0">No plans are waiting. Use "Draft a coaching plan" next to an agent at risk.</p>')
+    + card('Weekly summaries', sums.length ? sums.slice(0, 6).map(x => `<div class=aisum><div class=row><b>${esc(x.stats && x.stats.team || tn(x.team) || 'All teams')} · week of ${esc(x.week)}</b><small class=mu>${x.auto ? 'written by the AI team lead on Monday' : 'asked by ' + esc(x.by)}</small></div><div class=prose>${md(x.text)}</div></div>`).join('') : `<p class=mu style="margin:0">No summary yet.${aiSumOk() ? ' Press "Write this week\'s summary", or switch on the Monday summary in Admin › Integrations.' : ''}</p>`);
+}
+const aiSumNow = () => once('aisum', async () => {
+  const b = $('#ail_sum'); if (b) { b.disabled = true; b.textContent = tr('The AI is writing the summary…'); }
+  const r = await api('/api/ai/lead/summary', { team: AILT }); if (!r.ok) { render(); return toast(await errOf(r, 'The AI could not write the summary'), true); }
+  AIL.summaries.unshift(await r.json()); render(); toast('Summary ready');
+});
+const aiPlanNew = u => once('aiplan', async () => {
+  toast('The AI is drafting the coaching plan…');
+  const r = await api('/api/ai/lead/plan', { agent: u }); if (!r.ok) return toast(await errOf(r, 'The AI could not draft the plan'), true);
+  const p = await r.json(); AIL.plans.unshift(p); AIPV = p.id; render();
+});
+const aiPlus = d => iso(new Date(Date.now() + d * 864e5));
+function AIPVM() {
+  const p = AIL.plans.find(x => x.id === AIPV); if (!p) { AIPV = null; return ''; }
+  const x = p.plan;
+  return OVL(`<div class=mh><div><h2>Check the coaching plan</h2><small>${esc(p.agn)} · drafted by the AI team lead · change anything before you approve</small></div>${X('AIPV=null;render()')}</div><div class=mb><div class=form style="max-width:none">
+<label>Title<input id=aip_t value="${esc(x.title)}"></label>
+<label>Goals<textarea id=aip_g rows=3>${esc(x.goals)}</textarea></label>
+<label>Focus (categories, separated by commas)<input id=aip_f value="${esc(x.focus.join(', '))}"></label>
+<div><b style="font-size:13px">Actions for the agent (each becomes a task)</b>${x.actions.map((a, i) => `<div class=row style="gap:8px;margin-top:6px"><input id="aip_a${i}" value="${esc(a.t)}" style="flex:1"><input id="aip_d${i}" type=date value="${aiPlus(a.days)}" style="width:150px"></div>`).join('')}</div>
+<label>Notes for the session<textarea id=aip_n rows=3>${esc(x.notes)}</textarea></label>
+<small class=mu>When you approve, a ${ME.role === 'lead' ? 'one-to-one' : 'coaching session'} is created for ${esc(p.agn)}, and every action becomes a task for them.</small></div>
+<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class=ib style="color:var(--bad)" onclick="aiPlanReject()">Reject</button><button class=btn onclick="aiPlanApprove()">Approve and create the session</button></div></div>`, 'AIPV=null;render()', 700, 40);
+}
+const aiPlanApprove = () => once('aipok', async () => {
+  const p = AIL.plans.find(x => x.id === AIPV), v = id => ($('#' + id) || {}).value || '';
+  const actions = p.plan.actions.map((a, i) => ({ t: v('aip_a' + i).trim(), owner: p.agent, due: v('aip_d' + i) })).filter(a => a.t);
+  const s = await api('/api/sessions', { kind: ME.role === 'lead' ? 'o2o' : 'coaching', date: todayS(), agents: [p.agent], title: v('aip_t').trim(), goals: v('aip_g'), focus: v('aip_f').split(',').map(z => z.trim()).filter(Boolean), notes: v('aip_n'), actions, makeTasks: true });
+  if (!s.ok) return toast(await errOf(s, 'Could not create the session'), true);
+  const sess = await s.json(), r = await api('/api/ai/lead/plan/' + p.id + '/approve', { sid: sess.id }); if (!r.ok) return toast(await errOf(r, 'Could not approve'), true);
+  Object.assign(p, await r.json()); AIPV = null; render(); toast(`Coaching session created with ${actions.length} tasks`);
+});
+const aiPlanReject = () => ask('Reject this coaching plan?', 'Nothing is created.', async () => {
+  const r = await api('/api/ai/lead/plan/' + AIPV + '/reject', {}); if (!r.ok) return toast(await errOf(r, 'Could not reject'), true);
+  Object.assign(AIL.plans.find(x => x.id === AIPV), await r.json()); AIPV = null; render(); toast('Plan rejected');
+}, { yes: 'Yes, reject', no: 'Cancel', danger: true });
+// dashboard: the latest summary and the agents at risk (in the Team lead dashboard)
+wdef('dash', 'ai_lead', 'AI team lead', 60, (c, s, x) => {
+  const risk = AIL.risk.filter(z => !c.t || z.team === c.t), sum = AIL.summaries.find(z => !c.t || !z.team || z.team === c.t);
+  return card(`${wt(x, 'AI team lead')} <span class=bg>${risk.length} at risk</span>`, (risk.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${risk.slice(0, 6).map(z => `<button class=ib onclick="openAgent(${jsq(z.agent)})" title="${esc(z.why.join(', '))}">${esc(z.name)}</button>`).join('')}</div>` : '<p class=mu style="margin:0 0 8px">✓ No agent is at risk right now.</p>')
+    + (sum ? `<div class="prose aisum">${md(sum.text)}</div>` : '<p class=mu style="margin:0">No weekly summary yet.</p>') + `<a href="javascript:void(0)" class=agl onclick="AQTAB='lead';LS.set('qa_aqtab','lead');goPage('autoqa')">Open the AI team lead ›</a>`);
+}, 'The weekly AI summary and the agents at risk', 'Lists');
