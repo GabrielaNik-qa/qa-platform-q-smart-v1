@@ -138,8 +138,10 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     if (!validData(d)) return bad(res, 'That file is not a Q-smart backup with an admin user');
     const safety = backupNow('before-restore'); save(d); res.json({ ok: 1, safety });
   });
-  // the data saved inside seed.js becomes today's data (what "node seed.js" brings back)
+  // the data saved inside seed.js becomes today's data (what "node seed.js" brings back). Only when the app runs on its own data.json:
+  // a copy started with DATA_FILE (the tests, a demo copy) must never write its made-up data into the project's seed.js
   app.post('/api/seed/refresh', need('admin'), (req, res) => {
+    if (path.resolve(FILE) !== path.join(DIR, 'data.json')) return bad(res, 'This copy of the app works on another data file, so seed.js was not changed');
     const p = path.join(DIR, 'seed.js'); let s; try { s = fs.readFileSync(p, 'utf8'); } catch (e) { return bad(res, 'seed.js was not found'); }
     const a = s.indexOf('const DATA = '), b = s.indexOf(';\n\nfunction restore'), b2 = s.indexOf(';\r\n\r\nfunction restore'), end = b >= 0 ? b : b2;
     if (a < 0 || end < 0) return bad(res, 'seed.js does not have the expected layout');

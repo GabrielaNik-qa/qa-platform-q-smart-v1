@@ -61,6 +61,11 @@ async function client(username) {
 const JUNK = { name: {}, title: [], text: 5, t: {}, desc: [], items: 'x', views: 'x', page: {}, id: [], rid: {}, username: {}, agent: [], scid: {}, cats: 'x', it: 'x', a: 'x', cs: 'x',
   tags: 7, d: {}, dt: [], date: {}, status: {}, role: [], roles: 'x', team: {}, teams: 'x', email: [], password: {}, keys: 'x', cols: 'x', checklist: 'x', q: {}, answers: 'x', ch: {}, lang: {}, f: 'x', size: {}, h: [] };
 const SKIP = new Set(['POST /api/logout']);   // would end the session in the middle of the run (it is tested on its own in the other files)
+// "Reset to the seed data" works (it puts seed.js back into this copy), but the made-up people of this run would then be gone: tried by everybody except the admin
+const SKIP_FOR = { 'POST /api/demo/reset': ['admin'] };
+// the project's own files must come out of the run exactly as they went in (once, "Refresh seed.js" wrote this run's data into seed.js)
+const crypto = require('crypto'), sum = f => { try { return crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, f))).digest('hex'); } catch (e) { return 'missing'; } };
+const BEFORE = { 'seed.js': sum('seed.js'), 'data.json': sum('data.json') };
 
 test('every route: no crash on empty or wrong-type input, 403 for roles it does not allow, 401 when not signed in', async t => {
   const all = routes().filter(r => !SKIP.has(r.method + ' ' + r.path));
@@ -71,6 +76,7 @@ test('every route: no crash on empty or wrong-type input, 403 for roles it does 
   for (const r of all) {
     const url = r.path.replace(/:[A-Za-z]+/g, 'zz-none');
     for (const who of ['none', ...ROLES]) for (const body of r.method === 'GET' ? [undefined] : [{}, JUNK]) {
+      if ((SKIP_FOR[r.method + ' ' + r.path] || []).includes(who)) continue;
       const st = await callers[who](r.method, url, body), tag = `${r.method} ${r.path} as ${who}${body === JUNK ? ' (wrong types)' : ''} → ${st}  [${r.f}]`;
       seen[st] = (seen[st] || 0) + 1;
       if (st >= 500) crashes.push(tag);
@@ -83,6 +89,7 @@ test('every route: no crash on empty or wrong-type input, 403 for roles it does 
   const bad = [], walk = (v, p) => { if (Array.isArray(v)) v.forEach((x, i) => walk(x, p + '[' + i + ']')); else if (v && typeof v === 'object') Object.entries(v).forEach(([k, x]) => { if (['name', 'title', 'text', 'desc', 't', 'n'].includes(k) && x != null && typeof x !== 'string' && !(k === 'n' && typeof x === 'number')) bad.push(p + '.' + k + ' = ' + JSON.stringify(x).slice(0, 40)); walk(x, p + '.' + k); }); };
   walk(JSON.parse(fs.readFileSync(DATA, 'utf8')), 'db');
   assert.deepEqual(bad, [], 'wrong types were saved:\n' + bad.join('\n'));
+  assert.deepEqual({ 'seed.js': sum('seed.js'), 'data.json': sum('data.json') }, BEFORE, "the project's seed.js and data.json are untouched");
   assert.deepEqual(crashes, [], 'server errors:\n' + crashes.join('\n'));
   assert.deepEqual(leaks, [], 'routes that let in the wrong people:\n' + leaks.join('\n'));
 });
