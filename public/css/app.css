@@ -813,3 +813,8 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .dthumb { display: flex; flex-wrap: wrap; gap: 3px } .dthumb i { height: 10px; border-radius: 3px; background: color-mix(in srgb, var(--ac) 22%, var(--sunk)) }
 .dgb { display: flex; gap: 6px; flex-wrap: wrap } .dgb .ib { min-height: 32px; padding: 0 10px; font-size: 13px }
 .dgnew { border-style: dashed; place-items: center; text-align: center; color: var(--mu); cursor: pointer; min-height: 150px } .dgnew:hover { color: var(--tx); border-color: var(--tx) }
+
+/* ---- AI reviewer: checking an AI draft (October 2026) */
+.aich { display: grid; gap: 12px } .aitx pre { white-space: pre-wrap; max-height: 220px; overflow: auto; background: var(--sunk); border-radius: 10px; padding: 10px 12px; font: 13px/1.55 var(--font); margin: 8px 0 0 }
+.aicat { display: grid; gap: 4px } .aiit { display: grid; grid-template-columns: minmax(0, 1fr) 90px minmax(0, .8fr); gap: 8px; align-items: center; padding: 6px 8px; border-radius: 9px; font-size: 13.5px }
+.aiit[data-ai=n] { background: color-mix(in srgb, var(--bad) 8%, transparent) } .aiit.chg { outline: 2px solid var(--wn); background: color-mix(in srgb, var(--wn) 10%, transparent) } .aiit select, .aiit input { padding: 5px 8px; font-size: 13px }

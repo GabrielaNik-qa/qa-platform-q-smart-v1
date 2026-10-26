@@ -228,7 +228,7 @@ async function onHash() {
   if (n !== 'entry') { ENT = null; EDITID = ''; }
   if (n !== 'kb') KBE = null;
   SPV = null; if (spaceOf(n) === 'main') LASTMAIN = n;
-  OG = null; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; WE = null; WADD = null; WSET = null; WDISP = null; TXF = null; TXC = null; CSP = null; AQV = ''; PKN = null;
+  OG = null; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; WE = null; WADD = null; WSET = null; WDISP = null; TXF = null; TXC = null; CSP = null; AINEW = false; AIDV = null; AQV = ''; PKN = null;
   if (n === 'calls' && !KQ) { Q = ''; FSC = null; PN = 1; }   // opening Call Reviews from the menu starts with an empty search
   KQ = false; MD = null; NO = false; AC = null; SYS = false; RSV = null; PLY = null; SE = n === 'sco' ? SE : null;
   route = n; await load(); render(); window.scrollTo(0, 0); maybeWelcome();

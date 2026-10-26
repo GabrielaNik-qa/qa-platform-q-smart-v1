@@ -249,7 +249,7 @@ The three pictures in the chat show:
    - **Yours:** your own dashboards, named however you like, which can be shared or set as your home page.
 3. **AI team**: an AI QA reviewer, AI team lead, AI trainer and AI analyst. Each works by your company's playbook and either drafts for a person to approve or acts automatically. AutoQA shows human and AI scores side by side, with a **similarity rate**.
 
-**Update:** you said yes to 1 and 2, and both are built (Home › Dashboard › Dashboards). The AI team (3) is still a proposal.
+**Update:** you said yes to 1 and 2, and both are built (Home › Dashboard › Dashboards). From the AI team (3), the **AI QA reviewer** is built: AutoQA › AI reviewer (drafts for approval, similarity rate), with the company playbook in Admin › Integrations. The AI team lead, trainer and analyst come next.
 
 ### How the AI team would work
 

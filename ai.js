@@ -100,4 +100,20 @@ async function scoreConversation(text, cats) {
 }
 // a tiny request to check that the key and the model work (Admin › Integrations › Test)
 const ping = async () => { const t = await ask('Reply with the single word OK.', [{ type: 'text', text: 'Test' }], 64); return { ok: true, model: MODEL(), reply: str(t, 20) }; };
-module.exports = { enabled, MODEL, PRICE, setConfig, ping, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };
+
+// AI QA reviewer: answers every item of the company's scorecard for one conversation, as a careful reviewer would.
+// It only makes a draft: a person approves it (changing answers if needed) or rejects it.
+async function reviewDraft({ text, sc, playbook }) {
+  if (!enabled()) throw new Error('Connect the AI (Admin › Integrations) to draft reviews with AI.');
+  const list = sc.cats.map((c, ci) => `${ci + 1}. ${c.n}${c.k ? ' (critical category: one No fails the whole review)' : ''}\n` + c.it.map((i, ii) => `   ${ci + 1}.${ii + 1} ${i.t}${i.k ? ' [critical item]' : ''}`).join('\n')).join('\n');
+  const system = 'You are an experienced call-center quality reviewer. Score the conversation with the company scorecard exactly as a careful human reviewer would. '
+    + 'For every item answer "y" (done well), "n" (not done, or done badly) or "na" (the situation did not come up). Judge ONLY what the agent said; never invent facts. '
+    + 'For every "n" write one short comment that points to the moment in the conversation. Then write a short overall comment for the agent: what went well and the one thing to improve, warm and specific. '
+    + 'Give your confidence from 0 to 100. Write the comments in the language of the conversation. '
+    + (playbook ? 'Follow these company rules:\n' + String(playbook).slice(0, 4000) + '\n' : '')
+    + 'Reply with JSON only: {"answers":[[{"a":"y","cm":""}]],"comment":"","confidence":80} with one inner list per category in the order given, one object per item.';
+  const j = parseJson(await ask(system, [{ type: 'text', text: 'Scorecard:\n' + list + '\n\nConversation:\n' + String(text).slice(0, 40000) }], 6000));
+  const a = sc.cats.map((c, ci) => c.it.map((i, ii) => { const x = ((j.answers || [])[ci] || [])[ii] || {}; return [['y', 'n', 'na'].includes(x.a) ? x.a : 'na', str(x.cm, 300), '']; }));
+  return { a, comment: str(j.comment, 1000), confidence: Math.max(0, Math.min(100, Math.round(Number(j.confidence) || 0))) };
+}
+module.exports = { enabled, MODEL, PRICE, setConfig, ping, reviewDraft, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };

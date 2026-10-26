@@ -8,9 +8,9 @@ const { DEFAULT_SC } = require('../scorecard');
 
 const GOOD = 'sk-ant-good-key-1234567890ABCD', WRONG = 'sk-ant-wrong-key-000000000000';
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qsmart-ai-')), DATA = path.join(DIR, 'data.json');
-const H = bcrypt.hashSync('password', 4);
+const H = bcrypt.hashSync('password', 4), db = () => JSON.parse(fs.readFileSync(DATA, 'utf8'));
 const person = (username, role) => ({ username, name: username, email: username + '@test.com', role, team: 't-admin', title: '', desc: '', languages: [], skills: [], phone: '', start: '', active: true, hash: H, mustChange: false });
-fs.writeFileSync(DATA, JSON.stringify({ boot: 5, users: [person('k.admin', 'admin'), person('k.qa', 'qa')], teams: [{ id: 't-admin', name: 'Administration', lead: 'k.admin', system: true }], workspaces: [],
+fs.writeFileSync(DATA, JSON.stringify({ boot: 5, users: [person('k.admin', 'admin'), person('k.qa', 'qa'), { ...person('k.agent', 'agent'), team: 't-a' }], teams: [{ id: 't-admin', name: 'Administration', lead: 'k.admin', system: true }, { id: 't-a', name: 'Team A', lead: 'k.admin' }], workspaces: [],
   scorecards: [DEFAULT_SC], evaluations: [], settings: { pass: 85, teams: {} }, skills: [], languages: [], rootCauses: [], categories: [], autoCats: [], conversations: [] }));
 
 let BASE = '', srv = null, fake = null, CALLS = 0;
@@ -19,7 +19,9 @@ test.before(async () => {
     let b = ''; req.on('data', d => { b += d; }); req.on('end', () => {
       CALLS++; const ok = req.headers['x-api-key'] === GOOD;
       res.writeHead(ok ? 200 : 401, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(ok ? { content: [{ type: 'text', text: 'OK' }], usage: { input_tokens: 10000, output_tokens: 10000 }, stop_reason: 'end_turn', model: JSON.parse(b).model } : { error: { message: 'invalid x-api-key' } }));
+      const reviewer = ok && /quality reviewer/.test(JSON.parse(b).system || '');   // the AI QA reviewer: the first item No, the rest Yes
+      const text = reviewer ? JSON.stringify({ answers: DEFAULT_SC.cats.map((c, ci) => c.it.map((i, ii) => ({ a: ci === 0 && ii === 0 ? 'n' : 'y', cm: ci === 0 && ii === 0 ? 'No greeting at the start' : '' }))), comment: 'Good call, greet the customer first.', confidence: 82 }) : 'OK';
+      res.end(JSON.stringify(ok ? { content: [{ type: 'text', text }], usage: { input_tokens: 10000, output_tokens: 10000 }, stop_reason: 'end_turn', model: JSON.parse(b).model } : { error: { message: 'invalid x-api-key' } }));
     });
   });
   await new Promise(ok => fake.listen(0, '127.0.0.1', ok));
@@ -77,4 +79,28 @@ test('the admin manages the AI key, model and budget; keys are encrypted and nev
   s = (await a.put('/api/ai/settings', { anthropicKey: '' })).json;
   assert.deepEqual([s.keys.anthropic.set, s.enabled], [false, false]);
   assert.equal((await (await as('k.qa')).get('/api/ai/settings')).status, 403, 'only admins see the AI settings');
+});
+
+test('the AI QA reviewer drafts a review on the company scorecard; a person approves it (with changes) or rejects it; the similarity is kept', async () => {
+  const a = await as('k.admin'), T = ['Agent: Hello, how can I help?', 'Customer: My order is late.', 'Agent: I am sorry, let me check it for you right away.'].join('\n');
+  await a.put('/api/ai/settings', { anthropicKey: GOOD, model: 'claude-sonnet-5-5', budget: 0, playbook: 'Three reviews per agent per category per month.' });
+  const base = { agent: 'k.agent', id: 'L-77', dt: '2026-10-20', ch: 'chat', scid: 'sc-default' };
+  assert.equal((await a.post('/api/ai/drafts', { ...base, tx: 'too short' })).status, 400);
+  assert.equal((await a.post('/api/ai/drafts', { ...base, agent: 'k.qa', tx: T })).status, 400, 'only agents are reviewed');
+  const d = (await a.post('/api/ai/drafts', { ...base, tx: T })).json;
+  assert.equal(d.status, 'draft'); assert.equal(d.a[0][0][0], 'n'); assert.equal(d.a[0][0][1], 'No greeting at the start'); assert.equal(d.conf, 82); assert.ok(d.sc > 0 && d.sc < 100);
+  assert.equal((await a.get('/api/ai/drafts')).json.length, 1);
+  // the reviewer disagrees on one item: the first item was done after all
+  const fin = d.a.map((row, ci) => row.map((x, ii) => ci === 0 && ii === 0 ? ['y', ''] : x));
+  const ap = await a.post('/api/ai/drafts/' + d.id + '/approve', { a: fin, cm: 'Well done.' });
+  assert.equal(ap.status, 200); assert.equal(ap.json.ev.sc, 100); assert.equal(ap.json.ev.ai.draft, d.id);
+  const n = d.a.flat().length; assert.equal(ap.json.draft.sim.items, Math.round((n - 1) / n * 1000) / 10, 'all items but one agree');
+  assert.equal(ap.json.draft.sim.cats[0], 50); assert.equal(ap.json.draft.status, 'approved');
+  assert.ok(db().evaluations.some(e => e.rid === ap.json.ev.rid && e.cm === 'Well done.' && e.by === 'k.admin'), 'a normal review was made');
+  assert.equal((await a.post('/api/ai/drafts/' + d.id + '/approve', {})).status, 400, 'decided only once');
+  const d2 = (await a.post('/api/ai/drafts', { ...base, id: 'L-78', tx: T })).json;
+  const rj = await a.post('/api/ai/drafts/' + d2.id + '/reject', { why: 'Wrong call' });
+  assert.deepEqual([rj.status, rj.json.status, rj.json.why], [200, 'rejected', 'Wrong call']);
+  assert.equal((await (await as('k.qa')).post('/api/ai/drafts/' + d2.id + '/approve', {})).status, 400, 'a rejected draft cannot be approved later');
+  assert.equal((await (await as('k.agent')).get('/api/ai/drafts')).status, 403, 'agents never see AI drafts');
 });

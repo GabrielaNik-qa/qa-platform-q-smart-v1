@@ -189,7 +189,7 @@ app.post('/api/demo/reset', need('admin'), (req, res) => {
 });
 // what the browser receives of the system settings: e-mail templates and notification rules are only for admins
 const setOut = (db, u) => { const s = { ...db.settings, oldTeams: db.oldTeams }; if (u.role !== 'admin') { delete s.mailtpl; delete s.notifOff; } return s; };
-const ctx = { FILE, DIR: __dirname, app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, limited, setOut,
+const ctx = { newEval, FILE, DIR: __dirname, app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, limited, setOut,
   scopeOf: (db, u) => scopeOf(db, u), seesUser: (db, u, username, team) => seesUser(db, u, username, team) };
 // a password version: changing or resetting a password ends the sign-ins made with the old one (see refreshSession)
 const newPw = (u, pw) => { u.hash = bcrypt.hashSync(String(pw), 10); u.pwv = (u.pwv || 0) + 1; };
@@ -532,26 +532,27 @@ const agentInScope = (db, u, au) => { const s = scopeOf(db, u); return !s || s.t
 // recMissing = the review points to an audio file that is not in the recordings folder (the player would show 0 seconds)
 app.get('/api/evaluations', need(), (req, res) => { const db = load(), u = req.session.user; res.json(db.evaluations.filter(e => canSee(u, e) && inScope(db, u, e)).map(e => e.rec && !fs.existsSync(path.join(REC, path.basename(e.rec))) ? { ...e, recMissing: true } : e)); });
 
-app.post('/api/evaluations', need('admin', 'qa'), (req, res) => {
-  const b = req.body || {}, db = load(), scope = scopeOf(db, req.session.user);
-  const sc = db.scorecards.find(s => s.id === b.scid);
-  if (!sc || (scope && !scope.sc.has(sc.id))) return bad(res, 'Choose a scorecard');
+// a new review (QA Entry, or an AI draft approved by a person): checks everything, scores it and tells the agent; the caller saves
+function newEval(db, user, b) {
+  const scope = scopeOf(db, user), sc = db.scorecards.find(s => s.id === b.scid);
+  if (!sc || (scope && !scope.sc.has(sc.id))) return { err: 'Choose a scorecard' };
   const au = db.users.find(x => x.username === b.agent && x.role === 'agent' && x.active !== false);
-  if (!au || !agentInScope(db, req.session.user, au)) return bad(res, 'Choose an agent');
+  if (!au || !agentInScope(db, user, au)) return { err: 'Choose an agent' };
   const id = leadId(b.id);
-  if (!id || id.length > 60) return bad(res, 'Enter the lead ID (up to 60 characters)');
-  if (!DAY.test(b.dt || '')) return bad(res, 'Choose the date');
+  if (!id || id.length > 60) return { err: 'Enter the lead ID (up to 60 characters)' };
+  if (!DAY.test(b.dt || '')) return { err: 'Choose the date' };
   const ch = chOf(b.ch);
-  let r; try { r = build(sc, b.a); } catch (err) { return bad(res, 'The answers do not match the scorecard'); }
+  let r; try { r = build(sc, b.a); } catch (err) { return { err: 'The answers do not match the scorecard' }; }
   const ev = {
     rid: 'r' + hex(6), id, agent: au.username, agn: au.name, tid: au.team, d: evDate(b.dt), sc: r.sc, cs: r.cs, scid: sc.id, scn: sc.name, st: 'ok',
     fl: FLAGS.includes(b.fl) ? b.fl : '', cp: str(b.cp, 80), cm: str(b.cm, 1000),
-    lk: link(b.lk), rl: ch === 'call' ? link(b.rl) : '', ch, ...chFields(b, ch), rv: req.session.user.name, by: req.session.user.username, seen: null
+    lk: link(b.lk), rl: ch === 'call' ? link(b.rl) : '', ch, ...chFields(b, ch), rv: user.name, by: user.username, seen: null
   };
   db.evaluations.unshift(ev);
   notify(db, au.username, 'review', `You received a new ${CHN[ch]} review for Lead #${id} (score ${r.sc}%)`, { rid: ev.rid, lead: id });
-  save(db); res.json(ev);
-});
+  return { ev };
+}
+app.post('/api/evaluations', need('admin', 'qa'), (req, res) => { const db = load(), r = newEval(db, req.session.user, req.body || {}); if (r.err) return bad(res, r.err); save(db); res.json(r.ev); });
 
 app.put('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
   const db = load(), ev = evOf(db, req.session.user, req.params.rid), b = req.body || {};
