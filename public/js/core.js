@@ -118,6 +118,7 @@ const IC = {
   lock: svg('<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/>'), globe: svg('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/>'),
   puzzle: svg('<path d="M4 4h6v2a2 2 0 004 0V4h6v6h-2a2 2 0 000 4h2v6h-6v-2a2 2 0 00-4 0v2H4v-6h2a2 2 0 000-4H4z"/>'),
   g_reports: svg('<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M8 17v-3M12 17v-6M16 17v-2"/>', 22), g_plan: svg('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h3v3H8z"/>', 22),
+  g_wf: svg('<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a5 5 0 015-5h3"/><circle cx="17" cy="16" r="5"/><path d="M17 13.5V16l1.6 1.6"/>', 22),
   g_perf: svg('<path d="M12 2l3 6.5 7 1-5 4.8 1.2 7L12 18l-6.2 3.3 1.2-7-5-4.8 7-1z"/>', 22), g_comply: svg('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M12 8v5M12 16h.01"/>', 22)
 };
 // the Q-smart mark: an orange ring with a yellow tail
@@ -232,6 +233,7 @@ async function load() {
   if (route === 'tasks') { want.push(['tk', '/api/tasks']); if (ed) want.push(['tp', '/api/task-templates']); }
   if (route === 'agents') want.push(['se', '/api/sessions'], ['tk', '/api/tasks'], ['sm', '/api/simulations']);
   if (route === 'sim') want.push(['sm', '/api/simulations'], ['rp', '/api/ai/roleplay']);
+  if (route === 'rota') want.push(['wr', '/api/wf/rota?team=' + encodeURIComponent(RTM) + '&from=' + RWK]);
   if (['coach', 'o2o', 'acad'].includes(route) || (route === 'dash' && ME && ME.role === 'agent')) want.push(['se', '/api/sessions']);
   if (route === 'audit' && adm) want.push(['au', '/api/audit']);
   if (route === 'tasks' || route === 'coach' || route === 'dash') want.push(['tk', '/api/tasks']);
@@ -286,6 +288,7 @@ async function load() {
   if (R.al) AIL = JSON.parse(R.al);
   if (R.at) AIT = JSON.parse(R.at);
   if (R.rp) AIRP = JSON.parse(R.rp);
+  if (R.wr) { ROTA = JSON.parse(R.wr); if (ROTA.team) RTM = ROTA.team; }
   if (R.aa) AIA = JSON.parse(R.aa);
   if (R.ais) AISET = JSON.parse(R.ais);
   if (R.sk) SKL = JSON.parse(R.sk);
@@ -336,6 +339,7 @@ const FICON_ALIAS = { '📗': 'book', '📙': 'book', '📕': 'book', '📒': 'b
 const ficon = e => { const k = (FICONS.find(x => x[0] === e) || [])[1] || FICON_ALIAS[e]; return k && IC[k] ? IC[k] : esc(e || ''); };
 function fmField(f) {
   if (f.show && !f.show(FM.d)) return '';
+  if (f.t === 'h') return `<div class=fmh>${esc(f.l)}</div>`;                       // a small heading between groups of fields
   const v = FM.d[f.k], L = `${esc(f.l || '')}${f.req ? ' <i class=rq>*</i>' : ''}`, hint = f.hint ? `<small class=mu>${esc(f.hint)}</small>` : '';
   const k = f.k, opts = typeof f.o === 'function' ? f.o(FM.d) : (f.o || []);
   if (f.t === 'textarea') return `<label>${L}<textarea rows=${f.rows || 3} placeholder="${esc(f.ph || '')}" oninput="fmSet('${k}',this.value)">${esc(v)}</textarea>${hint}</label>`;

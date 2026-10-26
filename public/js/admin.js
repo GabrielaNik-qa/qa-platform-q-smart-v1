@@ -94,9 +94,10 @@ const USER_FIELDS = isNew => [
   { k: 'workspaces', l: 'Workspaces', t: 'multi', show: d => !['agent', 'admin'].includes(d.role), o: () => WSP.map(w => [w.id, w.name]), hint: 'Which workspaces this person works in. Admins see all of them.' },
   { k: 'title', l: 'Job title' }, { k: 'phone', l: 'Phone' }, { k: 'start', l: 'Start date', t: 'date' },
   { k: 'languages', l: 'Languages', t: 'picker', kind: 'languages' }, { k: 'skills', l: 'Skills', t: 'picker', kind: 'skills' }, { k: 'desc', l: 'Description', t: 'textarea', rows: 2 },
-  ...(isNew ? [] : [{ k: 'active', l: 'Active account', t: 'checkbox', hint: 'Inactive people cannot log in and disappear from the pick lists; their history stays.' }])
+  ...(isNew ? [] : [{ k: 'active', l: 'Active account', t: 'checkbox', hint: 'Inactive people cannot log in and disappear from the pick lists; their history stays.' }]),
+  ...EMP_FIELDS()
 ];
-const addUser = () => { openForm({ title: 'Add a user', fields: USER_FIELDS(true), d: { firstName: '', lastName: '', username: '', email: '', role: 'agent', team: workTeams()[0] ? workTeams()[0].id : '', workspaces: WSP[0] ? [WSP[0].id] : [], title: '', phone: '', start: '', languages: [], skills: [], desc: '' }, yes: 'Create user',
+const addUser = () => { openForm({ title: 'Add a user', fields: USER_FIELDS(true), d: { firstName: '', lastName: '', username: '', email: '', role: 'agent', team: workTeams()[0] ? workTeams()[0].id : '', workspaces: WSP[0] ? [WSP[0].id] : [], title: '', phone: '', start: '', languages: [], skills: [], desc: '', empType: 'full', hours: 40, empStatus: 'active' }, yes: 'Create user',
   extra: () => '<p class=mu style="margin:0">The new user gets the temporary password <b class=mono>password</b> and must choose a new one at the first login.</p>',
   save: async d => { const r = await api('/api/users', d); if (!r.ok) return errOf(r, 'Could not create the user'); await load(); toast('User created. Temporary password: password'); } }); FM.isNew = true; };
 const editUser = un => { const u = USR.find(x => x.username === un); openForm({ title: 'Edit ' + u.name, fields: USER_FIELDS(false), d: u,
@@ -127,7 +128,7 @@ const userAct = u => `<span style="white-space:nowrap"><button class=ic onclick=
 const stPill = u => u.active === false ? pill('Inactive', 'bad') : u.mustChange ? pill('Must change password', 'wn') : pill('Active', 'ok');
 const UT = l => vw('users') === 'boxes'
   ? `<div class=bxg>${l.map(u => `<div class=bx><div class=row><span style="display:flex;gap:10px;align-items:center"><span class=av style="margin:0">${esc(ini(u.name))}</span><span><b>${esc(u.name)}</b><br><small class=mu>${esc(u.title || ROLE[u.role])}</small></span></span>${stPill(u)}</div><small class=mu>${esc(u.email || u.username)}</small><div>${pill(ROLE[u.role] || u.role, 'ac')} <span class=tg style="color:${tcol(u.team)}">${esc(tn(u.team))}</span></div><small class=mu>Team lead: ${esc(leadName(u.team))}</small><div>${chips(u.languages)}</div><div>${chips(u.skills)}</div>${userAct(u)}</div>`).join('') || '<p class=mu>No users match</p>'}</div>`
-  : card(`${l.length} user${l.length === 1 ? '' : 's'}`, tbl(['Name', 'Username', 'Email', 'Role', 'Team', 'Team lead', 'Languages', 'Skills', 'Status', ''], l.map(u => [`<a href="javascript:void(0)" style="color:var(--ac);font-weight:600" onclick="editUser('${esc(u.username)}')"><span class=av>${esc(ini(u.name))}</span>${esc(u.name)}</a>${u.title ? `<br><small class=mu>${esc(u.title)}</small>` : ''}`, `<span class=mono>${esc(u.username)}</span>`, esc(u.email) || '<small>—</small>', pill(ROLE[u.role] || u.role, 'ac'), `<span class=tg style="color:${tcol(u.team)}">${esc(tn(u.team))}</span>`, esc(leadName(u.team)), chips(u.languages), chips(u.skills), stPill(u), userAct(u)])));
+  : card(`${l.length} user${l.length === 1 ? '' : 's'}`, tbl(['Name', 'Username', 'Email', 'Role', 'Team', 'Team lead', 'Employment', 'Languages', 'Skills', 'Status', ''], l.map(u => [`<a href="javascript:void(0)" style="color:var(--ac);font-weight:600" onclick="editUser('${esc(u.username)}')"><span class=av>${esc(ini(u.name))}</span>${esc(u.name)}</a>${u.title ? `<br><small class=mu>${esc(u.title)}</small>` : ''}`, `<span class=mono>${esc(u.username)}</span>`, esc(u.email) || '<small>—</small>', pill(ROLE[u.role] || u.role, 'ac'), `<span class=tg style="color:${tcol(u.team)}">${esc(tn(u.team))}</span>`, esc(leadName(u.team)), empCell(u), chips(u.languages), chips(u.skills), stPill(u), userAct(u)])));
 PG.users = function () {
   if (ME.role !== 'admin') return head('Users', 'People and access') + card('', '<p class=mu>Only admins can see this page.</p>');
   return head('Users', 'Add, rename, move and remove people. Everybody belongs to a team.', `<div style="display:flex;gap:8px;flex-wrap:wrap">${vwBtn('users')}<button class=btn onclick="addUser()">+ Add user</button></div>`)
@@ -169,7 +170,7 @@ async function saveSys() {
   SET = await r.json(); SYS = false; render(); toast('System settings saved');
 }
 async function saveProfile() {
-  const r = await api('/api/profile', { firstName: $('#apf').value, lastName: $('#apl').value, email: $('#ape').value, languages: ACD.languages, skills: ACD.skills, desc: $('#apd').value }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save your profile'), true);
+  const r = await api('/api/profile', { firstName: $('#apf').value, lastName: $('#apl').value, email: $('#ape').value, languages: ACD.languages, skills: ACD.skills, desc: $('#apd').value, birthday: $('#apb').value, showBday: $('#apsb').checked, ecName: $('#apen').value, ecPhone: $('#apep').value, ecRel: $('#aper').value }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save your profile'), true);
   ME = await r.json(); render(); toast('Profile saved');
 }
 async function chPw() {

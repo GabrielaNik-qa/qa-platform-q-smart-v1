@@ -826,3 +826,17 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 #vmic.rec { background: var(--bad); color: #fff; border-color: var(--bad); animation: vpulse 1.2s ease-in-out infinite }
 @keyframes vpulse { 50% { opacity: .65 } }
 @media (prefers-reduced-motion: reduce) { #vmic.rec { animation: none } }
+
+/* ---- Workforce: the rota grid, one day of one person, the work week chips, the day pickers, headings inside forms */
+.rota th, .rota td { padding: 6px 5px; vertical-align: top; text-align: left } .rota th { white-space: nowrap; font-size: 12.5px } .rota th.tdy { color: var(--ac) }
+.rota tbody tr.me td { background: color-mix(in srgb, var(--ac) 7%, transparent) } .rota tfoot td { border-top: 1px solid var(--bd); font-size: 12.5px }
+.holn { color: var(--wn); font-weight: 500; white-space: normal }
+.rc { display: block; width: 100%; min-width: 74px; text-align: left; font: inherit; font-size: 12.5px; font-weight: 600; line-height: 1.25; padding: 5px 7px; border: 1px solid transparent; border-left: 3px solid var(--c, var(--bd)); border-radius: 6px; background: color-mix(in srgb, var(--c, var(--mu)) 12%, transparent); color: var(--tx); cursor: pointer }
+.rc small { display: block; font-weight: 400; color: var(--mu); font-size: 11.5px } span.rc { cursor: default } button.rc:hover { border-color: var(--c, var(--bd)) }
+.rc.off { --c: var(--bd); background: transparent; color: var(--mu); font-weight: 500 } .rc.hol { --c: var(--wn); background: color-mix(in srgb, var(--wn) 14%, transparent); color: var(--tx) }
+.rc.set { box-shadow: inset 0 0 0 1px var(--c, var(--mu)) } .rc.set::after { content: ' •'; color: var(--ac) } .rc.cur { outline: 2px solid var(--ac); outline-offset: 1px }
+.rpick { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px }
+.wweek { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0 } .wday { font-size: 11.5px; padding: 2px 6px; border-radius: 5px; background: color-mix(in srgb, var(--ok) 16%, transparent); font-weight: 600 }
+.wday.half { background: color-mix(in srgb, var(--wn) 18%, transparent) } .wday.off { background: transparent; color: var(--mu); border: 1px dashed var(--bd); font-weight: 400 }
+.wpick { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin-top: 6px } .wpick label { font-size: 12px; gap: 3px } .wpick label span { color: var(--mu) }
+.fmh { font-weight: 700; font-size: 13px; margin: 8px 0 -2px; padding-top: 10px; border-top: 1px solid var(--bd) }

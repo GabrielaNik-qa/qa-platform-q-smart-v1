@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs'), fs = require('fs'), path = require('path');
 const crypto = require('crypto'), nodemailer = require('nodemailer'), ExcelJS = require('exceljs');
 const { DEFAULT_SC, build } = require('./scorecard');
 const { ensureBootstrap, uname, ADMIN_TEAM } = require('./bootstrap');
+const wfm = require('./wf');                                    // workforce rules: work calendars, shifts, the rota
 
 const FILE = process.env.DATA_FILE ? path.resolve(process.env.DATA_FILE) : path.join(__dirname, 'data.json');   // <- this file IS the database (DATA_FILE = use another copy, e.g. for the tests)
 const DEFAULT_PASSWORD = 'password';                       // every user created in the app starts with this and must change it at first login
@@ -124,7 +125,8 @@ const cleanPrefs = p => {
   if (Object.keys(cols).length) out.cols = cols;
   return out;
 };
-const pub = u => ({ username: u.username, name: u.name, firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {}, prefs: cleanPrefs(u.prefs), views: u.views || {} });
+const pub = u => ({ username: u.username, name: u.name, firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || '', role: u.role, team: u.team || '', title: u.title || '', mustChange: !!u.mustChange, layouts: u.layouts || {}, prefs: cleanPrefs(u.prefs), views: u.views || {},
+  empId: u.empId || '', empType: u.empType || 'full', hours: u.hours || 40, manager: u.manager || '', cal: u.cal || '', shift: u.shift || '', pattern: u.pattern || '', birthday: u.birthday || '', showBday: !!u.showBday, ecName: u.ecName || '', ecPhone: u.ecPhone || '', ecRel: u.ecRel || '' });
 // skills and languages can only be picked from the catalog (Admin > Skills); unknown names are dropped, spelling is normalised
 const pick = (v, catalog) => { const out = []; (Array.isArray(v) ? v : String(v || '').split(',')).forEach(x => { const m = (catalog || []).find(c => c.toLowerCase() === String(x).trim().toLowerCase()); if (m && !out.includes(m)) out.push(m); }); return out; };
 const rosterPub = u => ({ username: u.username, name: u.name, role: u.role, team: u.team || '', title: u.title || '', desc: u.desc || '', languages: u.languages || [], skills: u.skills || [], start: u.start || '', active: u.active !== false });
@@ -188,7 +190,7 @@ app.post('/api/demo/reset', need('admin'), (req, res) => {
   catch (e) { res.status(500).json({ error: 'The reset failed - run "node seed.js" in the terminal to see why' }); }
 });
 // what the browser receives of the system settings: e-mail templates and notification rules are only for admins
-const setOut = (db, u) => { const s = { ...db.settings, oldTeams: db.oldTeams }; if (u.role !== 'admin') { delete s.mailtpl; delete s.notifOff; } return s; };
+const setOut = (db, u) => { const s = { ...db.settings, oldTeams: db.oldTeams, wf: wfm.settingsOf(db.settings.wf, wfm.localDay()) }; delete s.ai; if (u.role !== 'admin') { delete s.mailtpl; delete s.notifOff; } return s; };
 const ctx = { newEval, FILE, DIR: __dirname, app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, limited, setOut,
   scopeOf: (db, u) => scopeOf(db, u), seesUser: (db, u, username, team) => seesUser(db, u, username, team) };
 // a password version: changing or resetting a password ends the sign-ins made with the old one (see refreshSession)
@@ -234,6 +236,11 @@ app.put('/api/profile', need(), (req, res) => {
   if (b.languages !== undefined) u.languages = list(b.languages);
   if (b.skills !== undefined) u.skills = list(b.skills);
   if (b.phone !== undefined) u.phone = str(b.phone, 40);
+  if (b.birthday !== undefined) u.birthday = DAY.test(b.birthday || '') ? b.birthday : '';
+  if (b.showBday !== undefined) u.showBday = b.showBday === true;
+  if (b.ecName !== undefined) u.ecName = str(b.ecName, 80);
+  if (b.ecPhone !== undefined) u.ecPhone = str(b.ecPhone, 40);
+  if (b.ecRel !== undefined) u.ecRel = str(b.ecRel, 40);
   save(db); req.session.user = pub(u); res.json(req.session.user);
 });
 // a new password ends the person's other sign-ins (someone else may be using one); the sign-in that changed it stays
@@ -385,7 +392,20 @@ const userBody = (b, db, cur) => {
   if (role !== 'agent') team = ADMIN_TEAM;                                   // admins, QA, team leads and trainers always sit in the Administration team
   else if (!db.teams.some(t => t.id === team && t.id !== ADMIN_TEAM)) throw new Error('Choose a team. Every agent must belong to a team.');
   const start = /^\d{4}-\d{2}-\d{2}$/.test(b.start || '') ? b.start : '';
-  return { ...np, email, role, team, title: str(b.title, 80), desc: str(b.desc, 600), languages: pick(b.languages, db.languages), skills: pick(b.skills, db.skills), phone: str(b.phone, 40), start, active: b.active === undefined ? (cur ? cur.active !== false : true) : !!b.active };
+  return { ...np, email, role, team, title: str(b.title, 80), desc: str(b.desc, 600), languages: pick(b.languages, db.languages), skills: pick(b.skills, db.skills), phone: str(b.phone, 40), start, active: b.active === undefined ? (cur ? cur.active !== false : true) : !!b.active, ...empBody(b, db, cur, np.name) };
+};
+// employment (Workforce): employee ID, type and hours, reporting manager, work calendar, usual shift or repeating pattern,
+// status and leaving date, and the private details (birthday, emergency contact) only admins and the person see
+const EMPTYPES = ['full', 'part', 'contract', 'intern'], EMPSTATUS = ['active', 'leave', 'left'];
+const empBody = (b, db, cur, name) => {
+  const W = wfm.settingsOf(db.settings.wf, wfm.localDay()), has = (l, id) => typeof id === 'string' && l.some(x => x.id === id), d = v => DAY.test(typeof v === 'string' ? v : '') ? v : '';
+  const empId = str(b.empId, 30), manager = str(b.manager, 40), hours = Number(b.hours), status = EMPSTATUS.includes(b.empStatus) ? b.empStatus : 'active', pattern = has(W.patterns, b.pattern) ? b.pattern : '';
+  if (empId && db.users.some(u => u !== cur && u.empId === empId)) throw new Error('That employee ID is already used by ' + db.users.find(u => u !== cur && u.empId === empId).name);
+  if (manager && (manager === (cur && cur.username) || !db.users.some(u => u.username === manager && u.role !== 'agent'))) throw new Error('Choose the reporting manager from the list');
+  return { empId, empType: EMPTYPES.includes(b.empType) ? b.empType : 'full', hours: b.hours !== '' && b.hours !== null && Number.isFinite(hours) && hours >= 1 && hours <= 60 ? Math.round(hours * 2) / 2 : 40,
+    manager, cal: has(W.calendars, b.cal) ? b.cal : '', location: str(b.location, 80), shift: has(W.shifts, b.shift) ? b.shift : '', pattern, patStart: pattern ? d(b.patStart) || wfm.localDay() : '',
+    empStatus: status, exitDate: status === 'left' ? d(b.exitDate) || wfm.localDay() : '', exitReason: status === 'left' ? str(b.exitReason, 200) : '',
+    birthday: d(b.birthday), ecName: str(b.ecName, 80), ecPhone: str(b.ecPhone, 40), ecRel: str(b.ecRel, 40) };
 };
 const setStaffWs = (db, username, role, ids) => {                          // staff belong to workspaces explicitly, agents through their team
   db.workspaces.forEach(w => { w.staff = (w.staff || []).filter(x => x !== username); });
@@ -782,6 +802,7 @@ require('./routes-learning')(ctx);    // knowledge base, quizzes, newsletter, im
 require('./routes-setup')(ctx);       // skills, workspaces, categories, root causes, Auto QA categories
 require('./routes-autoqa')(ctx);      // Auto QA conversations and scoring
 require('./routes-ai')(ctx);          // AI and voice settings: keys (encrypted), model, monthly budget, test
+require('./routes-wf')(ctx);          // Workforce: work calendars, shifts and patterns, the rota of every team
 
 app.use(express.static(path.join(__dirname, 'public')));
 // any error that reaches this point: a short message for the browser (the details, with the folder paths of this computer, only go to the terminal)

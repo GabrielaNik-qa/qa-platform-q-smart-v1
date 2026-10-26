@@ -528,3 +528,45 @@ Please talk to a patent attorney before demoing it outside the company. I can wr
 3. **After too many lates:** a warning only, not a deduction.
 4. **Fair split size:** by working days and hours, so part-timers and people on leave get less.
 5. **Mid-month change:** the app suggests the new split of the remaining leads, and a person approves it before agents see it.
+
+## M. Workforce, Phase 1 built (26 October): people, calendars, shifts and the rota
+
+You said yes to the five recommended choices, including the new **Workforce** group in the sidebar.
+
+**Where things are**
+- **Workforce › Shifts and rota:** the plan of each team, week by week.
+  - Click a day to change it (a shift or a day off), or put it back to the usual plan.
+  - **Copy last week**, and **Usual shifts and patterns** (for several people at once).
+  - Each day shows how many people are **on shift**. Each person shows planned hours against the hours in their contract: amber when under, red when over.
+  - **Copy for Excel.**
+  - Team leads plan the teams they see; QA and trainers look; agents see their own team only.
+- **Admin › People › Work calendars:**
+  - working days per country (working day, half day or day off)
+  - public holidays: Bulgaria's are filled in by themselves, including Orthodox Easter and the days moved by law
+  - you can also add a day or paste a list
+- **Admin › People › Shift templates:**
+  - Shifts: start, end (night shifts allowed), break, paid hours, grace minutes, core hours, and the automatic check-out for later.
+  - The default shift.
+  - **Repeating patterns**, for example "4 on, 4 off" or "two weeks: early / late".
+- **Admin › Users:** new **Employment** fields:
+  - employee ID
+  - full or part time, and hours per week
+  - reporting manager
+  - work calendar and location
+  - usual shift or pattern
+  - status: active, on long leave, left (with the last working day and reason)
+
+  There is also a **Private** section: birthday and emergency contact.
+- **My account:** each person can fill in their birthday, choose whether colleagues may see it, and keep their emergency contact up to date. They also see their employment type, hours and usual shift.
+
+**How a day is worked out**, in this order:
+1. a change made on the rota for that day
+2. a public holiday
+3. the person's repeating pattern
+4. their usual shift on the working days of their calendar
+
+Nobody is planned before their start date or after their last working day.
+
+**Also fixed:** the AI settings block (with the encrypted API key) was sent to every signed-in person with the general settings. It now never leaves the server.
+
+**Next (Phase 2):** check in / check out, late and absent worked out by themselves, corrections approved by the team lead, and time off with balances.
