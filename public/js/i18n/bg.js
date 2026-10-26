@@ -983,6 +983,7 @@ I18N.add('bg', {
   "The welcome message will not show again. Switch it back on in My account › Notifications & Confirmations.": "Приветственото съобщение няма да се показва отново. Можете да го включите пак от Моят акаунт › Известия и потвърждения.",
   "Welcome": "Добре дошли", "Don't show me this again": "Не показвай това отново", "Get started": "Започнете",
   "Getting started": "Първи стъпки", "Click to see this period in detail": "Щракнете, за да видите периода подробно",
+  "Back to the main menu": "Назад към главното меню", "Set-up": "Настройка", "Quality set-up": "Настройка на качеството", "Practice": "Практика",
   "Average in reviews": "Средно в оценките", "How often each root cause is chosen": "Колко често се избира всяка основна причина", "No categories found": "Няма намерени категории", "Not in any review yet": "Още не е използвана в оценка", "Used in": "Използвана в", "— click one in Analytics › Category Stats to see the items and agents behind it": "— щракнете върху причина в Анализи › Статистика по категории, за да видите точките и агентите зад нея",
   "Answered No": "Отговор „Не“", "BEST AGENTS": "НАЙ-ДОБРИ АГЕНТИ", "BY TEAM": "ПО ЕКИПИ", "Best agent": "Най-добър агент", "Cards": "Карти", "Expand": "Разгъни", "Minimise": "Сгъни", "FOR THESE ITEMS": "ЗА ТЕЗИ ТОЧКИ", "ITEMS ANSWERED NO": "ТОЧКИ С ОТГОВОР „НЕ“", "LATEST REVIEWS": "ПОСЛЕДНИ ОЦЕНКИ", "LATEST REVIEWS WITH NO": "ПОСЛЕДНИ ОЦЕНКИ С „НЕ“", "LOWEST REVIEWS": "НАЙ-НИСКИ ОЦЕНКИ", "Minimised — press ⌄ to see every agent.": "Сгънато — натиснете ⌄, за да видите всички агенти.", "NEEDS SUPPORT": "НУЖДАЕ СЕ ОТ ПОДКРЕПА", "Needs help": "Нуждае се от помощ", "No items": "Няма точки", "No root causes were chosen for this item.": "За тази точка не са избрани основни причини.", "Nobody": "Никой", "ROOT CAUSES": "ОСНОВНИ ПРИЧИНИ", "Share of answers": "Дял от отговорите", "Table": "Таблица", "WHO MISSES IT": "КОЙ Я ПРОПУСКА", "— click one to see where it comes from": "— щракнете върху категория, за да видите откъде идва", "with at least one No": "с поне едно „Не“",
   "Detailed": "Подробно", "List": "Списък", "Show the details": "Покажи подробностите", "Show less": "Покажи по-малко", "TASK": "ЗАДАЧА", "FOR": "ЗА", "PRIORITY": "ПРИОРИТЕТ", "DUE": "СРОК", "PROGRESS": "НАПРЕДЪК", "No tasks here": "Тук няма задачи",
@@ -1457,4 +1458,5 @@ I18N.add("bg", {
   ["{n} scorecard", {"one":"{n} оценъчна карта","other":"{n} оценъчни карти"}],
   ["{n} scorecards", {"one":"{n} оценъчна карта","other":"{n} оценъчни карти"}],
   ["+ {n} more", "+ още {n}"],
+  ["Open {~x}", "Отвори {~x}"],
 ]);

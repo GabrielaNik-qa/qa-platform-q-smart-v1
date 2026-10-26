@@ -7,9 +7,9 @@ Nothing was merged into `main` and nothing was pushed.
 
 ## A. Things that need your OK (I did not do them)
 
-### A1. The side menu: separate panels with a "Back" button (your points 2 and 10)
+### A1. The side menu: separate panels with a "Back" button (your points 2 and 10) — ✅ BUILT after your yes
 
-You asked me not to change the sidebar without asking, so this is only a proposal.
+Built on 26 October as proposed. The only change is the name: "Admin ›" reads **"Set-up ›"** for QA, team leads and trainers, because they only have the scorecard pages in it. The hover pop-out for the icons-only menu was not added; say if you want it. The proposal was:
 
 **How it would work** (like Modjo's settings, or Facebook's menus):
 

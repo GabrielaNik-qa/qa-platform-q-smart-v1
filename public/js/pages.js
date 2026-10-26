@@ -5,19 +5,22 @@ const staff = () => ME && (ME.role === 'admin' || ME.role === 'qa');
 const isStaffR = () => ME && STAFFR.includes(ME.role);
 
 // ---- the menu: main groups, each with its own icon and a drop-down of pages
+// The menu has three panels (space): the main menu for the everyday work, and the Learning and Admin panels that open from the
+// bottom of it ("Learning ›", "Admin ›") and have "← Back to the main menu" at the top (main.js)
 const GROUPS = [
   { id: 'home', name: 'Home', icon: 'g_home', items: [['dash', 'Dashboard'], ['autoqa', 'AutoQA'], ['tasks', 'Tasks']] },
   { id: 'quality', name: 'Quality', icon: 'g_quality', items: [['calls', 'Reviews'], ['entry', 'QA Entry'], ['flags', 'Quick Flags'], ['disputes', 'Disputes']] },
-  { id: 'scorecards', name: 'Scorecards', icon: 'g_sc', items: [['sco', 'Scorecards'], ['scat', 'Categories'], ['roots', 'Root causes'], ['aqcats', 'Auto QA categories']] },
   { id: 'analytics', name: 'Analytics', icon: 'g_analytics', items: [['agents', 'Agents'], ['team', 'Team Review'], ['cats', 'Category Stats']] },
-  { id: 'reports', name: 'Reports', icon: 'g_reports', items: [['rbuild', 'Report builder'], ['rsaved', 'Saved & scheduled'], ['rexp', 'Export centre']] },
   { id: 'coaching', name: 'Coaching', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration']] },
   { id: 'performance', name: 'Performance', icon: 'g_perf', items: [['goals', 'Goals & KPIs'], ['pips', 'Improvement plans'], ['kudos', 'Recognition']] },
   { id: 'planning', name: 'Planning', icon: 'g_plan', items: [['planner', 'Review planner'], ['workload', 'QA workload'], ['calendar', 'Calendar']] },
   { id: 'comply', name: 'Compliance & CX', icon: 'g_comply', items: [['compliance', 'Compliance'], ['risks', 'Risk register'], ['complaints', 'Complaints'], ['csat', 'Surveys (CSAT)']] },
-  { id: 'learning', name: 'Learning', icon: 'g_learning', items: [['acad', 'My Learning'], ['kb', 'Knowledge Base'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },
-  { id: 'tools', name: 'Tools', icon: 'g_tools', items: [['tr', 'Transcripts'], ['sim', 'Call Simulator']] },
-  { id: 'admin', name: 'Admin', icon: 'g_admin', items: [['users', 'Users'], ['teams', 'Teams'], ['wsp', 'Workspaces'], ['skills', 'Skills'], ['perms', 'Roles & permissions'], ['integ', 'Integrations'], ['notifs', 'Notification rules'], ['backup', 'Backups & data'], ['mailtpl', 'Email templates'], ['audit', 'Audit log']] }
+  { id: 'reports', name: 'Reports', icon: 'g_reports', items: [['rbuild', 'Report builder'], ['rsaved', 'Saved & scheduled'], ['rexp', 'Export centre']] },
+  { id: 'learning', name: 'Learning', icon: 'g_learning', space: 'learn', items: [['acad', 'My Learning'], ['kb', 'Knowledge Base'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },
+  { id: 'tools', name: 'Practice', icon: 'g_tools', space: 'learn', items: [['tr', 'Transcripts'], ['sim', 'Call Simulator']] },
+  { id: 'people', name: 'People', icon: 'g_people', space: 'admin', items: [['users', 'Users'], ['teams', 'Teams'], ['wsp', 'Workspaces'], ['skills', 'Skills']] },
+  { id: 'scorecards', name: 'Quality set-up', icon: 'g_sc', space: 'admin', items: [['sco', 'Scorecards'], ['scat', 'Categories'], ['roots', 'Root causes'], ['aqcats', 'Auto QA categories']] },
+  { id: 'admin', name: 'System', icon: 'g_sys', space: 'admin', items: [['perms', 'Roles & permissions'], ['integ', 'Integrations'], ['notifs', 'Notification rules'], ['mailtpl', 'Email templates'], ['backup', 'Backups & data'], ['audit', 'Audit log']] }
 ];
 const RR = { entry: ['admin', 'qa'], flags: STAFFR, team: STAFFR, cats: STAFFR, coach: STAFFR, cal: STAFFR, sco: STAFFR, scat: ['admin', 'qa'], roots: ['admin', 'qa'], aqcats: ['admin', 'qa'], users: ['admin'], teams: ['admin'], wsp: ['admin'], skills: ['admin'], audit: ['admin'] };
 Object.assign(RR, { rbuild: STAFFR, rsaved: STAFFR, rexp: STAFFR, planner: ['admin', 'qa', 'lead'], workload: ['admin', 'qa', 'lead'], compliance: STAFFR, risks: STAFFR, complaints: STAFFR, csat: STAFFR, perms: ['admin'], integ: ['admin'], notifs: ['admin'], backup: ['admin'], mailtpl: ['admin'] });

@@ -52,7 +52,17 @@ addEventListener('resize', () => { const c = COLP || innerWidth <= 1100; if (c !
 function sbDbl(e) { if (!ME || e.target.closest('a,button,.usr,select,input')) return; toggleSb(); }
 // ---------------------------------------------------------------- menu: a few main groups with drop-downs (a pop-out list when the sidebar is collapsed)
 let OG = null, FLY = null, FLYY = 100;
-const gOpen = g => !COL && (OG === null ? groupOf(route) === g.id : OG === g.id);
+const gOpen = g => !COL && (g.space ? true : OG === null ? groupOf(route) === g.id : OG === g.id);   // in the Learning and Admin panels every section stays open
+// ---- the menu panels: the main menu, and the Learning and Admin panels that open from the bottom of it ("Learning ›", "Admin ›";
+// "Set-up ›" for QA, team leads and trainers, who only have the scorecard pages there). The panel follows the page (a link to an
+// admin page opens the Admin panel); "← Back to the main menu" goes to the last page of the main menu.
+let SPV = null, LASTMAIN = 'dash';                                    // SPV = a panel opened by hand, until the next page opens
+const spaceOf = r => (GROUPS.find(g => g.items.some(([k]) => k === r)) || {}).space || 'main';
+const curSpace = () => SPV || spaceOf(route);
+const spName = s => s === 'learn' ? 'Learning' : ME.role === 'admin' ? 'Admin' : 'Set-up';
+const spTop = () => { const n = $('#n'); if (n) n.scrollTop = 0; };   // a panel always opens at its top (where "Back" is)
+function spGo(s, ev) { ev.stopPropagation(); SPV = s; OG = null; FLY = null; UMN = false; render(); spTop(); }
+function spBack(ev) { ev.stopPropagation(); SPV = null; OG = null; FLY = null; UMN = false; if (spaceOf(route) !== 'main') location.hash = LASTMAIN; else { render(); spTop(); } }
 // clicking a group's icon opens its first page; when the sidebar is closed its pop-out menu stays open too
 let PENDFLY = null;
 function gGo(id, ev) {
@@ -62,9 +72,14 @@ function gGo(id, ev) {
   OG = id; if (route === first) render(); else location.hash = first;
 }
 function tgG(id, ev) { if (COL) { const first = groupsFor().find(g => g.id === id).items[0][0]; FLY = id; FLYY = ev.currentTarget.getBoundingClientRect().top; if (first !== route) { location.hash = first; return; } } else OG = (gOpen({ id }) ? '' : id); render(); }
-const NAVH = () => groupsFor().map(g => { const act = groupOf(route) === g.id, open = gOpen(g);
+const NAVH = () => { const sp = curSpace(), all = groupsFor();
+  const grp = all.filter(g => (g.space || 'main') === sp).map(g => { const act = groupOf(route) === g.id, open = gOpen(g), sys = g.id === 'admin' && ME.role === 'admin' ? `<a href="javascript:void(0)" onclick="SYS=true;render()">System settings</a>` : '';
   // the icon AND the name open the group's first page; only the small arrow opens or closes the list without leaving the page
-  return `<div class="grp ${open ? 'open' : ''} ${act ? 'act' : ''}"><button class=gh onclick="gGo('${g.id}',event)" title="Open ${g.items[0][1]}"><i>${IC[g.icon]}</i><span>${g.name}</span><em onclick="event.stopPropagation();tgG('${g.id}',event)" title="Show / hide">›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}</div>` : ''}</div>`; }).join('');
+  return `<div class="grp ${open ? 'open' : ''} ${act ? 'act' : ''}"><button class=gh onclick="gGo('${g.id}',event)" title="Open ${g.items[0][1]}"><i>${IC[g.icon]}</i><span>${g.name}</span><em onclick="event.stopPropagation();tgG('${g.id}',event)" title="Show / hide">›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}${sys}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}${sys}</div>` : ''}</div>`; }).join('');
+  const back = sp === 'main' ? '' : `<div class="grp spb"><button class=gh onclick="spBack(event)" title="Back to the main menu"><i>${IC.back}</i><span>Back to the main menu</span></button></div><div class=spt>${spName(sp)}</div>`;
+  const doors = sp !== 'main' ? '' : ['learn', 'admin'].filter(x => all.some(g => g.space === x)).map(x => `<div class="grp spc"><button class=gh onclick="spGo('${x}',event)" title="${spName(x)}"><i>${IC[x === 'learn' ? 'g_learning' : 'g_admin']}</i><span>${spName(x)}</span><em>&rsaquo;</em></button></div>`).join('');
+  return back + grp + (doors ? `<div class=spsep></div>${doors}` : '');
+};
 document.addEventListener('click', e => { if ((FLY || UMN) && !e.target.closest('.fly,.gh,.av2')) { FLY = null; UMN = false; render(); } });
 let UMN = false;                                           // the small "me" menu of the compact sidebar
 const THL = [['light', 'Light', IC.sun], ['dark', 'Dark', IC.moon], ['system', 'System', IC.mon]];
@@ -84,7 +99,7 @@ function render() {
   applySb();
   $('#m').innerHTML = (Object.hasOwn(PG, route) && typeof PG[route] === 'function' ? PG[route] : PG.dash)() + overlays();   // a link such as #constructor shows the dashboard
   $('#br').innerHTML = `<div class=brand onclick="location.hash='dash'" title="Go to Home">${mark('mg2', 36)}<div><b>Q-SMART</b><small>Customer Service Analytics</small></div></div>`;
-  $('#n').innerHTML = NAVH();
+  $('#n').innerHTML = NAVH(); $('#n').dataset.sp = curSpace();
   $('#fz').innerHTML = FOOT();
   $$('.chat').forEach(c => { c.scrollTop = c.scrollHeight; });
   a11y($('#m')); refocus(fk); fitTables();
@@ -203,6 +218,7 @@ async function onHash() {
   if (!canRoute(n)) { location.hash = 'dash'; return; }
   if (n !== 'entry') { ENT = null; EDITID = ''; }
   if (n !== 'kb') KBE = null;
+  SPV = null; if (spaceOf(n) === 'main') LASTMAIN = n;
   OG = null; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; WE = null; WADD = null; WSET = null; WDISP = null; TXF = null; TXC = null; CSP = null; AQV = ''; PKN = null;
   if (n === 'calls' && !KQ) { Q = ''; FSC = null; PN = 1; }   // opening Call Reviews from the menu starts with an empty search
   KQ = false; MD = null; NO = false; AC = null; SYS = false; RSV = null; PLY = null; SE = n === 'sco' ? SE : null;

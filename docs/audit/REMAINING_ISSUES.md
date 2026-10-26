@@ -159,5 +159,5 @@ None of these block today's use as a personal portfolio project with test data. 
 ### R-27 · Same Filters / Columns on the other tables
 The kit is ready (`public/js/tablekit.js`); only the Reviews table uses it so far. Waiting for the go-ahead (DECISIONS_FOR_YOU.md, A4).
 
-### R-28 · Sidebar panels (Admin, Learning, Back)
-A proposal only, waiting for a decision (DECISIONS_FOR_YOU.md, A1). The sidebar was not changed.
+### R-28 · Sidebar panels (Admin, Learning, Back) — done
+Built after Gabriela's yes (DECISIONS_FOR_YOU.md, A1). Not done: opening the icon menus by hovering instead of clicking (optional).

@@ -6,7 +6,7 @@ async function setX(key, value, msg) { const r = await api('/api/settings/x/' + 
 let PERMD = null;
 PG.perms = function () {
   const pages = GROUPS.flatMap(g => g.items.map(([k, n]) => ({ k, n, g: g.name }))), cur = PERMD || JSON.parse(JSON.stringify(SET.perm || {}));
-  const has = (k, r) => (cur[k] || RR[k] || ROLES5).includes(r), lock = k => GROUPS.find(g => g.id === 'admin').items.some(i => i[0] === k);
+  const has = (k, r) => (cur[k] || RR[k] || ROLES5).includes(r), lock = k => ADMINP.includes(k);
   return head('Roles & permissions', 'Which roles see which pages in the menu. Admins always keep the Admin pages.', `<div style="display:flex;gap:8px">${bellBtn()}${PERMD ? `<button class=ib onclick="PERMD=null;render()">Cancel</button><button class=btn onclick="setX('perm',PERMD,'Permissions saved');PERMD=null">Save</button>` : ''}<button class=ib onclick="ask('Back to the default permissions?','Every page goes back to the roles it had when the app was installed.',()=>setX('perm',{},'Default permissions restored'))">Reset to default</button></div>`)
     + card('', `<div class=sc><table class=ct><tr><th>Page</th><th>Menu group</th>${ROLES5.map(r => `<th style="text-align:center">${ROLE[r]}</th>`).join('')}</tr>${pages.map(p => `<tr><td><b>${esc(p.n)}</b></td><td><small>${esc(p.g)}</small></td>${ROLES5.map(r => `<td style="text-align:center"><input type=checkbox ${has(p.k, r) ? 'checked' : ''} ${lock(p.k) && r === 'admin' ? 'disabled' : ''} onchange="permTog('${p.k}','${r}',this.checked)"></td>`).join('')}</tr>`).join('')}</table></div><p class=mu style="font-size:13px;margin:10px 0 0">Unticking only hides the page. Actions are still protected on the server, so an agent can never change a review even if a page is visible.</p>`);
 };
