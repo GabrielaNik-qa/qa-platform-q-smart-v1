@@ -764,3 +764,9 @@ body.wrzing, body.wrzing * { user-select: none !important; cursor: inherit }
 button.fchip { border: 0; font: inherit; font-size: 13px; padding: 7px 12px } button.fchip b, .txcv b { color: var(--tx); font-weight: 600 }
 .txcv { border: 0; background: none; color: inherit; font: inherit; font-size: 13px; padding: 7px 0; cursor: pointer }
 .txfl { display: grid; gap: 6px; font-size: 13px; font-weight: 600 } .txfl > span:first-child { color: var(--mu); font-weight: 500 }
+
+/* ---- tasks: compact cards like Jira (▸ opens one card), detailed cards, or a list (October 2026) */
+.tkx.tkc { padding: 9px 12px; gap: 6px } .tkc .tkh b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px }
+.tkx.tkc { position: relative } .tkc .tkac { display: none; position: absolute; top: 5px; right: 40px; z-index: 2; background: var(--pn); border: 1px solid var(--bd); border-radius: 9px; box-shadow: 0 2px 8px #0003 } .tkc:hover .tkac, .tkc:focus-within .tkac { display: inline-flex }
+.tkxp { flex: none } .tkxp svg { transition: transform .15s; transform: rotate(-90deg) } .tkxp.on svg { transform: rotate(90deg) }
+.tkpb { height: 3px; border-radius: 2px; background: var(--bd); overflow: hidden } .tkpb i { display: block; height: 100%; background: var(--ok) }
