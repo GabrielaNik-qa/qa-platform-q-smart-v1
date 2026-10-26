@@ -105,7 +105,24 @@ These come after SQLite, as your CLAUDE.md says. My recommendation is in **C4**.
 | 17 | **Category Stats**: one modern tile per category. **Click a tile** to open a pop-up with:<br>• the score by team<br>• the items answered "No"<br>• the best agents and those who need support<br>• the lowest reviews<br>Mistakes and root causes open their own pop-ups too | Done |
 | — | Demo reviews of every type in seed.js and data.json (3 per agent, per type, per month). Free **tags** on scorecards, so any scorecard works for any conversation | Done (earlier) |
 
-Every change was tested in the browser on a copy of your data, never on your real data.json. All automated tests pass (134).
+Every change was tested in the browser on a copy of your data, never on your real data.json. All automated tests pass (135).
+
+### The audit again: every action, every role
+
+- **Server:** all 142 server actions were tried by admin, QA, team lead, trainer, agent and by someone not signed in, with empty and with wrong input.
+  - Nothing crashed.
+  - No role got into something it should not.
+  - Nothing wrong was saved.
+  - This is now a permanent automatic test.
+- **Browser:** every page (48) was opened as each role.
+  - No page had an error.
+  - Each role is sent away from exactly the pages it may not use.
+  - An agent sees only their own reviews and conversations.
+- **Problem found and fixed:** the admin action "Refresh seed.js" (Backups) could write a test copy's made-up people into the project's **seed.js**. The new test did exactly that once.
+  - seed.js was put back from the saved version straight away: 17 users and 842 reviews, as before.
+  - Your **data.json was never touched**.
+  - The action now refuses unless the app runs on its own data.json, and the test checks after every run that seed.js and data.json are unchanged.
+- The details are in TEST_RESULTS.md, FUNCTIONAL_AUDIT.md, SECURITY_AUDIT.md and REMAINING_ISSUES.md (round 3 at the end of each).
 
 ---
 
