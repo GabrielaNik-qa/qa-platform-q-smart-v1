@@ -803,6 +803,7 @@ require('./routes-setup')(ctx);       // skills, workspaces, categories, root ca
 require('./routes-autoqa')(ctx);      // Auto QA conversations and scoring
 require('./routes-ai')(ctx);          // AI and voice settings: keys (encrypted), model, monthly budget, test
 require('./routes-wf')(ctx);          // Workforce: work calendars, shifts and patterns, the rota of every team
+require('./routes-att')(ctx);         // Workforce: check-ins, the status of every day, corrections, time off and balances
 
 app.use(express.static(path.join(__dirname, 'public')));
 // any error that reaches this point: a short message for the browser (the details, with the folder paths of this computer, only go to the terminal)

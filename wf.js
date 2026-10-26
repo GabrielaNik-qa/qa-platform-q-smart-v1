@@ -47,6 +47,8 @@ function settingsOf(saved, today) {
   const out = { calendars: Array.isArray(s.calendars) && s.calendars.length ? s.calendars : d.calendars, shifts: Array.isArray(s.shifts) && s.shifts.length ? s.shifts : d.shifts, patterns: Array.isArray(s.patterns) ? s.patterns : [] };
   out.defShift = out.shifts.some(x => x.id === s.defShift) ? s.defShift : out.shifts[0].id;
   out.defCal = out.calendars.some(x => x.id === s.defCal) ? s.defCal : out.calendars[0].id;
+  out.leaveTypes = Array.isArray(s.leaveTypes) && s.leaveTypes.length ? s.leaveTypes : LT0.map(x => ({ ...x }));
+  out.rules = cleanRules({ ...RULES0, ...(s.rules && typeof s.rules === 'object' ? s.rules : {}) });
   return out;
 }
 const int = (v, lo, hi, def) => { const n = Math.round(Number(v)); return Number.isFinite(n) && v !== '' && v !== null ? Math.min(hi, Math.max(lo, n)) : def; };
@@ -120,4 +122,142 @@ function planOf(W, u, date, rota) {
 // the planned paid hours of one cell
 const cellHours = (W, c) => { const s = W.shifts.find(x => x.id === c.v); return s ? (c.half ? shiftHours(s) / 2 : shiftHours(s)) : 0; };
 
-module.exports = { DAY, TIME, addDays, dow, diffDays, monday, localDay, orthodoxEaster, bgHolidays, defaults, settingsOf, shiftHours, cleanShifts, cleanCalendars, cleanPatterns, planOf, cellHours };
+// ======================== Phase 2: time off types, attendance rules, the status of a day, leave days and balances
+// the leave types a company starts with (Admin › People › Leave types changes them) and the attendance rules (Admin › People › Attendance rules)
+const LT0 = [
+  { id: 'lt-annual', name: 'Annual leave', color: '#16a34a', paid: true, unit: 'day', allowance: 20, carry: 5, half: true, approval: true, sandwich: false },
+  { id: 'lt-sick', name: 'Sick leave', color: '#e11d48', paid: true, unit: 'day', allowance: 0, carry: 0, half: false, approval: false, sandwich: false },
+  { id: 'lt-unpaid', name: 'Unpaid leave', color: '#475569', paid: false, unit: 'day', allowance: 0, carry: 0, half: true, approval: true, sandwich: false },
+  { id: 'lt-hours', name: 'Personal hours', color: '#0d9488', paid: true, unit: 'hour', allowance: 8, carry: 0, half: false, approval: true, sandwich: false }];
+const RULES0 = { lateLimit: 3, latePeriod: 'month', missingAfter: 30, fixDays: 7, fixReasons: ['Forgot to check in', 'Forgot to check out', 'Worked away from the computer', 'Technical problem', 'Other'], shortGrace: 15, teamOffPct: 20, since: '' };
+const half = (v, lo, hi, def) => { const n = Number(v); return v !== '' && v !== null && v !== undefined && Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n * 2) / 2)) : def; };
+function cleanLeaveTypes(list, make) {
+  if (!Array.isArray(list) || !list.length) throw new Error('Keep at least one leave type');
+  if (list.length > 30) throw new Error('Up to 30 leave types');
+  const used = new Set();
+  return list.map(x => {
+    const t = x && typeof x === 'object' ? x : {}, name = str(t.name, 40), unit = t.unit === 'hour' ? 'hour' : 'day', max = unit === 'hour' ? 2000 : 365;
+    if (!name) throw new Error('Every leave type needs a name');
+    return { id: idOf(t.id, make, used), name, color: COLOR.test(t.color || '') ? t.color : '#16a34a', paid: t.paid !== false, unit, allowance: half(t.allowance, 0, max, 0), carry: half(t.carry, 0, max, 0),
+      half: unit === 'day' && t.half !== false, approval: t.approval !== false, sandwich: unit === 'day' && t.sandwich === true };
+  });
+}
+function cleanRules(x) {
+  const r = x && typeof x === 'object' ? x : {}, reasons = [...new Set((Array.isArray(r.fixReasons) ? r.fixReasons : []).map(v => str(v, 60)).filter(Boolean))].slice(0, 15);
+  return { lateLimit: int(r.lateLimit, 0, 50, 3), latePeriod: r.latePeriod === 'week' ? 'week' : 'month', missingAfter: int(r.missingAfter, 0, 240, 30), fixDays: int(r.fixDays, 0, 60, 7),
+    fixReasons: reasons.length ? reasons : RULES0.fixReasons.slice(), shortGrace: int(r.shortGrace, 0, 120, 15), teamOffPct: int(r.teamOffPct, 0, 100, 20),
+    since: DAY.test(typeof r.since === 'string' ? r.since : '') ? r.since : '' };              // attendance is tracked from this day: before it (or when empty) nobody is marked absent
+}
+
+// ---- times: shift times are wall-clock times of the server's own time zone; check-ins are kept as exact moments (ISO)
+const MIN = 6e4, AFTER = 4 * 36e5;                                              // a day is closed 4 hours after the end of its shift
+const atLocal = (date, hm) => { const [y, mo, d] = date.split('-').map(Number), [h, mi] = hm.split(':').map(Number); return new Date(y, mo - 1, d, h, mi, 0, 0).getTime(); };
+const dayOfTime = t => { const n = new Date(t); return n.getFullYear() + '-' + pad(n.getMonth() + 1) + '-' + pad(n.getDate()); };
+// the planned shift of a day as moments: start, end (the next day for a night shift), and the paid time; a half day is the first half
+function shiftWindow(W, date, plan) {
+  const s = W.shifts.find(x => x.id === plan.v); if (!s) return null;
+  const start = atLocal(date, s.start); let end = atLocal(date, s.end); if (end <= start) end += 864e5;
+  const len = end - start, paid = Math.max(0, len - (s.brk || 0) * MIN);
+  return plan.half ? { s, start, end: start + len / 2, paid: paid / 2 } : { s, start, end, paid };
+}
+// worked time of a day: from check-in to check-out, minus the breaks. When nobody checked out, the shift's automatic
+// check-out applies once the day is closed ("none" leaves it open and marks the missing check-out)
+function worktime(r, win, now, date) {
+  const tin = Date.parse(r.in), dayEnd = win ? win.end : tin + 12 * 36e5; let tout = r.out ? Date.parse(r.out) : 0, auto = '';
+  if (!tout && now > dayEnd + AFTER) {
+    const s = win && win.s;
+    if (s && s.autoOut === 'end') { tout = Math.max(dayEnd, tin); auto = 'end'; }
+    else if (s && s.autoOut === 'fixed' && TIME.test(s.autoAt || '')) { let x = atLocal(date, s.autoAt); if (x < tin) x += 864e5; tout = x; auto = 'fixed'; }
+    else auto = 'none';
+  }
+  const open = !tout && auto !== 'none', until = tout || (auto === 'none' ? Math.max(dayEnd, tin) : now);
+  let brk = 0, onBreak = false;
+  (Array.isArray(r.brk) ? r.brk : []).forEach(b => {
+    const s = Date.parse(b && b.s); if (!s) return;
+    if (!b.e && open) onBreak = true;
+    const e = b.e ? Date.parse(b.e) : until; brk += Math.max(0, Math.min(e, until) - Math.max(s, tin));
+  });
+  return { tin, tout, auto, open, onBreak, worked: Math.max(0, until - tin - brk) };
+}
+// the status of one person on one day, worked out from the plan, the check-ins and approved leave:
+// none · off · hol · leave · upcoming · missing (the shift started, nobody checked in) · absent · working · done · extra (worked on a day off)
+// with late / early / short minutes (only beyond the grace minutes of the shift; leave in the morning or evening excuses them)
+function dayStatus(W, R, date, plan, rec, lv, now) {
+  const r = rec && rec.in ? rec : null, part = lv ? lv.part : '';
+  if (part === 'full') return { st: 'leave', lt: lv.lt };
+  const win = shiftWindow(W, date, plan);
+  if (!win) {
+    if (!r) return { st: plan.v === 'hol' ? 'hol' : plan.v === 'off' ? 'off' : 'none' };
+    const w = worktime(r, null, now, date);
+    return { st: w.open ? 'working' : 'extra', brk: w.onBreak, in: r.in, out: w.tout ? new Date(w.tout).toISOString() : '', auto: w.auto, noOut: w.auto === 'none', late: 0, early: 0, short: 0, worked: Math.round(w.worked / MIN), expect: 0, extra: true };
+  }
+  if (!r) {
+    if (lv) return { st: 'leave', lt: lv.lt, part };
+    if (!R.since || date < R.since) return { st: 'untracked' };
+    if (now < win.start + win.s.graceIn * MIN) return { st: 'upcoming', start: win.s.start };
+    if (now < win.end) return { st: 'missing', mins: Math.round((now - win.start) / MIN) };   // not a late arrival (yet): it never counts as one
+    return { st: 'absent' };
+  }
+  const w = worktime(r, win, now, date);
+  const late = part !== 'am' && part !== 'hours' && w.tin - win.start > win.s.graceIn * MIN ? Math.round((w.tin - win.start) / MIN) : 0;
+  const early = part !== 'pm' && part !== 'hours' && w.tout && !w.auto && win.end - w.tout > win.s.graceOut * MIN ? Math.round((win.end - w.tout) / MIN) : 0;
+  let expect = win.paid; if (part === 'am' || part === 'pm') expect /= 2; if (part === 'hours') expect = Math.max(0, expect - (Number(lv.hours) || 0) * 36e5);
+  const short = !w.open && expect - w.worked > (R.shortGrace || 0) * MIN ? Math.round((expect - w.worked) / MIN) : 0;
+  return { st: w.open ? 'working' : 'done', brk: w.onBreak, in: r.in, out: w.tout ? new Date(w.tout).toISOString() : '', auto: w.auto, noOut: w.auto === 'none', late, early, short,
+    worked: Math.round(w.worked / MIN), expect: Math.round(expect / MIN), lt: lv ? lv.lt : '', part };
+}
+// the first day of the week (Monday) or of the month of a date: lates are counted from there
+const periodStart = (date, p) => p === 'week' ? monday(date) : date.slice(0, 8) + '01';
+// people whose shift started more than "missingAfter" minutes ago and who have not checked in (nor are on leave that day)
+function missingCheckIns(W, R, users, date, rota, att, leaveOf, now) {
+  if (!R.missingAfter || !R.since || date < R.since) return [];
+  return users.filter(u => u.role === 'agent' || u.shift || u.pattern).map(u => {
+    const plan = planOf(W, u, date, rota), win = shiftWindow(W, date, plan);
+    if (!win || leaveOf(u, date) || ((att[date] || {})[u.username] || {}).in) return null;
+    return now >= win.start + R.missingAfter * MIN && now < win.end ? { u: u.username, start: win.s.start } : null;
+  }).filter(Boolean);
+}
+
+// ---- time off: the days a request takes, and what is left of each type
+// every date of the request counts as the share of a working day it takes: 1, ½ (half day, or a half working day),
+// 0 on days off and public holidays (unless the type's "sandwich" rule counts days off inside a leave); hour leave counts hours
+function leaveSpan(W, T, u, L, rota) {
+  const out = {}; if (!DAY.test(L.from || '') || !DAY.test(L.to || '') || L.to < L.from || diffDays(L.from, L.to) > 366) return out;
+  const off = new Set(Array.isArray(L.off) ? L.off : []);
+  for (let i = 0, n = diffDays(L.from, L.to); i <= n; i++) {
+    const d = addDays(L.from, i); if (off.has(d)) continue;
+    const p = planOf(W, u, d, rota);
+    if (T.unit === 'hour') { if (p.v !== 'none') out[d] = Number(L.hours) || 0; continue; }
+    if (W.shifts.some(s => s.id === p.v)) out[d] = L.part === 'am' || L.part === 'pm' || p.half ? 0.5 : 1;
+    else if (T.sandwich && p.v !== 'none' && d !== L.from && d !== L.to) out[d] = 1;
+  }
+  return out;
+}
+const sum = o => Math.round(Object.values(o).reduce((a, b) => a + b, 0) * 10) / 10;
+// the balance of one leave type in one year: the yearly allowance (shared out by month for people who started during the year),
+// plus what was carried over from last year (up to the type's limit; never from a year before "first", the first year the app has
+// time off for: older balances come in as adjustments), plus adjustments, minus approved leave; pending leave apart
+function balance(W, T, u, year, leaves, adj, rota, depth = 0, first = 0) {
+  const y = String(year), inYear = st => leaves.filter(L => L.u === u.username && L.lt === T.id && L.status === st)
+    .reduce((a, L) => a + Object.entries(leaveSpan(W, T, u, L, rota)).filter(([d]) => d.startsWith(y)).reduce((b, [, v]) => b + v, 0), 0);
+  const taken = Math.round(inYear('approved') * 10) / 10, pending = Math.round(inYear('pending') * 10) / 10;
+  if (!T.allowance) return { lt: T.id, unlimited: true, taken, pending };
+  const sy = u.start ? Number(u.start.slice(0, 4)) : 0, step = T.unit === 'hour' ? 1 : 0.5;
+  let allowance = sy > Number(y) ? 0 : T.allowance;
+  if (sy === Number(y)) allowance = Math.round(T.allowance * (12 - Number(u.start.slice(5, 7)) + 1) / 12 / step) * step;
+  const carried = T.carry && depth < 2 && sy < Number(y) && Number(y) - 1 >= first ? Math.min(T.carry, Math.max(0, balance(W, T, u, Number(y) - 1, leaves, adj, rota, depth + 1, first).left)) : 0;
+  const adjust = Math.round(adj.filter(a => a.u === u.username && a.lt === T.id && String(a.year) === y).reduce((a, x) => a + (Number(x.days) || 0), 0) * 10) / 10;
+  return { lt: T.id, allowance, carried, adjust, taken, pending, left: Math.round((allowance + carried + adjust - taken) * 10) / 10 };
+}
+// the leave of a person by person (approved and pending), and their leave on one day: approved only, or pending too
+const leavesBy = leaves => { const m = {}; (leaves || []).forEach(L => { if (L.status === 'approved' || L.status === 'pending') (m[L.u] = m[L.u] || []).push(L); }); return m; };
+const lvOn = (list, d, pend) => { const L = (list || []).find(x => (x.status === 'approved' || (pend && x.status === 'pending')) && d >= x.from && d <= x.to && !(x.off || []).includes(d)); return L ? { lt: L.lt, part: L.part || 'full', hours: L.hours || 0, pend: L.status === 'pending', id: L.id } : null; };
+// who can see and plan whom (shared by the rota, attendance and time off): admins everybody, team leads the people of
+// the teams they see (never the Administration team), agents only their own team
+const access = ({ scopeOf, seesUser, userBy, ADMIN_TEAM }) => ({
+  teamsFor: (db, u) => { if (u.role === 'agent') return db.teams.filter(t => t.id === u.team); const s = scopeOf(db, u); return db.teams.filter(t => !s || s.teams.has(t.id)); },
+  canPlan: (db, me, username) => { const u = userBy(db, username); return !!u && (me.role === 'admin' || (me.role === 'lead' && u.team !== ADMIN_TEAM && seesUser(db, me, username))); }
+});
+
+module.exports = { DAY, TIME, addDays, dow, diffDays, monday, localDay, orthodoxEaster, bgHolidays, defaults, settingsOf, shiftHours, cleanShifts, cleanCalendars, cleanPatterns, planOf, cellHours,
+  LT0, RULES0, cleanLeaveTypes, cleanRules, shiftWindow, dayStatus, periodStart, missingCheckIns, leaveSpan, balance, access, dayOfTime, atLocal, leavesBy, lvOn };

@@ -6,8 +6,7 @@ const wf = require('./wf');
 
 module.exports = ({ app, load, save, need, bad, hex, str, userBy, scopeOf, seesUser, ADMIN_TEAM }) => {
   const W = db => wf.settingsOf(db.settings && db.settings.wf, wf.localDay());
-  const teamsFor = (db, u) => { if (u.role === 'agent') return db.teams.filter(t => t.id === u.team); const s = scopeOf(db, u); return db.teams.filter(t => !s || s.teams.has(t.id)); };
-  const canPlan = (db, me, username) => { const u = userBy(db, username); return !!u && (me.role === 'admin' || (me.role === 'lead' && u.team !== ADMIN_TEAM && seesUser(db, me, username))); };
+  const { teamsFor, canPlan } = wf.access({ scopeOf, seesUser, userBy, ADMIN_TEAM });
   const NOT_YOURS = 'You can plan the rota of the people in your own teams only';
   const setCell = (db, username, d, v) => {
     db.rota = db.rota || {};
@@ -15,7 +14,7 @@ module.exports = ({ app, load, save, need, bad, hex, str, userBy, scopeOf, seesU
     else if (db.rota[d]) { delete db.rota[d][username]; if (!Object.keys(db.rota[d]).length) delete db.rota[d]; }
   };
 
-  // ---- set-up (admins): calendars, shifts, patterns, the default shift and calendar. Everybody reads them through /api/settings.
+  // ---- set-up (admins): calendars, shifts, patterns, the default shift and calendar, leave types, attendance rules. Everybody reads them through /api/settings.
   app.put('/api/wf/settings', need('admin'), (req, res) => {
     const db = load(), b = req.body || {}, cur = W(db);
     try {
@@ -24,7 +23,9 @@ module.exports = ({ app, load, save, need, bad, hex, str, userBy, scopeOf, seesU
       const calendars = b.calendars !== undefined ? wf.cleanCalendars(b.calendars, () => 'c-' + hex(3)) : cur.calendars;
       const patterns = wf.cleanPatterns(b.patterns !== undefined ? b.patterns : cur.patterns, shifts, defShift, () => 'p-' + hex(3));
       const defCal = calendars.some(c => c.id === b.defCal) ? b.defCal : calendars.some(c => c.id === cur.defCal) ? cur.defCal : calendars[0].id;
-      db.settings.wf = { calendars, shifts, patterns, defShift, defCal }; save(db); res.json(db.settings.wf);
+      const leaveTypes = b.leaveTypes !== undefined ? wf.cleanLeaveTypes(b.leaveTypes, () => 'lt-' + hex(3)) : cur.leaveTypes;
+      const rules = b.rules !== undefined ? wf.cleanRules({ ...cur.rules, ...(b.rules && typeof b.rules === 'object' ? b.rules : {}) }) : cur.rules;
+      db.settings.wf = { calendars, shifts, patterns, defShift, defCal, leaveTypes, rules }; save(db); res.json(db.settings.wf);
     } catch (e) { bad(res, e.message); }
   });
   // the public holidays of a year, ready to add to a calendar (worked out for Bulgaria; other countries are added by hand)
@@ -41,15 +42,18 @@ module.exports = ({ app, load, save, need, bad, hex, str, userBy, scopeOf, seesU
     const team = ts.find(t => t.id === q.team) || ts.find(t => !t.system) || ts[0];
     if (!team) return res.json({ team: '', from: '', days: [], people: [], edit: false });
     const from = wf.monday(wf.DAY.test(typeof q.from === 'string' ? q.from : '') ? q.from : wf.localDay()), n = Math.min(42, Math.max(1, parseInt(q.days) || 7));
-    const dates = Array.from({ length: n }, (_, i) => wf.addDays(from, i)), rota = db.rota || {};
+    const dates = Array.from({ length: n }, (_, i) => wf.addDays(from, i)), rota = db.rota || {}, LV = wf.leavesBy(db.leaves);
     const people = db.users.filter(u => u.team === team.id && u.active !== false).sort((a, b) => a.name.localeCompare(b.name)).map(u => {
-      const cells = dates.map(d => wf.planOf(S, u, d, rota));
+      // a day of time off shows on the rota (a request still waiting too); agents see that a colleague is away, not why
+      const hide = me.role === 'agent' && u.username !== me.username;
+      const cells = dates.map(d => { const c = wf.planOf(S, u, d, rota), l = wf.lvOn(LV[u.username], d, true); return l ? { ...c, lv: { lt: hide ? '' : l.lt, part: l.part, pend: l.pend } } : c; });
+      const away = c => c.lv && !c.lv.pend ? (c.lv.part === 'full' ? 0 : c.lv.part === 'hours' ? null : 0.5) : 1;
       return { u: u.username, name: u.name, title: u.title || '', hours: u.hours || 40, empType: u.empType || 'full', shift: u.shift || '', pattern: u.pattern || '', cells,
-        planned: Math.round(cells.reduce((s, c) => s + wf.cellHours(S, c), 0) * 10) / 10, edit: canPlan(db, me, u.username) };
+        planned: Math.round(cells.reduce((s, c) => { const k = away(c); return s + (k === null ? Math.max(0, wf.cellHours(S, c) - (c.lv.hours || 0)) : wf.cellHours(S, c) * k); }, 0) * 10) / 10, edit: canPlan(db, me, u.username) };
     });
     const cal = S.calendars.find(c => c.id === S.defCal);
     const days = dates.map((d, i) => ({ d, hol: [...new Set(people.map(p => p.cells[i].hol).filter(Boolean).concat(people.length ? [] : cal.holidays.filter(h => h.d === d).map(h => h.n)))],
-      on: people.filter(p => !['off', 'hol', 'none'].includes(p.cells[i].v)).length }));
+      on: people.filter(p => !['off', 'hol', 'none'].includes(p.cells[i].v) && !(p.cells[i].lv && !p.cells[i].lv.pend && p.cells[i].lv.part === 'full')).length }));
     res.json({ team: team.id, from, days, people, edit: people.some(p => p.edit) });
   });
   // change days on the rota: v = a shift, "off", or "" to go back to the person's usual plan

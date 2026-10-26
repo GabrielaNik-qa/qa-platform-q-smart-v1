@@ -570,3 +570,51 @@ Nobody is planned before their start date or after their last working day.
 **Also fixed:** the AI settings block (with the encrypted API key) was sent to every signed-in person with the general settings. It now never leaves the server.
 
 **Next (Phase 2):** check in / check out, late and absent worked out by themselves, corrections approved by the team lead, and time off with balances.
+
+## N. Workforce, Phase 2 built (26 October): attendance and time off
+
+**Where things are**
+- **Workforce › Attendance:**
+  - **My attendance:** Check in, Start a break, End the break, Check out. The server's clock is used, so nobody can change the time.
+  - **Each day's status is worked out by itself:** present, late (minutes), left early, short day, not checked in yet, absent, on leave, worked on a day off.
+  - **Last 14 days:** each day with an "Ask for a correction" button. The team lead approves corrections.
+  - **Staff:**
+    - **Team by day:** who is in, late, missing or on leave, with corrections made directly by the team lead (the reason is required, the person is told, and the history is kept).
+    - **Team by month:** present, late, absent, left early, short days, on leave, worked and planned hours, and a day-by-day grid.
+  - **Dashboard:** agents get a **My day** card at the top of their ready-made dashboard, with the check-in buttons. Others can add it from the widget list.
+- **Workforce › Time off:**
+  - **My time off:** balances per type (left, carried over, waiting), requests, cancelling some days or all of them, and who decides.
+  - **Ask for time off:**
+    - full days, half days or hours
+    - shows how many days it takes and what is left after it
+    - warns when too much of the team is off on a day
+    - a team lead or admin can register time off for a team member, approved at once
+  - **Requests:** approve or reject, with the balance and team warnings.
+  - **Team calendar:** who is off each day. Agents see that a colleague is away, not why.
+  - **Balances:** a table per team, with "Adjust" for admins.
+  - **While you are away:** staff name a deputy who decides in their place.
+- **Admin › People › Leave types:** Annual leave (20 days, at most 5 carried over), Sick leave (no limit, no approval: the lead is told), Unpaid leave, Personal hours (8 hours). Everything can be changed:
+  - paid or unpaid
+  - days or hours
+  - per year and carry-over
+  - half days
+  - approval
+  - whether days off inside a leave count
+- **Admin › People › Attendance rules:**
+  - "Attendance is tracked from" (empty for now)
+  - late arrivals allowed per week or month
+  - alert to the team lead after N minutes without a check-in
+  - how many days back corrections are possible, and their reasons
+  - short-day minutes
+  - the team-absence warning (%)
+- **The rota** shows approved time off, and a request that is still waiting. "On shift" and planned hours take time off into account.
+- **Notifications:** three new types (attendance, attendance correction, time off), switchable per role in Admin › System › Notification rules.
+
+**Please decide when you are ready**
+1. **Set "Attendance is tracked from"** (Admin › People › Attendance rules) on the day everybody starts checking in. Until then, nobody is marked absent and no warnings or alerts are sent; checking in already works.
+2. **Balances from your old system:** in the first year, carried-over days are not invented. Enter them with Time off › Balances › Adjust.
+3. **Leave types:** the four defaults follow common Bulgarian practice (20 days of annual leave). Change the numbers to your company's rules.
+
+**Good to know**
+- Times follow the clock of the computer the app runs on (Bulgaria). For other countries, the time zone becomes a company setting when we move to one database per company.
+- On the two nights a year when the clocks change, a shift that runs through that hour counts the real hours worked.

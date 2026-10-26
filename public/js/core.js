@@ -234,6 +234,12 @@ async function load() {
   if (route === 'agents') want.push(['se', '/api/sessions'], ['tk', '/api/tasks'], ['sm', '/api/simulations']);
   if (route === 'sim') want.push(['sm', '/api/simulations'], ['rp', '/api/ai/roleplay']);
   if (route === 'rota') want.push(['wr', '/api/wf/rota?team=' + encodeURIComponent(RTM) + '&from=' + RWK]);
+  if (route === 'att' || route === 'dash') want.push(['atme', '/api/att/me']);
+  if (route === 'att' && ed && ATAB === 'team') want.push(['atday', '/api/att/day?team=' + encodeURIComponent(ATT_T) + '&d=' + ATD]);
+  if (route === 'att' && ed && ATAB === 'month') want.push(['atmon', '/api/att/month?team=' + encodeURIComponent(ATT_T) + '&m=' + ATM]);
+  if (route === 'leave') want.push(['lvme', '/api/leave']);
+  if (route === 'leave' && LTAB === 'cal') want.push(['lvcal', '/api/leave/calendar?team=' + encodeURIComponent(LTM) + '&m=' + LCM]);
+  if (route === 'leave' && ed && LTAB === 'bal') want.push(['lvbal', '/api/leave/team?team=' + encodeURIComponent(LTM)]);
   if (['coach', 'o2o', 'acad'].includes(route) || (route === 'dash' && ME && ME.role === 'agent')) want.push(['se', '/api/sessions']);
   if (route === 'audit' && adm) want.push(['au', '/api/audit']);
   if (route === 'tasks' || route === 'coach' || route === 'dash') want.push(['tk', '/api/tasks']);
@@ -289,6 +295,12 @@ async function load() {
   if (R.at) AIT = JSON.parse(R.at);
   if (R.rp) AIRP = JSON.parse(R.rp);
   if (R.wr) { ROTA = JSON.parse(R.wr); if (ROTA.team) RTM = ROTA.team; }
+  if (R.atme) { ATTD = JSON.parse(R.atme); ATTF = Date.now(); }
+  if (R.atday) { ATDAY = JSON.parse(R.atday); if (ATDAY.team) ATT_T = ATDAY.team; ATD = ATDAY.d; }
+  if (R.atmon) { ATMON = JSON.parse(R.atmon); if (ATMON.team) ATT_T = ATMON.team; ATM = ATMON.m; }
+  if (R.lvme) LVD = JSON.parse(R.lvme);
+  if (R.lvcal) { LCAL = JSON.parse(R.lvcal); if (LCAL.team) LTM = LCAL.team; LCM = LCAL.m; }
+  if (R.lvbal) { LBAL = JSON.parse(R.lvbal); if (LBAL.team) LTM = LBAL.team; }
   if (R.aa) AIA = JSON.parse(R.aa);
   if (R.ais) AISET = JSON.parse(R.ais);
   if (R.sk) SKL = JSON.parse(R.sk);
