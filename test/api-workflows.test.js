@@ -70,6 +70,34 @@ test('QA creates a review: the server calculates the score, the agent only sees 
   assert.ok(mine.some(e => e.rid === r.json.rid));
 });
 
+test('a task that needs review waits in In review; the one who checks it sends it back with a comment or approves it', async () => {
+  const qa = client(), ag = client(); await qa.login('t.qa'); await ag.login(AGENT);
+  const [t] = (await qa.post('/api/tasks', { title: 'Call summary', rev: true, assignees: [AGENT], due: '2026-12-01' })).json;
+  assert.strictEqual(t.rev, true);
+  assert.strictEqual((await ag.put('/api/tasks/' + t.id, { status: 'doing' })).json.status, 'doing');
+  assert.strictEqual((await ag.put('/api/tasks/' + t.id, { status: 'done' })).json.status, 'review', 'the person\'s "done" waits for a check');
+  const back = (await qa.put('/api/tasks/' + t.id, { status: 'doing', note: 'Add the names' })).json;
+  assert.strictEqual(back.status, 'doing');
+  assert.deepEqual(back.log.map(x => x.a), ['created', 'doing', 'review', 'returned']);
+  assert.strictEqual(back.log[3].note, 'Add the names');
+  await ag.put('/api/tasks/' + t.id, { status: 'done' });
+  const ok = (await qa.put('/api/tasks/' + t.id, { status: 'done' })).json;
+  assert.strictEqual(ok.status, 'done'); assert.ok(ok.completed); assert.strictEqual(ok.log.at(-1).a, 'approved');
+  const [plain] = (await qa.post('/api/tasks', { title: 'Quick one', assignees: [AGENT] })).json;
+  assert.strictEqual((await ag.put('/api/tasks/' + plain.id, { status: 'done' })).json.status, 'done', 'without review it goes straight to Done');
+});
+
+test('a sequence gives every step with its own dates; steps without a title are dropped', async () => {
+  const qa = client(); await qa.login('t.qa');
+  const s = (await qa.post('/api/task-seqs', { name: 'First weeks', steps: [{ title: 'Read the guide', day: 0, days: 2 }, { title: '', day: 1 }, { title: 'First solo review', day: 7, days: 3, rev: true }] })).json;
+  assert.strictEqual(s.steps.length, 2);
+  const g = await qa.post('/api/task-seqs/' + s.id + '/give', { start: '2026-11-02', users: [AGENT] });
+  assert.strictEqual(g.status, 200); assert.strictEqual(g.json.tasks, 2);
+  const l = readDb().tasks.filter(t => t.run === g.json.run.id).map(t => [t.title, t.start, t.due, t.step, !!t.rev]);
+  assert.deepEqual(l, [['Read the guide', '2026-11-02', '2026-11-03', 1, false], ['First solo review', '2026-11-09', '2026-11-11', 2, true]]);
+  assert.strictEqual((await qa.post('/api/task-seqs/' + s.id + '/give', { start: 'soon', users: [AGENT] })).status, 400);
+});
+
 test('a new review keeps when it was made and how long QA Entry took (at most 4 hours)', async () => {
   const qa = client(); await qa.login('t.qa');
   const sc = (await qa.get('/api/scorecards')).json[0], t0 = Date.now();

@@ -752,3 +752,23 @@ Nobody is planned before their start date or after their last working day.
 - An arranged dashboard can have gaps if the sizes chosen don't add up to a full row. You see them while arranging, so you can fix them, or press "Automatic layout".
 - In Bulgarian, the newer texts now say "уиджет" like the rest of the app (they said "приспособление").
 - All 161 automatic tests pass (one new: the server keeps the "arranged" mark).
+
+## S. Tasks: dates, In review, Timeline, Library with history and sequences (27 October)
+
+**What changed**
+- **Dates on every card:** created, started, sent for review, done and the deadline. A finished card says "On time" or "2 days late". The task window has a **History** list of everything that happened, newest first: given, started, sent for review, sent back (with the comment), approved, reassigned, deadline changed, archived. Tasks from before today only show when they were given and done.
+- **In review column.** Tick "Needs my review before it is done" when you give a task (it is off by default):
+  - when the person marks it done, it goes to In review and the giver gets a notification
+  - an admin, QA, lead or trainer who sees that person (not the person themself) clicks **Approve** (it goes to Done) or **Send back** with a comment (it goes back to In Progress)
+  - tasks without the tick go straight to Done, as before
+- **Timeline view** (Board / Timeline switch above the board): five weeks, one bar per task from its start to its deadline, grouped by person, coloured by stage (overdue in red), with a line for today. ‹ Earlier / Later › move four weeks.
+- **Library tab** (it was Templates):
+  - **History:** every task given, newest first, searchable. **Give again** copies it with the same text, steps and people (change them) and new dates. The template icon saves it as a template.
+  - **Templates:** as before, plus **every quarter** (January, April, July, October), **Repeat until** an end date, and "Needs my review".
+  - **Sequences:** a named list of steps written as "day | task | how many days", for example "1 | Read the guide | 2", "3 | Shadow 5 calls", "8 | First solo review | 3". **Give** it to teams or people with a start date: every task is created with its own dates. It can start again every month or every quarter until a date, and **Stop** ends that.
+- **Repeating cards skip days off.** A daily card is not given on a day the person is off (rota, work calendar, a full day of approved time off). A weekly, monthly or quarterly card waits for the person's next working day in that period. A new repeating template does not create cards for periods before it existed.
+
+**Good to know**
+- A repeating sequence that was not opened for a while only gives the latest round, never a pile of missed ones.
+- When a card is sent back, the comment is also in the person's notification.
+- All 163 automatic tests pass (two new: the review flow, and the dates of a sequence). Everything is translated into Bulgarian and French.

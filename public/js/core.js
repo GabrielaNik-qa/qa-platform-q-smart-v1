@@ -230,7 +230,7 @@ async function load() {
   const adm = ME && ME.role === 'admin', ed = ME && STAFFR.includes(ME.role), dashy = route === 'dash' || route === 'pers';   // Home › Personalize shows the dashboard widgets too
   const want = [['ev', '/api/evaluations'], ['sc', '/api/scorecards'], ['nf', '/api/notifications'], ['set', '/api/settings'], ['tm', '/api/teams'], ['ro', '/api/roster']];
   if (adm) want.push(['us', '/api/users'], ['rg', '/api/registrations']);
-  if (route === 'tasks') { want.push(['tk', '/api/tasks']); if (ed) want.push(['tp', '/api/task-templates']); }
+  if (route === 'tasks') { want.push(['tk', '/api/tasks']); if (ed) want.push(['tp', '/api/task-templates'], ['sq', '/api/task-seqs']); }
   if (route === 'agents') want.push(['se', '/api/sessions'], ['tk', '/api/tasks'], ['sm', '/api/simulations']);
   if (route === 'sim') want.push(['sm', '/api/simulations'], ['rp', '/api/ai/roleplay']);
   if (route === 'rota') want.push(['wr', '/api/wf/rota?team=' + encodeURIComponent(RTM) + '&from=' + RWK]);
@@ -281,6 +281,7 @@ async function load() {
   if (R.rg) REG = JSON.parse(R.rg);
   if (R.tk) TASKS = JSON.parse(R.tk);
   if (R.tp) TPLS = JSON.parse(R.tp);
+  if (R.sq) TSEQ = JSON.parse(R.sq);
   if (R.se) SESS = JSON.parse(R.se);
   if (R.sm) SIMS = JSON.parse(R.sm);
   if (R.qf) QF = JSON.parse(R.qf);

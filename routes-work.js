@@ -1,4 +1,11 @@
-// Tasks (Kanban + missions + recurring daily missions), coaching / one-to-one sessions, calibration sessions.
+// Tasks (Kanban + missions + repeating templates + sequences), coaching / one-to-one sessions, calibration sessions.
+// Every task keeps a short history (log: created, started, sent for review, approved, sent back, done, reassigned, deadline moved).
+// A task given with "needs review" goes to In review when its person marks it done; a lead / QA / admin who sees that person (or the
+// one who gave it) approves it (Done) or sends it back with a comment. Repeating templates (daily, weekly, monthly, quarterly, until
+// an end date) skip the days the person does not work (rota, calendar, a full day of approved time off). A sequence is a named list of
+// steps, each a number of days after the start; given to people or teams with a start date, it creates every task with its dates, and
+// it can start again every month or quarter.
+const wf = require('./wf');
 module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, userBy, seesUser }) => {
   const EDIT = ['admin', 'qa', 'lead', 'trainer'];
   // staff only reach the records of people in their own workspace (admins reach everything); agents only their own, checked below
@@ -7,21 +14,52 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   const DAY = /^\d{4}-\d{2}-\d{2}$/;
   const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
   const activeUsers = db => db.users.filter(u => u.active !== false);
+  const logT = (t, by, a, note) => { (t.log = t.log || []).push({ at: iso(), by, a, ...(note ? { note: String(note).slice(0, 300) } : {}) }); if (t.log.length > 60) t.log.splice(0, t.log.length - 60); };
+  // a person works on a day: a shift in the rota or their calendar, and no full day of approved time off
+  const worksOn = (db, S, LV, u, d) => S.shifts.some(s => s.id === wf.planOf(S, u, d, db.rota || {}).v) && !((l => l && (l.part || 'full') === 'full' && !l.pend)(wf.lvOn(LV[u.username], d)));
+  const addMonths = (s, n) => { const [y, m, d] = s.split('-').map(Number), t = new Date(Date.UTC(y, m - 1 + n, 1)), last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate(); t.setUTCDate(Math.min(d, last)); return t.toISOString().slice(0, 10); };
   const checklist = v => (Array.isArray(v) ? v : []).slice(0, 30).map(c => ({ t: str(typeof c === 'string' ? c : c && c.t, 150), min: Math.min(600, Math.max(0, parseInt(c && c.min) || 0)), done: !!(c && c.done) })).filter(c => c.t);
 
   // ---------------------------------------------------------------- recurring missions: today's copy is created the first time anybody asks
-  function recurring(db) {
-    let changed = false; const td = today(), wd = new Date().getDay();
-    const md = new Date().getDate();
-    db.taskTpl.filter(t => t.active !== false && (t.freq === 'daily' || (t.freq === 'weekly' && t.weekday === wd) || (t.freq === 'monthly' && (t.monthday || 1) === md))).forEach(tpl => {
-      const who = new Set((tpl.users || []).filter(x => userBy(db, x)));
-      activeUsers(db).forEach(u => { if (u.role === 'agent' && (tpl.teams || []).includes(u.team)) who.add(u.username); });
-      who.forEach(un => {
-        const key = tpl.id + ':' + td + ':' + un;
-        if (db.tasks.some(t => t.key === key)) return;
-        db.tasks.push({ id: 'k' + hex(5), title: tpl.title, desc: tpl.desc || '', type: tpl.kind === 'task' || tpl.kind === 'checklist' ? 'task' : 'mission', priority: tpl.priority || 'med', points: tpl.points || 0, due: td, status: 'todo', assignee: un, labels: tpl.labels || [], checklist: checklist(tpl.checklist), created: iso(), by: tpl.by, key, tpl: tpl.id, freq: tpl.freq, completed: null });
-        changed = true;
+  // the first day of the current period of a repeating template ('' = its day has not come yet in this period)
+  function periodDay(tpl, td) {
+    if (tpl.freq === 'daily') return td;
+    if (tpl.freq === 'weekly') { const d = wf.addDays(wf.monday(td), ((tpl.weekday == null ? 1 : tpl.weekday) + 6) % 7); return d <= td ? d : ''; }
+    if (tpl.freq !== 'monthly' && tpl.freq !== 'quarterly') return '';
+    const m = +td.slice(5, 7), qm = tpl.freq === 'quarterly' ? m - ((m - 1) % 3) : m, d = td.slice(0, 5) + String(qm).padStart(2, '0') + '-' + String(tpl.monthday || 1).padStart(2, '0');
+    return d <= td ? d : '';
+  }
+  const recipients = (db, users, teams) => { const who = new Set((users || []).filter(x => { const u = userBy(db, x); return u && u.active !== false; })); activeUsers(db).forEach(u => { if (u.role === 'agent' && (teams || []).includes(u.team)) who.add(u.username); }); return [...who]; };
+  // one round of a sequence: every step for every person, with its own start and deadline
+  function giveCycle(db, run, seq, c) {
+    const who = recipients(db, run.users, run.teams), n = seq.steps.length;
+    who.forEach(un => {
+      seq.steps.forEach((st, i) => {
+        const start = wf.addDays(c, st.day), t = { id: 'k' + hex(5), group: run.id + ':' + c, title: st.title, desc: st.desc || '', start, due: wf.addDays(start, Math.max(1, st.days) - 1), type: st.type === 'mission' ? 'mission' : 'task', priority: st.priority || 'med', points: st.points || 0, rev: !!st.rev, status: 'todo', assignee: un, labels: [], checklist: checklist(st.checklist), created: iso(), by: run.by, run: run.id, seqName: seq.name, step: i + 1, steps: n, completed: null };
+        logT(t, run.by, 'created'); db.tasks.push(t);
       });
+      notify(db, un, 'task', `Sequence given to you: ${seq.name} (${n} tasks, from ${c})`, {});
+    });
+    run.cycles = [...(run.cycles || []), c].slice(-50);
+    return who.length;
+  }
+  // repeating templates and repeating sequences: what is due is created the first time anybody asks
+  function recurring(db) {
+    let changed = false; const td = today(), S = wf.settingsOf(db.settings && db.settings.wf, wf.localDay()), LV = wf.leavesBy(db.leaves);
+    db.taskTpl.filter(t => t.active !== false && t.freq && t.freq !== 'none' && !(t.until && td > t.until)).forEach(tpl => {
+      const pd = periodDay(tpl, td); if (!pd || pd < String(tpl.created || '').slice(0, 10)) return;   // nothing for periods before the template existed
+      recipients(db, tpl.users, tpl.teams).forEach(un => {
+        const key = tpl.id + ':' + pd + ':' + un, u = userBy(db, un);
+        if (db.tasks.some(t => t.key === key) || !worksOn(db, S, LV, u, td)) return;   // on a day off it waits for the next working day of the period
+        const t = { id: 'k' + hex(5), title: tpl.title, desc: tpl.desc || '', type: tpl.kind === 'task' || tpl.kind === 'checklist' ? 'task' : 'mission', priority: tpl.priority || 'med', points: tpl.points || 0, rev: !!tpl.rev, due: td, status: 'todo', assignee: un, labels: tpl.labels || [], checklist: checklist(tpl.checklist), created: iso(), by: tpl.by, key, tpl: tpl.id, freq: tpl.freq, completed: null };
+        logT(t, tpl.by, 'created'); db.tasks.push(t); changed = true;
+      });
+    });
+    db.taskRuns.filter(r => r.active !== false && r.repeat !== 'none').forEach(r => {
+      const seq = db.taskSeq.find(s => s.id === r.seq); if (!seq) return;
+      let k = 0, c = r.start, last = '';
+      while (c <= td && k < 400) { last = c; k++; c = addMonths(r.start, k * (r.repeat === 'quarterly' ? 3 : 1)); }
+      if (last && !(r.until && last > r.until) && !(r.cycles || []).includes(last)) { giveCycle(db, r, seq, last); changed = true; }   // only the latest round, never a pile of missed ones
     });
     if (changed) save(db);
   }
@@ -39,8 +77,8 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     if (!who.size) return bad(res, 'Choose at least one agent or team to give the task to');
     const group = 'g' + hex(4), out = [];
     who.forEach(un => {
-      const t = { id: 'k' + hex(5), group, title, desc: str(b.desc, 1500), start: DAY.test(b.start || '') ? b.start : '', tpl: str(b.tpl, 20), type: b.type === 'mission' ? 'mission' : 'task', priority: PRIO.includes(b.priority) ? b.priority : 'med', points: Math.min(1000, Math.max(0, parseInt(b.points) || 0)), due: b.due || '', status: 'todo', assignee: un, labels: list(b.labels, 8), checklist: checklist(b.checklist), created: iso(), by: me.username, completed: null };
-      db.tasks.push(t); out.push(t);
+      const t = { id: 'k' + hex(5), group, rev: !!b.rev, title, desc: str(b.desc, 1500), start: DAY.test(b.start || '') ? b.start : '', tpl: str(b.tpl, 20), type: b.type === 'mission' ? 'mission' : 'task', priority: PRIO.includes(b.priority) ? b.priority : 'med', points: Math.min(1000, Math.max(0, parseInt(b.points) || 0)), due: b.due || '', status: 'todo', assignee: un, labels: list(b.labels, 8), checklist: checklist(b.checklist), created: iso(), by: me.username, completed: null };
+      logT(t, me.username, 'created'); db.tasks.push(t); out.push(t);
       notify(db, un, 'task', `New ${t.type}: ${title}${t.due ? ' (due ' + t.due + ')' : ''}`, { task: t.id });
     });
     save(db); res.json(out);
@@ -56,20 +94,31 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
       if (b.type !== undefined) t.type = b.type === 'mission' ? 'mission' : 'task';
       if (b.priority !== undefined && PRIO.includes(b.priority)) t.priority = b.priority;
       if (b.points !== undefined) t.points = Math.min(1000, Math.max(0, parseInt(b.points) || 0));
-      if (b.due !== undefined) { if (b.due && !DAY.test(b.due)) return bad(res, 'Choose a valid deadline'); t.due = b.due || ''; }
+      if (b.due !== undefined) { if (b.due && !DAY.test(b.due)) return bad(res, 'Choose a valid deadline'); if ((b.due || '') !== (t.due || '')) logT(t, u.username, 'due', (t.due || '—') + ' → ' + (b.due || '—')); t.due = b.due || ''; }
+      if (b.rev !== undefined) t.rev = !!b.rev;
       if (b.start !== undefined) { if (b.start && !DAY.test(b.start)) return bad(res, 'Choose a valid start date'); t.start = b.start || ''; }
       if (b.labels !== undefined) t.labels = list(b.labels, 8);
       if (b.checklist !== undefined) t.checklist = checklist(b.checklist);
-      if (b.assignee !== undefined && b.assignee !== t.assignee) { const a = userBy(db, b.assignee); if (!a || !seesUser(db, u, a.username)) return bad(res, 'Choose a valid person'); t.assignee = a.username; notify(db, a.username, 'task', `A ${t.type} was assigned to you: ${t.title}`, { task: t.id }); }
+      if (b.assignee !== undefined && b.assignee !== t.assignee) { const a = userBy(db, b.assignee); if (!a || !seesUser(db, u, a.username)) return bad(res, 'Choose a valid person'); logT(t, u.username, 'assigned', a.name); t.assignee = a.username; notify(db, a.username, 'task', `A ${t.type} was assigned to you: ${t.title}`, { task: t.id }); }
     } else if (b.checklist !== undefined && Array.isArray(b.checklist) && b.checklist.length === t.checklist.length) t.checklist.forEach((c, i) => { c.done = !!(b.checklist[i] && b.checklist[i].done); });
     if (b.pinned !== undefined) t.pinned = !!b.pinned;                                   // the agent can pin and archive their own cards too
-    if (b.archived !== undefined) t.archived = b.archived ? iso() : null;
+    if (b.archived !== undefined && !!b.archived !== !!t.archived) { t.archived = b.archived ? iso() : null; logT(t, u.username, b.archived ? 'archived' : 'restored'); }
     if (b.status !== undefined) {
       if (!STATUS.includes(b.status)) return bad(res, 'Unknown status');
-      if (b.status !== t.status) {
-        const was = t.status; t.status = b.status;
-        t.completed = b.status === 'done' ? iso() : null;
-        if (b.status === 'done' && was !== 'done' && t.by && t.by !== u.username) notify(db, t.by, 'taskdone', `${u.name} completed: ${t.title}`, { task: t.id });
+      const reviewer = editor && !mine; let to = b.status;
+      if (to === 'done' && t.rev && !reviewer) to = 'review';               // needs review: the person's "done" waits for a check
+      if (to !== t.status) {
+        const was = t.status; t.status = to;
+        if (to === 'doing' && !t.startedAt) t.startedAt = iso();
+        t.completed = to === 'done' ? iso() : null;
+        if (to === 'review') {
+          t.sent = iso(); logT(t, u.username, 'review');
+          if (t.by && t.by !== u.username) notify(db, t.by, 'task', `${u.name} sent for your review: ${t.title}`, { task: t.id });
+        } else if (was === 'review' && reviewer) {
+          logT(t, u.username, to === 'done' ? 'approved' : 'returned', to === 'done' ? '' : str(b.note, 300));
+          notify(db, t.assignee, 'task', to === 'done' ? `Approved: ${t.title}` : `Sent back to you: ${t.title}${b.note ? ' — ' + str(b.note, 300) : ''}`, { task: t.id });
+        } else logT(t, u.username, to);
+        if (to === 'done' && was !== 'done' && !reviewer && t.by && t.by !== u.username) notify(db, t.by, 'taskdone', `${u.name} completed: ${t.title}`, { task: t.id });
       }
     }
     save(db); res.json(t);
@@ -80,10 +129,10 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   });
   app.get('/api/task-templates', need(...EDIT), (req, res) => res.json(load().taskTpl));
   // a template is a saved task: "none" = used by hand (New task from template), daily / weekly / monthly = a card is created by itself
-  const FREQ = ['none', 'daily', 'weekly', 'monthly'], KINDS_T = ['checklist', 'target', 'task'];
+  const FREQ = ['none', 'daily', 'weekly', 'monthly', 'quarterly'], KINDS_T = ['checklist', 'target', 'task'];
   const tplBody = b => {
     const title = str(b.title, 150); if (!title) throw new Error('Give the template a title');
-    const t = { title, desc: str(b.desc, 1500), kind: KINDS_T.includes(b.kind) ? b.kind : 'checklist', points: Math.min(1000, Math.max(0, parseInt(b.points) || 0)), priority: PRIO.includes(b.priority) ? b.priority : 'med', freq: FREQ.includes(b.freq) ? b.freq : 'none', weekday: Math.min(6, Math.max(0, parseInt(b.weekday) || 1)), monthday: Math.min(28, Math.max(1, parseInt(b.monthday) || 1)), color: /^#[0-9a-f]{6}$/i.test(b.color || '') ? b.color : '#7c3aed', users: list(b.users, 50, 40), teams: list(b.teams, 20, 40), checklist: checklist(b.checklist).map(({ t, min }) => ({ t, min })), labels: list(b.labels, 8) };
+    const t = { title, desc: str(b.desc, 1500), kind: KINDS_T.includes(b.kind) ? b.kind : 'checklist', points: Math.min(1000, Math.max(0, parseInt(b.points) || 0)), priority: PRIO.includes(b.priority) ? b.priority : 'med', freq: FREQ.includes(b.freq) ? b.freq : 'none', weekday: Math.min(6, Math.max(0, parseInt(b.weekday) || 1)), monthday: Math.min(28, Math.max(1, parseInt(b.monthday) || 1)), color: /^#[0-9a-f]{6}$/i.test(b.color || '') ? b.color : '#7c3aed', users: list(b.users, 50, 40), teams: list(b.teams, 20, 40), checklist: checklist(b.checklist).map(({ t, min }) => ({ t, min })), labels: list(b.labels, 8), until: DAY.test(b.until || '') ? b.until : '', rev: !!b.rev };
     if (t.freq !== 'none' && !t.users.length && !t.teams.length) throw new Error('Choose who receives the cards of a repeating template');
     return t;
   };
@@ -96,6 +145,37 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   });
   app.delete('/api/task-templates/:id', need(...EDIT), (req, res) => {
     const db = load(); db.taskTpl = db.taskTpl.filter(t => t.id !== req.params.id); save(db); res.json({ ok: 1 });
+  });
+  // ---------------------------------------------------------------- sequences: steps given together, each a number of days after the start
+  const seqBody = b => {
+    const name = str(b.name, 80); if (!name) throw new Error('Give the sequence a name');
+    const steps = (Array.isArray(b.steps) ? b.steps : []).slice(0, 30).map(s => ({ title: str(s && s.title, 150), desc: str(s && s.desc, 600), day: Math.min(365, Math.max(0, parseInt(s && s.day) || 0)), days: Math.min(90, Math.max(1, parseInt(s && s.days) || 1)), priority: PRIO.includes(s && s.priority) ? s.priority : 'med', type: s && s.type === 'mission' ? 'mission' : 'task', points: Math.min(1000, Math.max(0, parseInt(s && s.points) || 0)), rev: !!(s && s.rev), checklist: checklist(s && s.checklist).map(({ t, min }) => ({ t, min })) })).filter(s => s.title);
+    if (!steps.length) throw new Error('Add at least one step');
+    return { name, desc: str(b.desc, 600), steps: steps.sort((x, y) => x.day - y.day) };
+  };
+  app.get('/api/task-seqs', need(...EDIT), (req, res) => { const db = load(); res.json({ seqs: db.taskSeq, runs: db.taskRuns }); });
+  app.post('/api/task-seqs', need(...EDIT), (req, res) => {
+    const db = load(); try { const s = { id: 'q' + hex(4), ...seqBody(req.body || {}), by: req.session.user.username, created: iso() }; db.taskSeq.push(s); save(db); res.json(s); } catch (e) { bad(res, e.message); }
+  });
+  app.put('/api/task-seqs/:id', need(...EDIT), (req, res) => {
+    const db = load(), s = db.taskSeq.find(x => x.id === req.params.id); if (!s) return res.status(404).json({ error: 'not found' });
+    try { Object.assign(s, seqBody(req.body || {}), { updated: iso() }); save(db); res.json(s); } catch (e) { bad(res, e.message); }
+  });
+  app.delete('/api/task-seqs/:id', need(...EDIT), (req, res) => {
+    const db = load(); db.taskSeq = db.taskSeq.filter(s => s.id !== req.params.id); db.taskRuns.forEach(r => { if (r.seq === req.params.id) r.active = false; }); save(db); res.json({ ok: 1 });
+  });
+  // give a sequence: the first round now (its tasks start on their own days), then again every month or quarter if chosen
+  app.post('/api/task-seqs/:id/give', need(...EDIT), (req, res) => {
+    const db = load(), me = req.session.user, b = req.body || {}, seq = db.taskSeq.find(x => x.id === req.params.id); if (!seq) return res.status(404).json({ error: 'not found' });
+    if (!DAY.test(b.start || '')) return bad(res, 'Choose the start date');
+    const users = list(b.users, 60, 40).filter(x => userBy(db, x) && seesUser(db, me, x)), teams = list(b.teams, 20, 40);
+    const run = { id: 'r' + hex(4), seq: seq.id, start: b.start, repeat: ['monthly', 'quarterly'].includes(b.repeat) ? b.repeat : 'none', until: DAY.test(b.until || '') ? b.until : '', users, teams, by: me.username, created: iso(), cycles: [], active: true };
+    if (!recipients(db, users, teams).filter(x => seesUser(db, me, x)).length) return bad(res, 'Choose at least one agent or team to give it to');
+    const n = giveCycle(db, run, seq, run.start); db.taskRuns.push(run); save(db); res.json({ run, people: n, tasks: n * seq.steps.length });
+  });
+  app.put('/api/task-runs/:id', need(...EDIT), (req, res) => {
+    const db = load(), r = db.taskRuns.find(x => x.id === req.params.id); if (!r) return res.status(404).json({ error: 'not found' });
+    if ((req.body || {}).active === false) r.active = false; save(db); res.json(r);
   });
 
   // ---------------------------------------------------------------- coaching / training / one-to-one sessions
