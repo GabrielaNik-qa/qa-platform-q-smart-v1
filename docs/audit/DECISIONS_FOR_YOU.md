@@ -795,3 +795,17 @@ Nobody is planned before their start date or after their last working day.
   - **Scenarios** (trainers and admins): the 5 built-in customers can be switched off, and you can write your own: name, who the customer is, the situation, and the customer's first sentence. "Try it" opens the practice straight on that scenario. Practice calls already made keep their results.
 - **Learning › Tools** keeps **Transcripts** (import a recording, transcribe, analyse and auto QA once the API key is in).
 - All 164 automatic tests pass (one new: agents cannot change scenarios, and a switched-off scenario disappears from practice). Translated into Bulgarian and French.
+
+## V. One list of 7 categories (27 October, your choice)
+
+- The written scorecard (chat, email, messaging) now uses the same 7 category names as the call scorecard, so the Agents page and the rest of Analytics show 7 categories instead of 14:
+  - Greeting & Personalisation → Greeting & Introduction
+  - Writing Quality → Vocabulary & Professionalism
+  - Understanding the Request → Empathy & Active Listening
+  - Compliance & Data Protection → Documentation & Reasoning
+  - Timeliness → Process Adherence
+  - Accuracy & Solution → Persuasion & Objection Handling
+  - Closing → Closing & Positive Outcome
+- Only the names changed. The questions inside each category, their points and every score stay exactly as they were, and the past written reviews are shown under the new names.
+- The change runs by itself once, the first time the server starts with this version (also after a restore from seed.js). Your running app needs a restart to pick it up. The AutoQA category called "Closing" is a separate list and keeps its name.
+- A category's "8/9" points on the Agents page is an average over both scorecards, which give a category different points, as before.

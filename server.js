@@ -45,6 +45,15 @@ function load() {
     if (typeof e.id !== 'string') e.id = String(e.id);
     if (e.seen === undefined) e.seen = null;
   });
+  // October 2026: the written scorecard uses the same 7 category names as the call scorecard, so Analytics shows one list of 7.
+  // Only the names change (its questions, points and scores stay); it runs once (settings.catNames7), also after a restore from seed.js.
+  if (db.settings && !db.settings.catNames7) {
+    const M = { 'Greeting & Personalisation': 'Greeting & Introduction', 'Writing Quality': 'Vocabulary & Professionalism', 'Understanding the Request': 'Empathy & Active Listening', 'Compliance & Data Protection': 'Documentation & Reasoning', Timeliness: 'Process Adherence', 'Accuracy & Solution': 'Persuasion & Objection Handling', Closing: 'Closing & Positive Outcome' };
+    const sc = (db.scorecards || []).find(s => s.id === 'sc-written');
+    if (sc) sc.cats.forEach(c => { if (M[c.n]) c.n = M[c.n]; });
+    db.evaluations.forEach(e => { if (e.scid === 'sc-written') (e.cs || []).forEach(c => { if (M[c.n]) c.n = M[c.n]; }); });
+    db.settings.catNames7 = true; dirty = true;
+  }
   if (ensureBootstrap(db)) dirty = true;
   if (dirty) save(db);
   return db;
