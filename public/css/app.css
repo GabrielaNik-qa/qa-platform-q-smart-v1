@@ -899,3 +899,5 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .wupd{margin-top:var(--s4);border:1px solid var(--bd);border-radius:10px;overflow:hidden;background:var(--pn);font-size:13px}.wupd b{display:block;padding:6px 12px;background:color-mix(in srgb,var(--ac) 14%,var(--pn2));border-bottom:1px solid var(--bd);font-size:12.5px}.wupd span{display:block;padding:6px 12px;color:var(--tx)}
 /* the Reviews table grows down with the rows per page (no scroll box inside it); when it is wider than the screen the scrollbar above it scrolls sideways */
 .sc.scg{max-height:none;overscroll-behavior:auto}.scg th,.scg td{padding-left:7px;padding-right:7px}
+/* QA Entry: the form and the score panel a little larger, so labels, fields and questions read comfortably */
+.eg label{font-size:14px}.eg input,.eg select,.eg textarea{font-size:15px}.eg .row > span{font-size:16px}.eg h3{font-size:18px}.eg small{font-size:13px}.eg .sg button,.eg .rp{font-size:14.5px}
