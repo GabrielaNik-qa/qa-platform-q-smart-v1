@@ -895,3 +895,5 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .ib.on{background:color-mix(in srgb,var(--ac) 14%,var(--pn));border-color:var(--ac);color:var(--tx)}
 .pnote{margin:0 0 12px;padding:10px 14px;border:1px dashed var(--ac);border-radius:10px;font-size:13px;color:var(--tx);background:color-mix(in srgb,var(--ac) 6%,transparent)}
 .warr>.wg.ed{outline:1px dashed color-mix(in srgb,var(--ac) 55%,transparent);outline-offset:3px;border-radius:14px}
+/* the line at the bottom of every dashboard: when its data last changed */
+.wupd{margin-top:var(--s4);border:1px solid var(--bd);border-radius:10px;overflow:hidden;background:var(--pn);font-size:13px}.wupd b{display:block;padding:6px 12px;background:color-mix(in srgb,var(--ac) 14%,var(--pn2));border-bottom:1px solid var(--bd);font-size:12.5px}.wupd span{display:block;padding:6px 12px;color:var(--tx)}

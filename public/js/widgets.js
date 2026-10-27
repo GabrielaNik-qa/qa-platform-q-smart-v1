@@ -125,8 +125,10 @@ const wBk = s => s < 20 ? 'ws' : s < 30 ? 'wm' : s < 60 ? 'wl' : 'wf';   // size
 function wGrid(page, ctxOf, vid, edit) {
   const reg = WREG[page], items = wPack(page, itemsOf(page, curView(page, vid)));
   if (!items.length) return `<div class="agem wempty"><b>${tr('This dashboard has no widgets yet.')}</b><br><a href="javascript:void(0)" class=agl onclick="goPage('pers')">${tr('Choose them in Home › Personalize ›')}</a></div>`;
-  return `<div class="wgrid${edit ? ' warr' : ''}">${items.map(x => { const r = reg[x.id], h = x.ar && x.h; return `<div class="wg ${wBk(x.sp)}${h ? ' hset' : ''}${edit ? ' ed' : ''}" style="--sp:${x.sp}${h ? `;height:${h}px` : ''}"${edit ? wDnD(page, vid, x.k) : ''}>${edit ? wTb(page, vid, x) : ''}${r.r(typeof ctxOf === 'function' ? ctxOf(x) : ctxOf, x.sp, x)}${edit ? wRzH(page, vid, x.k) : ''}</div>`; }).join('')}</div>`;
+  return `<div class="wgrid${edit ? ' warr' : ''}">${items.map(x => { const r = reg[x.id], h = x.ar && x.h; return `<div class="wg ${wBk(x.sp)}${h ? ' hset' : ''}${edit ? ' ed' : ''}" style="--sp:${x.sp}${h ? `;height:${h}px` : ''}"${edit ? wDnD(page, vid, x.k) : ''}>${edit ? wTb(page, vid, x) : ''}${r.r(typeof ctxOf === 'function' ? ctxOf(x) : ctxOf, x.sp, x)}${edit ? wRzH(page, vid, x.k) : ''}</div>`; }).join('')}</div>` + wFoot();
 }
+// the line at the bottom of every dashboard: when its data last changed (UTC, like the reports; your own time on hover)
+const wFoot = () => DUPD ? `<div class=wupd title="${esc(DUPD.toLocaleString(I18N.locale()))}"><b>${tr('Last data update time (UTC)')}</b><span class=mono>${DUPD.toISOString().slice(0, 19).replace('T', ' ')}</span></div>` : '';
 // ---- arranging by hand (admins only, in Home › Personalize): the first move or resize fixes the dashboard as it is shown, then every
 // change keeps exactly that order and those sizes. "Automatic layout" goes back to the packed preset.
 const canArrange = () => ME.role === 'admin' && !WPREV;

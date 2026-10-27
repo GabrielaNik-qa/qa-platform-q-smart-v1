@@ -224,7 +224,7 @@ async function api(u, b, m) {
 async function errOf(r, fallback) { const j = await r.json().catch(() => ({})); return j.error || fallback; }
 
 // loads what the page needs (always the core data, plus the data of the section you are in); returns true when something changed
-let LASTSIG = '';
+let LASTSIG = '', DUPD = null;   // DUPD = when new data last arrived from the server (shown at the bottom of every dashboard)
 async function load() {
   const g = async u => { try { const r = await api(u); return r.ok ? await r.text() : null; } catch (e) { return null; } };
   const adm = ME && ME.role === 'admin', ed = ME && STAFFR.includes(ME.role), dashy = route === 'dash' || route === 'pers';   // Home › Personalize shows the dashboard widgets too
@@ -270,7 +270,7 @@ async function load() {
   if (['autoqa', 'dash', 'pers'].includes(route) && ed) want.push(['al', '/api/ai/lead'], ['at', '/api/ai/trainer'], ['aa', '/api/ai/analyst']);
   const got = await Promise.all(want.map(w => g(w[1]))), R = {};
   want.forEach((w, k) => { R[w[0]] = got[k]; });
-  const sig = got.join('|'), changed = sig !== LASTSIG; LASTSIG = sig;
+  const sig = got.join('|'), changed = sig !== LASTSIG; LASTSIG = sig; if (changed) DUPD = new Date();
   if (R.ro) ROSTER = JSON.parse(R.ro);
   if (R.tm) TEAMS = JSON.parse(R.tm);
   if (R.ev) EV.splice(0, EV.length, ...JSON.parse(R.ev).map(x => ({ ...x, d: new Date(x.d), ra: x.at ? new Date(x.at) : null, tm: teamOf(x.agent) || x.tid || '', tmh: x.tid || '' })));   // tm = the agent's CURRENT team, tmh = the team at review time
