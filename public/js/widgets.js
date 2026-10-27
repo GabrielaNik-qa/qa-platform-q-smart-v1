@@ -1,45 +1,50 @@
-// ===================== Widgets and dashboard views =====================
-// Every card on Home and AutoQA is a widget. There is no special "edit mode":
-//   • hover a widget: ⠿ drag it, ⚙ settings (title, review type, team, period, size), ✕ remove (with Undo)
-//   • drag its right edge, bottom edge or corner to make it as wide and as high as you like (double-click: automatic height again)
-//   • "+ Add widget" opens the gallery; "Display" opens a panel with the whole list (show/hide, order, width, view name, sharing)
-//   • every change is saved at once.
-// Views: "Standard" (your own version > the default of your role set by an admin > built in) is the main Dashboard; named views
-//   (personal ones, and shared ones made by admins / QA for chosen roles or everyone) live in the "Views" tab, apart from it.
-const LEG = { 3: 15, 4: 20, 6: 30, 12: 60 };                                       // old layouts (no k) used a 12-column grid
-const wSp = s => { s = Math.round(+s); return s >= 6 && s <= 60 ? s : 30; };         // width = how many of the 60 columns a widget takes
-const wPc = s => Math.round(s / 60 * 100);                                          // … shown as a % of the row
-const wHt = h => +h >= 90 ? Math.min(1400, Math.round(+h)) : undefined;             // height in px (none = as high as its content)
+// ===================== Widgets and dashboards =====================
+// Every card on the Dashboard and AutoQA pages is a widget from a preset catalog: each has its own name, size and place, so every
+// dashboard reads the same way, top to bottom (summary, numbers, charts, categories, people, lists, work). The pages only show
+// them: Home › Personalize (personalize.js) chooses which dashboard is your home, switches each widget on or off, and sets how the
+// data is counted. Views: "Standard" is your home (your own version > the default of your role set by an admin > built in); named
+// views (personal ones, and shared ones made by admins / QA for chosen roles or everyone); and the ready-made dashboards (dashboards.js).
 const WREG = { dash: {}, autoqa: {} }, DEFL = { dash: {}, autoqa: {} };
-let WE = null, WPREV = '', WSET = null, WADD = null, WDISP = null, WUNDO = null;   // WSET = widget being set up, WADD / WDISP = page whose gallery / panel is open
+let WPREV = '', WUNDO = null;                                                   // WPREV = an admin previews the Standard view of another role
 const wdef = (page, id, title, w, r, desc = '', grp = 'More') => { WREG[page][id] = { title, w, r, desc, grp }; };
-const wl = (...a) => a.map(([id, size, on = true]) => ({ k: id, id, size, on }));
-const wNorm = x => ({ ...x, k: x.k || x.id, size: x.k ? wSp(x.size) : (LEG[x.size] || wSp(x.size)), h: wHt(x.h) });
+const wl = (...a) => a.filter(([, , on = true]) => on).map(([id]) => ({ k: id, id, on: true }));
+const wNorm = x => ({ k: x.k || x.id, id: x.id, on: x.on !== false });
 const canShare = () => ['admin', 'qa'].includes(ME.role);
 const ROLESEL = [['all', 'Everyone'], ...Object.entries(ROLE)];
 const PERN = { week: 'Week', month: 'Month', year: 'Year', all: 'All time' };
 
+// ---- the preset place of every widget: the order below, then the others in the order they were made
+const WORD = { dash: ['brief', 'att_me', 'cap_me', 'wf_today', 'ai_lead',
+  'kpi_avg', 'kpi_total', 'kpi_conv', 'kpi_rtime', 'kpi_agents', 'kpi_disputed', 'kpi_comments', 'kpi_unseen', 'kpi_pass', 'kpi_fail', 'kpi_trend', 'kpi_flags', 'kpi_disputes', 'plan_kpi', 'csat', 'complaints',
+  'inbox', 'todo', 'coach_new',
+  'qtime', 'cattime', 'catavg', 'catover', 'cat0', 'catins', 'heat', 'strong', 'needs', 'rootc', 'scperf',
+  'revperf', 'agperf', 'wsperf', 'catpivot', 'teams', 'channels', 'distribution', 'top', 'low',
+  'last5', 'attention', 'byreview', 'rcreview', 'qflags', 'targets',
+  'planner', 'tasks', 'goals', 'kudos', 'learn_prog', 'ai_sim', 'ai_train', 'ai_ana'], autoqa: [] };
+const wRank = (page, id) => { const i = WORD[page].indexOf(id); return i < 0 ? 1000 + Object.keys(WREG[page]).indexOf(id) : i; };
+const wOrder = page => Object.keys(WREG[page]).sort((a, b) => wRank(page, a) - wRank(page, b));
+const wSorted = (page, items) => { const seen = new Set(); return items.filter(x => WREG[page][x.id] && x.on !== false && !seen.has(x.id) && seen.add(x.id)).sort((a, b) => wRank(page, a.id) - wRank(page, b.id)); };
+
 // ---- which widgets a view shows
 function stdLayout(page, role) {
-  const reg = WREG[page], mine = (ME.layouts || {})[page], rl = ((SET.layouts || {})[page] || {})[role];
-  return ((!WPREV && mine) ? mine : (rl || DEFL[page][role] || DEFL[page].all)).map(wNorm).filter(x => reg[x.id]);
+  const mine = (ME.layouts || {})[page], rl = ((SET.layouts || {})[page] || {})[role];
+  return ((!WPREV && mine) ? mine : (rl || DEFL[page][role] || DEFL[page].all)).map(wNorm);
 }
-const builtin = (page, role) => (DEFL[page][role] || DEFL[page].all).map(wNorm).filter(x => x.on !== false);
+const builtin = (page, role) => (DEFL[page][role] || DEFL[page].all).map(wNorm);
 const sharedViews = page => ((SET.views || {})[page] || []);
 const myViews = page => ((ME.views || {})[page] || []);
-const viewsFor = page => { const r = WPREV || ME.role; return [{ id: 'std', name: 'Standard', kind: 'std' }, ...sharedViews(page).filter(v => canShare() && !WPREV || v.roles.includes('all') || v.roles.includes(r)).map(v => ({ ...v, kind: 'shared' })), ...(WPREV ? [] : myViews(page).map(v => ({ ...v, kind: 'mine' })))]; };
-let DV = LS.get('qa_dv', 'main');   // the tab of the dashboard: 'main' = your Standard view, 'views' = the named views (kept apart so the main one never gets messed up)
-const namedOf = page => page === 'dash' ? viewsFor(page).slice(1) : viewsFor(page);
-const curView = (page, vid) => { const l = viewsFor(page); if (vid) return l.find(v => v.id === vid) || l[0]; if (page === 'dash' && DV !== 'views') return l[0];
-  const o = [...namedOf(page), ...(page === 'dash' && typeof dashTpls === 'function' ? dashTpls() : [])], id = LS.get('qa_view_' + page, ''); return o.find(v => v.id === id) || o.find(v => v.kind === 'shared' && !canShare()) || o[0] || l[0]; };
-const itemsOf = (page, v) => v.kind === 'std' ? stdLayout(page, WPREV || ME.role) : (v.items || []).map(wNorm).filter(x => WREG[page][x.id]);
-const canEditView = page => { const v = curView(page); return !WPREV && v.kind !== 'tpl' && (v.kind !== 'shared' || canShare()); };   // a ready-made dashboard is copied, not changed
-const setView = (page, id) => { LS.set('qa_view_' + page, id); render(); };
+const viewsFor = page => { const r = WPREV || ME.role; return [{ id: 'std', name: 'Standard', kind: 'std' }, ...sharedViews(page).filter(v => (canShare() && !WPREV) || v.roles.includes('all') || v.roles.includes(r)).map(v => ({ ...v, kind: 'shared' })), ...(WPREV ? [] : myViews(page).map(v => ({ ...v, kind: 'mine' })))]; };
+const namedOf = page => viewsFor(page).slice(1);
+const allViews = page => [...viewsFor(page), ...(page === 'dash' && typeof dashTpls === 'function' ? dashTpls() : [])];
+const curView = (page, vid) => { const l = allViews(page); return l.find(v => v.id === (vid || 'std')) || l[0]; };
+const itemsOf = (page, v) => v.kind === 'std' ? stdLayout(page, WPREV || ME.role) : (v.items || []).map(wNorm);
+const canEditView = v => !WPREV && v.kind !== 'tpl' && (v.kind !== 'shared' || canShare());   // a ready-made dashboard is copied, never changed
 
-// ---- saving: every change goes straight into the view you are looking at (you can undo the last one)
-async function wCommit(page, items, msg, patch = {}, vid) {
-  const v = curView(page, vid), before = { page, vid: v.id, items: itemsOf(page, v), name: v.name, roles: v.roles };
-  items = items.map(x => ({ ...x, on: x.on !== false }));
+// ---- saving: every change goes straight into the view it is made on (the last one can be undone)
+async function wCommit(page, items, msg, patch = {}, vid = 'std') {
+  const v = curView(page, vid); if (!canEditView(v)) return;
+  const before = { page, vid: v.id, items: itemsOf(page, v), name: v.name, roles: v.roles };
+  items = items.map(x => ({ ...wNorm(x), size: (WREG[page][x.id] || {}).w || 30 }));
   let req;
   if (v.kind === 'std') { ME = { ...ME, layouts: { ...(ME.layouts || {}), [page]: items } }; req = api('/api/layout', { page, items }, 'PUT').then(async r => { if (r.ok) ME = await r.json(); return r; }); }
   else if (v.kind === 'mine') { const views = myViews(page).map(x => x.id === v.id ? { ...x, ...patch, items } : x); ME = { ...ME, views: { ...(ME.views || {}), [page]: views } }; req = api('/api/views', { page, views }, 'PUT').then(async r => { if (r.ok) ME = await r.json(); return r; }); }
@@ -47,145 +52,113 @@ async function wCommit(page, items, msg, patch = {}, vid) {
   WUNDO = { ...before, msg }; render(); undoBar(msg);
   const r = await req; if (!r.ok) toast(await errOf(r, 'Could not save the change'), true);
 }
-function undoBar(msg) { if (!msg) return; let b = $('#wundo'); if (!b) { b = document.createElement('div'); b.id = 'wundo'; document.body.appendChild(b); } b.className = 'wundo'; b.innerHTML = `<span>${esc(msg)}</span><button onclick="wUndo()">Undo</button>`; clearTimeout(undoBar.t); undoBar.t = setTimeout(() => b.remove(), 6000); }
-async function wUndo() { const u = WUNDO; if (!u) return; WUNDO = null; const b = $('#wundo'); if (b) b.remove(); if (u.vid !== 'std') LS.set('qa_view_' + u.page, u.vid); await wCommit(u.page, u.items, '', u.vid === 'std' ? {} : { name: u.name, ...(u.roles ? { roles: u.roles } : {}) }, u.vid); WUNDO = null; const b2 = $('#wundo'); if (b2) b2.remove(); toast('Change undone'); }
-const wGet = page => JSON.parse(JSON.stringify(itemsOf(page, curView(page))));
-const wIdxIn = (l, k) => l.findIndex(x => x.k === k);
-function wMove(page, k, d) { const l = wGet(page), i = wIdxIn(l, k), j = i + d; if (i < 0 || j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; wCommit(page, l, 'Widget moved'); }
-function wSizeSet(page, k, pct) { const l = wGet(page); l[wIdxIn(l, k)].size = wSp(+pct / 100 * 60); wCommit(page, l, 'Width changed'); }
-// resizing: drag the right edge (width), the bottom edge (height) or the corner (both); the width snaps to the 60 columns of the grid
-function wRz(ev, page, k, mode) {
-  if (ev.button) return; ev.preventDefault(); ev.stopPropagation();
-  const el = ev.currentTarget.closest('.wg'), grid = el.parentElement, gap = parseFloat(getComputedStyle(grid).columnGap) || 0, col = (grid.clientWidth - 59 * gap) / 60;
-  const l = wGet(page), x = l[wIdxIn(l, k)]; if (!x) return;
-  const r0 = el.getBoundingClientRect(), x0 = ev.clientX, y0 = ev.clientY, tip = document.createElement('div');
-  let sp = x.size, h = x.h || 0;
-  tip.className = 'wrtip'; el.appendChild(tip); el.classList.add('rz'); document.body.classList.add('wrzing');
-  const show = () => { tip.textContent = wPc(sp) + '% × ' + (h ? h + ' px' : tr('automatic height')); };
-  const move = e => {   // with the corner, a dimension changes only once the mouse really moves that way (a sideways drag keeps the automatic height)
-    if (mode === 'x' || (mode === 'xy' && Math.abs(e.clientX - x0) > 6)) { sp = Math.max(6, Math.min(60, Math.round((r0.width + e.clientX - x0 + gap) / (col + gap)))); el.style.setProperty('--sp', sp); }
-    if (mode === 'y' || (mode === 'xy' && Math.abs(e.clientY - y0) > 6)) { h = Math.max(90, Math.min(1400, Math.round((r0.height + e.clientY - y0) / 10) * 10)); el.style.height = h + 'px'; el.classList.add('hset'); }
-    show();
-  };
-  const up = () => {
-    removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up);
-    tip.remove(); el.classList.remove('rz'); document.body.classList.remove('wrzing');
-    if (sp === x.size && h === (x.h || 0)) return;
-    x.size = sp; x.h = h || undefined; wCommit(page, l, 'Size changed');
-  };
-  addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up); show();
+function undoBar(msg) { if (!msg) return; let b = $('#wundo'); if (!b) { b = document.createElement('div'); b.id = 'wundo'; document.body.appendChild(b); } b.className = 'wundo'; b.innerHTML = `<span>${esc(tr(msg))}</span><button onclick="wUndo()">${tr('Undo')}</button>`; clearTimeout(undoBar.t); undoBar.t = setTimeout(() => b.remove(), 6000); }
+async function wUndo() { const u = WUNDO; if (!u) return; WUNDO = null; const b = $('#wundo'); if (b) b.remove(); await wCommit(u.page, u.items, '', u.vid === 'std' ? {} : { name: u.name, ...(u.roles ? { roles: u.roles } : {}) }, u.vid); WUNDO = null; const b2 = $('#wundo'); if (b2) b2.remove(); toast('Change undone'); }
+// a widget switched on or off on one view (Home › Personalize › Display)
+function wToggle(page, vid, id, on) {
+  const l = itemsOf(page, curView(page, vid)).filter(x => x.id !== id && x.on !== false), t = WREG[page][id].title;
+  if (on) l.push({ k: id, id, on: true });
+  wCommit(page, l, on ? `Shown: ${t}` : `Hidden: ${t}`, {}, vid);
 }
-function wAutoH(page, k) { const l = wGet(page), x = l[wIdxIn(l, k)]; if (!x || !x.h) return; delete x.h; wCommit(page, l, 'Automatic height'); }
-const wRzH = (page, k) => `<i class="wrz wrx" onpointerdown="wRz(event,'${page}',${jsq(k)},'x')" title="Drag to change the width"></i><i class="wrz wry" onpointerdown="wRz(event,'${page}',${jsq(k)},'y')" ondblclick="wAutoH('${page}',${jsq(k)})" title="Drag to change the height (double-click: automatic height)"></i><i class="wrz wrxy" onpointerdown="wRz(event,'${page}',${jsq(k)},'xy')" ondblclick="wAutoH('${page}',${jsq(k)})" title="Drag to change the size (double-click: automatic height)"></i>`;
-const wBk = s => s < 20 ? 'ws' : s < 30 ? 'wm' : s < 60 ? 'wl' : 'wf';   // size group: on narrow screens small widgets grow so they stay readable
-function wShow(page, k, on) { const l = wGet(page); l[wIdxIn(l, k)].on = on; wCommit(page, l, on ? 'Widget shown' : 'Widget hidden'); }
-function wDel(page, k) { const l = wGet(page), x = l[wIdxIn(l, k)]; wCommit(page, l.filter(z => z.k !== k), `"${(x && x.title) || WREG[page][x.id].title}" removed`); }
-function wAdd(page, id) { const r = WREG[page][id], l = wGet(page); l.unshift({ k: id + '-' + Math.random().toString(36).slice(2, 6), id, size: r.w, on: true }); WADD = null; wCommit(page, l, r.title + ' added at the top'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-// drag and drop: grab the ⠿ handle of a card (or a row in the Display panel) and drop it on another one
-let WDRAG = null;
-const wGrip = (page, k) => `onmousedown="this.closest('[data-wk]').draggable=true" onmouseup="this.closest('[data-wk]').draggable=false"`;
-function wDragStart(ev, page, k) { WDRAG = { page, k }; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', k); }
-function wDropOn(ev, page, k) { ev.preventDefault(); ev.currentTarget.classList.remove('over'); const d = WDRAG; WDRAG = null; if (!d || d.page !== page || d.k === k) return; const l = wGet(page), x = l.splice(wIdxIn(l, d.k), 1)[0]; l.splice(wIdxIn(l, k), 0, x); wCommit(page, l, 'Widget moved'); }
-const wDnD = (page, k) => `data-wk="${esc(k)}" ondragstart="wDragStart(event,'${page}',${jsq(k)})" ondragend="this.draggable=false" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="wDropOn(event,'${page}',${jsq(k)})"`;
 
-// ---- views: new, copy, rename, share, delete, admin default
-function wNewView(page, from) {
-  openForm({ title: 'New view', w: 520, yes: 'Create view', d: { name: '', from: from || 'current', roles: [] },
-    fields: [{ k: 'name', l: 'Name', req: 1, ph: 'e.g. Team leads, My agents, Chats' }, { k: 'from', l: 'Start from', t: 'select', o: [['current', 'A copy of the view I am looking at'], ['builtin', 'The standard widgets'], ['empty', 'An empty page (add your own widgets)']] }, ...(canShare() ? [{ k: 'roles', l: 'Also show it to (leave empty for a personal view)', t: 'multi', o: ROLESEL }] : [])],
+// ---- views: new, copy, rename, share, delete, the default of a role
+function wNewView(page, src) {
+  const from = src ? curView(page, src) : null;
+  openForm({ title: from ? tr('Make your own copy') : tr('New dashboard'), w: 520, yes: from ? 'Make the copy' : 'Create', d: { name: from ? (from.name + ' · ' + tr('my copy')).slice(0, 40) : '', roles: [] },
+    fields: [{ k: 'name', l: 'Name', req: 1, ph: tr('For example: My team, Chats, Mondays') }, ...(canShare() ? [{ k: 'roles', l: 'Also show it to (leave empty for a personal dashboard)', t: 'multi', o: ROLESEL }] : [])],
     save: async d => {
-      if (!d.name.trim()) return 'Give the view a name';
-      const id = 'v' + Date.now().toString(36), items = d.from === 'empty' ? [] : d.from === 'builtin' ? builtin(page, ME.role) : wGet(page), v = { id, name: d.name.trim(), items };
-      if (canShare() && (d.roles || []).length) { const r = await api('/api/shared-views', { page, views: [...sharedViews(page), { ...v, roles: d.roles, by: ME.name }] }, 'PUT'); if (!r.ok) return errOf(r, 'Could not create the view'); SET = await r.json(); }
-      else { const r = await api('/api/views', { page, views: [...myViews(page), v] }, 'PUT'); if (!r.ok) return errOf(r, 'Could not create the view'); ME = await r.json(); }
-      LS.set('qa_view_' + page, id); if (page === 'dash') { DV = 'views'; LS.set('qa_dv', DV); } WDISP = page; toast(`View "${v.name}" created`);
+      if (!d.name.trim()) return tr('Give the dashboard a name');
+      const id = 'v' + Date.now().toString(36), items = from ? itemsOf(page, from) : builtin(page, ME.role), v = { id, name: d.name.trim().slice(0, 40), items: items.map(x => ({ ...wNorm(x), size: (WREG[page][x.id] || {}).w || 30 })) };
+      if (canShare() && (d.roles || []).length) { const r = await api('/api/shared-views', { page, views: [...sharedViews(page), { ...v, roles: d.roles, by: ME.name }] }, 'PUT'); if (!r.ok) return errOf(r, 'Could not create the dashboard'); SET = await r.json(); }
+      else { const r = await api('/api/views', { page, views: [...myViews(page), v] }, 'PUT'); if (!r.ok) return errOf(r, 'Could not create the dashboard'); ME = await r.json(); }
+      if (typeof pSel === 'function') pSel(id); toast(tr(`Dashboard "${v.name}" created`));
     } });
 }
-async function wViewPatch(page, patch, msg) { const v = curView(page); if (v.kind === 'std') return; await wCommit(page, wGet(page), msg, patch); }
-async function wShare(page, r) {
-  const v = curView(page); let roles = [...(v.roles || [])];
+async function wViewPatch(page, vid, patch, msg) { const v = curView(page, vid); if (v.kind === 'std' || v.kind === 'tpl') return; await wCommit(page, itemsOf(page, v), msg, patch, vid); }
+async function wShare(page, vid, r) {
+  const v = curView(page, vid); let roles = [...(v.roles || [])];
   if (r === 'all') roles = roles.includes('all') ? [] : ['all']; else { roles = roles.filter(x => x !== 'all'); roles = roles.includes(r) ? roles.filter(x => x !== r) : [...roles, r]; }
-  const items = wGet(page);
-  if (v.kind === 'mine' && roles.length) {            // a personal view becomes shared
+  const items = itemsOf(page, v).map(x => ({ ...x, size: (WREG[page][x.id] || {}).w || 30 }));
+  if (v.kind === 'mine' && roles.length) {            // a personal dashboard becomes shared
     const r1 = await api('/api/shared-views', { page, views: [...sharedViews(page), { id: v.id, name: v.name, items, roles, by: ME.name }] }, 'PUT'); if (!r1.ok) return toast(await errOf(r1, 'Could not share'), true); SET = await r1.json();
     const r2 = await api('/api/views', { page, views: myViews(page).filter(x => x.id !== v.id) }, 'PUT'); if (r2.ok) ME = await r2.json(); render(); return toast('Shared');
   }
-  if (v.kind === 'shared' && !roles.length) {         // nobody else: it becomes your personal view again
+  if (v.kind === 'shared' && !roles.length) {         // nobody else: it becomes a personal dashboard again
     const r1 = await api('/api/views', { page, views: [...myViews(page), { id: v.id, name: v.name, items }] }, 'PUT'); if (!r1.ok) return toast(await errOf(r1, 'Could not save'), true); ME = await r1.json();
-    const r2 = await api('/api/shared-views', { page, views: sharedViews(page).filter(x => x.id !== v.id) }, 'PUT'); if (r2.ok) SET = await r2.json(); render(); return toast('Now a personal view');
+    const r2 = await api('/api/shared-views', { page, views: sharedViews(page).filter(x => x.id !== v.id) }, 'PUT'); if (r2.ok) SET = await r2.json(); render(); return toast('Now a personal dashboard');
   }
-  wViewPatch(page, { roles }, 'Sharing changed');
+  wViewPatch(page, vid, { roles }, 'Sharing changed');
 }
-const wDelView = page => { const v = curView(page); ask('Delete this view?', `"${v.name}" is removed${v.kind === 'shared' ? ' for everybody it was shared with' : ''}. The Standard view stays.`, async () => {
+const wDelView = (page, vid) => { const v = curView(page, vid); ask(tr(`Delete "${v.name}"?`), v.kind === 'shared' ? 'It is removed for everybody it was shared with. Your home dashboard stays.' : 'Your home dashboard stays.', async () => {
   if (v.kind === 'shared') { const r = await api('/api/shared-views', { page, views: sharedViews(page).filter(x => x.id !== v.id) }, 'PUT'); if (r.ok) SET = await r.json(); }
   else { const r = await api('/api/views', { page, views: myViews(page).filter(x => x.id !== v.id) }, 'PUT'); if (r.ok) ME = await r.json(); }
-  LS.set('qa_view_' + page, page === 'dash' ? '' : 'std'); WDISP = null; render(); toast('View deleted');
+  if (typeof pSel === 'function') pSel('std'); toast('Dashboard deleted');
 }, { yes: 'Yes, delete', no: 'Cancel', danger: true }); };
-async function wRoleDefault(page, role) { if (!role) return; const r = await api('/api/layouts/' + role, { page, items: wGet(page) }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true); const j = await r.json(); SET = { ...SET, layouts: j.layouts }; toast(`This layout is now the Standard view of every ${ROLE[role]}`); }
-async function wResetStd(page) { const r = await api('/api/layout', { page, reset: true, items: [] }, 'PUT'); if (r.ok) { ME = await r.json(); render(); toast('Standard view reset to the default of your role'); } }
+async function wRoleDefault(page, role, vid) { if (!role) return; const items = itemsOf(page, curView(page, vid)).map(x => ({ ...x, size: (WREG[page][x.id] || {}).w || 30 })); const r = await api('/api/layouts/' + role, { page, items }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true); const j = await r.json(); SET = { ...SET, layouts: j.layouts }; toast(tr(`This is now the home dashboard of every ${ROLE[role]} who has not chosen their own`)); }
+async function wResetStd(page) { const r = await api('/api/layout', { page, reset: true, items: [] }, 'PUT'); if (r.ok) { ME = await r.json(); render(); toast('Back to the default of your role'); } }
 
-// ---- the bar above the widgets
-// on the main Dashboard the filters sit on the left of the tools; in the Views tab the view tabs come first and the filters below them
-function wBar(page, chips = '') {
-  const tabs = page !== 'dash' || DV === 'views', l = namedOf(page), cv = curView(page), ed = canEditView(page), adm = ME.role === 'admin';
-  const vt = `<div class=wvt>${l.map(v => `<button class="${v.id === cv.id ? 'on' : ''}" onclick="setView('${page}',${jsq(v.id)})" title="${v.kind === 'shared' ? 'Shared with ' + esc(v.roles.map(r => r === 'all' ? 'everyone' : ROLE[r]).join(', ')) + (v.by ? ' · by ' + esc(v.by) : '') : v.kind === 'mine' ? 'Only you see this view' : 'The standard view of your role'}">${v.kind === 'shared' ? TIC.team : ''}${esc(v.name)}</button>`).join('')}<button class=wvn2 onclick="wNewView('${page}')" title="Make a new view">${IC.plus} New view</button></div>`;
-  const tools = `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${WPREV ? `<span class="pill wn">Previewing as ${ROLE[WPREV]}</span>` : ''}${adm ? `<select title="See the page as another role" onchange="WPREV=this.value==='me'?'':this.value;render()"><option value=me>View as: me</option>${Object.entries(ROLE).map(([k, v]) => `<option value=${k} ${WPREV === k ? 'selected' : ''}>View as: ${v}</option>`).join('')}</select>` : ''}`
-    + (cv.kind === 'tpl' ? `<button class="ib ibx" onclick="dvUse('${cv.id}')">${IC.g_home} Use as my home</button><button class="ib ibx" onclick="wNewView('${page}')" title="Make your own copy you can change">${IC.plus} Make my own copy</button>` : ed ? `<button class="ib ibx" onclick="WADD='${page}';render()">${IC.plus} Add widget</button><button class="ib ibx" onclick="WDISP='${page}';render()">${TIC.list || IC.list} Display</button>` : cv.kind === 'shared' ? `<button class="ib ibx" onclick="wNewView('${page}')" title="Make your own copy you can change">${IC.plus} Make my own copy</button>` : '') + `</div>`;
-  const back = `<div class=wvt style="align-items:center"><button onclick="dvGal()">${IC.back} All dashboards</button><b style="padding:0 10px">${esc(cv.name)}</b>${cv.kind === 'tpl' ? '<span class="pill ac">Ready-made</span>' : ''}</div>`;   // the Dashboards tab: back to the gallery
-  return page === 'dash' && tabs ? `<div class=wvbar>${back}${tools}</div>${chips}` : tabs ? `<div class=wvbar>${vt}${tools}</div>${chips}` : `<div class=wvbar>${chips || '<div></div>'}${tools}</div>`;
+// ---- showing a view: the widgets in their preset order and size (nothing to drag or resize on the page itself)
+const wBk = s => s < 20 ? 'ws' : s < 30 ? 'wm' : s < 60 ? 'wl' : 'wf';   // size group: on narrow screens small widgets grow so they stay readable
+function wGrid(page, ctxOf, vid) {
+  const reg = WREG[page], items = wSorted(page, itemsOf(page, curView(page, vid)));
+  if (!items.length) return `<div class="agem wempty"><b>${tr('This dashboard has no widgets yet.')}</b><br><a href="javascript:void(0)" class=agl onclick="goPage('pers')">${tr('Choose them in Home › Personalize ›')}</a></div>`;
+  return `<div class=wgrid>${items.map(x => { const r = reg[x.id]; return `<div class="wg ${wBk(r.w)}" style="--sp:${r.w}">${r.r(typeof ctxOf === 'function' ? ctxOf(x) : ctxOf, r.w, x)}</div>`; }).join('')}</div>`;
 }
-const wTb = (x, page) => `<div class=wtb2><span class=wgrip title="Drag to move" ${wGrip(page, x.k)}>⠿</span><button onclick="WSET={page:'${page}',k:${jsq(x.k)}};render()" title="Settings: title, filters, width">⚙</button><button onclick="wDel('${page}',${jsq(x.k)})" title="Remove this widget">✕</button></div>`;
-const wFilt = x => x.f && (x.f.t || x.f.p || x.f.c) ? `<span class=wfc title="This widget has its own filter">${[x.f.c ? CHP[x.f.c] : '', x.f.t ? esc(tn(x.f.t)) : '', x.f.p ? PERN[x.f.p] : ''].filter(Boolean).join(' · ')}</span>` : '';
-function wGrid(page, ctxOf) {
-  const items = itemsOf(page, curView(page)).filter(x => x.on !== false), reg = WREG[page], ed = canEditView(page);
-  if (!items.length) return `<div class="agem wempty"><b>This view has no widgets yet.</b>${ed ? `<br><button class=btn style="margin-top:12px" onclick="WADD='${page}';render()">${IC.plus} Add a widget</button>` : ''}</div>`;
-  return `<div class=wgrid>${items.map(x => `<div class="wg ${wBk(x.size)}${x.h ? ' hset' : ''}${ed ? ' ed' : ''}" style="--sp:${x.size}${x.h ? `;height:${x.h}px` : ''}" ${ed ? wDnD(page, x.k) : ''}>${ed ? wTb(x, page) : ''}${wFilt(x)}${reg[x.id].r(typeof ctxOf === 'function' ? ctxOf(x) : ctxOf, x.size, x)}${ed ? wRzH(page, x.k) : ''}</div>`).join('')}</div>`;
-}
-
-// ---- gallery, widget settings, Display panel
-const WADDM = () => { const page = WADD, reg = WREG[page], on = wGet(page), grps = [...new Set(Object.values(reg).map(r => r.grp))];
-  return OVL(`<div class=mh><div><h2>Add a widget</h2><small>Click a card to put it at the top of this view. You can add the same widget twice with different filters.</small></div>${X('WADD=null;render()')}</div><div class=mb>${grps.map(gn => `<div class=cap style="margin-top:4px">${esc(gn.toUpperCase())}</div><div class=wgal>${Object.entries(reg).filter(([, r]) => r.grp === gn).map(([id, r]) => `<button class=wgi onclick="wAdd('${page}','${id}')"><b>${esc(r.title)}</b><small>${esc(r.desc || '')}</small><span style="display:flex;gap:6px;flex-wrap:wrap"><span class=tkch>${wPc(r.w)}% wide</span>${on.some(x => x.id === id) ? '<span class="tkch" style="--c:var(--ok)">✓ on this view</span>' : ''}</span></button>`).join('')}</div>`).join('')}</div>`, 'WADD=null;render()', 860, 60); };
-const WSETM = () => { const { page, k } = WSET, l = wGet(page), x = l[wIdxIn(l, k)]; if (!x) { WSET = null; return ''; } const r = WREG[page][x.id], fl = x.f || {}, dash = page === 'dash';
-  return OVL(`<div class=mh><div><h2>Widget settings</h2><small>${esc(r.title)}</small></div>${X('WSET=null;render()')}</div><div class=mb><div class=form style="max-width:none">
-<label>Title<input id=wst value="${esc(x.title || '')}" placeholder="${esc(r.title)}"></label>
-${dash ? `<label>Review type<select id=wsc><option value="">Same as the page filter</option>${CHS.map(c => `<option value=${c} ${fl.c === c ? 'selected' : ''}>${CHP[c]}</option>`).join('')}</select></label>
-<div class=eg2><label>Team<select id=wstm><option value="">Same as the page filter</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${t.id}" ${fl.t === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></label><label>Period<select id=wsp><option value="">Same as the page filter</option>${Object.entries(PERN).map(([p, n]) => `<option value=${p} ${fl.p === p ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>` : ''}
-<div class=eg2><label>Width (% of the row)<input id=wsw type=number min=10 max=100 step=1 value="${wPc(x.size)}"></label><label>Height (px)<input id=wsh type=number min=90 max=1400 step=10 value="${x.h || ''}" placeholder="Automatic"></label></div>
-<small class=mu>Tip: you can also drag the right edge, the bottom edge or the corner of the widget on the page.</small></div>
-<div style="display:flex;justify-content:flex-end;gap:8px"><button class=ib onclick="WSET=null;render()">Cancel</button><button class=btn onclick="wSetSave()">Save</button></div></div>`, 'WSET=null;render()', 520, 60); };
-function wSetSave() { const { page, k } = WSET, l = wGet(page), x = l[wIdxIn(l, k)], v = id => ($('#' + id) || {}).value || ''; x.title = v('wst').trim() || undefined; if (+v('wsw')) x.size = wSp(+v('wsw') / 100 * 60); x.h = wHt(v('wsh')); if (page === 'dash') x.f = { c: v('wsc'), t: v('wstm'), p: v('wsp') }; WSET = null; wCommit(page, l, 'Widget settings saved'); }
-const WDISPM = () => { const page = WDISP, v = curView(page), l = wGet(page), reg = WREG[page], adm = ME.role === 'admin';
-  return `<div class=wdov onclick="if(event.target==this){WDISP=null;render()}"><aside class=wdp><div class=mh><div><h2>Display</h2><small>${esc(v.name)} view · changes are saved at once</small></div>${X('WDISP=null;render()')}</div><div class=mb>`
-    + (v.kind === 'std' ? `<p class=mu style="margin:0">This is your <b>Standard</b> view. Make a <a href="javascript:void(0)" class=agl onclick="WDISP=null;wNewView('${page}')">new view</a> to keep several layouts.</p>`
-      : `<label>View name<input value="${esc(v.name)}" onchange="wViewPatch('${page}',{name:this.value.trim()||'My view'},'View renamed')"></label>`)
-    + (v.kind !== 'std' && canShare() ? `<div><b style="font-size:12px">Who sees this view</b><div class=tkchips style="margin-top:6px">${ROLESEL.map(([r, n]) => `<button class="tkcp ${(v.roles || []).includes(r) ? 'on' : ''}" onclick="wShare('${page}','${r}')">${n}</button>`).join('')}</div><small class=mu>${(v.roles || []).length ? '' : 'Only you — a personal view'}</small></div>` : '')
-    + (page === 'dash' ? `<div><b style="font-size:12px">Charts over time are grouped by</b><div class=sg style="margin-top:6px;display:inline-flex">${[['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['quarter', 'Quarter']].map(([k, n]) => `<button class="${DGR === k ? 'on' : ''}" onclick="DGR='${k}';LS.set('qa_dgr',DGR);render()">${n}</button>`).join('')}</div></div>` : '')
-    + `<div class=row><b>Widgets (${l.length})</b><button class="ib ibx" onclick="WADD='${page}';render()">${IC.plus} Add widget</button></div><small class=mu>Drag the rows to change the order. Untick to hide a widget without deleting it. On the page, drag the right edge, the bottom edge or the corner of a widget to make it as wide and as high as you like.</small>`
-    + `<div class=wdl>${l.map(x => `<div class=wdr ${wDnD(page, x.k)}><span class=wgrip ${wGrip(page, x.k)} title="Drag">⠿</span><input type=checkbox ${x.on !== false ? 'checked' : ''} onchange="wShow('${page}',${jsq(x.k)},this.checked)" title="Show / hide"><span class=wdn>${esc(x.title || reg[x.id].title)}${wFilt(x).replace('wfc', 'wfc in')}</span><label class=wdw title="Width (% of the row)"><input type=number min=10 max=100 step=5 value="${wPc(x.size)}" onchange="wSizeSet('${page}',${jsq(x.k)},this.value)">%</label><button class=ic onclick="WSET={page:'${page}',k:${jsq(x.k)}};render()" title="Settings">⚙</button><button class=ic onclick="wDel('${page}',${jsq(x.k)})" title="Remove">✕</button></div>`).join('') || '<p class=mu>No widgets yet.</p>'}</div>`
-    + `<div class=wdfoot>${v.kind === 'std' ? ((ME.layouts || {})[page] ? `<button class=ib onclick="wResetStd('${page}')">Reset to my role's default</button>` : '') : `<button class=ib onclick="WDISP=null;wNewView('${page}')">Duplicate</button><button class=ib style="color:var(--bad)" onclick="wDelView('${page}')">${IC.bin} Delete view</button>`}${adm ? `<select onchange="wRoleDefault('${page}',this.value);this.value=''"><option value="">Use as Standard view for…</option>${Object.entries(ROLE).map(([r, n]) => `<option value=${r}>Everyone who is ${n}</option>`).join('')}</select>` : ''}</div></div></aside></div>`;
-};
-const wF = () => {};   // (kept for old links)
+// the bar above the widgets of the Dashboard: its filters, and the way to Personalize
+const wBar = (page, chips = '') => `<div class=wvbar>${chips || '<div></div>'}<button class="ib ibx" onclick="goPage('pers')" title="${esc(tr('Choose your dashboard and its widgets'))}">${IC.gear} ${tr('Personalize')}</button></div>`;
 
 // ---------------------------------------------------------------- Home dashboard widgets
 const kp = (t, v, s, c, b, act) => `<div class="card clk kpi kpc" onclick="${act}"><small>${t}</small><div class=big style="color:${c}">${v}</div>${b == null ? '' : bar(b, c)}<small>${s}</small></div>`;
 const pc1 = v => v.toFixed(1) + '<small class=kps>%</small>';
 let DCH = '';                                  // review type shown on the dashboard ('' = all types)
 let DRV = '', DSC = '', DAG = '', DGR = LS.get('qa_dgr', 'week');   // dashboard filters: reviewer, scorecard, agent; DGR = date grouping of the charts over time
-const dashDF = (p, t, c) => EV.filter(e => (!t || e.tm === t) && (!c || chOf(e) === c) && (!DRV || e.by === DRV) && (!DSC || e.scid === DSC) && (!DAG || e.agent === DAG) && (p === 'all' || (p === 'custom' ? e.d >= new Date(DF + 'T00:00:00') && e.d <= new Date(DT + 'T23:59:59') : (Date.now() - e.d) / 864e5 <= { week: 7, month: 30, year: 365 }[p])));
+let DBASE = LS.get('qa_dbase', 'conv');                       // the date the dashboard counts by: 'conv' = of the conversation, 'review' = when it was reviewed
+const evDay = e => DBASE === 'review' && e.ra ? e.ra : e.d;     // (reviews made before this was recorded only have the conversation date)
+// the time window of a period; prev = the window of the same length just before it (for the ▲ ▼ changes; none for "All time")
+function dashWin(p, prev) {
+  const DY = 864e5, now = Date.now();
+  if (p === 'custom') { const a = new Date(DF + 'T00:00:00').getTime(), b = new Date(DT + 'T23:59:59').getTime() + 1; return prev ? [a - (b - a), a] : [a, b]; }
+  const n = { week: 7, month: 30, year: 365 }[p]; if (!n) return prev ? null : [-Infinity, Infinity];
+  return prev ? [now - 2 * n * DY, now - n * DY] : [now - n * DY, Infinity];
+}
+const dashDF = (p, t, c, prev) => { const w = dashWin(p, prev); if (!w) return null;
+  return EV.filter(e => { const d = evDay(e).getTime(); return (!t || e.tm === t) && (!c || chOf(e) === c) && (!DRV || e.by === DRV) && (!DSC || e.scid === DSC) && (!DAG || e.agent === DAG) && d >= w[0] && d < w[1]; }); };
 function dashCtx(p, t, ch) {
-  const g = t ? PT(t) : PASSG(), d = dashDF(p, t, ch), n = d.length, a = avg(d.map(e => e.sc)), ps = d.filter(isPass).length, pc = n ? ps / n * 100 : 0, s = [...d].sort((x, y) => y.d - x.d), h = Math.ceil(n / 2), dl = n > 1 ? avg(s.slice(0, h).map(e => e.sc)) - avg(s.slice(h).map(e => e.sc)) : 0;
-  const wk = Array.from({ length: 10 }, (_, i) => { const l = d.filter(e => { const age = (Date.now() - e.d) / 864e5 / 7; return age >= 9 - i && age < 10 - i; }); return l.length ? avg(l.map(e => e.sc)) : null; });
-  return { d, n, a, ps, pc, g, t, p, c: ch || '', dl, wk, tr: Math.abs(dl) < 1.5 ? '— Stable' : dl > 0 ? '↗ Improving' : '↘ Declining', cs: CATS(d).map(c => ({ c, v: avg(d.map(e => cpv(e, c)).filter(v => v != null)) })).sort((x, y) => y.v - x.v) };
+  const g = t ? PT(t) : PASSG(), d = dashDF(p, t, ch), pv = dashDF(p, t, ch, true), n = d.length, a = avg(d.map(e => e.sc)), ps = d.filter(isPass).length, pc = n ? ps / n * 100 : 0, s = [...d].sort((x, y) => evDay(y) - evDay(x)), h = Math.ceil(n / 2), dl = n > 1 ? avg(s.slice(0, h).map(e => e.sc)) - avg(s.slice(h).map(e => e.sc)) : 0;
+  const wk = Array.from({ length: 10 }, (_, i) => { const l = d.filter(e => { const age = (Date.now() - evDay(e)) / 864e5 / 7; return age >= 9 - i && age < 10 - i; }); return l.length ? avg(l.map(e => e.sc)) : null; });
+  return { d, pv, n, a, ps, pc, g, t, p, c: ch || '', dl, wk, tr: Math.abs(dl) < 1.5 ? '— Stable' : dl > 0 ? '↗ Improving' : '↘ Declining', cs: CATS(d).map(c => ({ c, v: avg(d.map(e => cpv(e, c)).filter(v => v != null)) })).sort((x, y) => y.v - x.v) };
 }
 const wt = (x, d) => esc(x && x.title || d);
 const catList = l => l.map(x => `<div class=clk onclick="goPage('cats')"><div class=row><span>${esc(x.c)}</span><b class=mono>${x.v.toFixed(1)}%</b></div>${bar(x.v, col(x.v))}</div>`).join('') || '<p class=mu style="text-align:center">✓ Nothing here</p>';
 const tTxt = c => c.t ? tn(c.t) : 'All teams';
-wdef('dash', 'kpi_total', 'Total evaluations', 12, (c, s, x) => kp(wt(x, 'Total evaluations'), c.n, tTxt(c), 'var(--tx)', null, `goCalls({ch:'${c.c}',team:'${c.t || ''}'})`), 'How many calls were reviewed');
-wdef('dash', 'kpi_avg', 'Average score', 12, (c, s, x) => kp(wt(x, 'Average score'), c.n ? pc1(c.a) : '—', 'Target: ' + c.g + '%', scol(c.a, c.t || null), c.a, `goCalls({ch:'${c.c}',team:'${c.t || ''}'})`), 'Average score with the target');
-wdef('dash', 'kpi_pass', 'Pass rate', 12, (c, s, x) => kp(wt(x, 'Pass rate'), pc1(c.pc), c.ps + ' passed', 'var(--ok)', c.pc, `goCalls({ch:'${c.c}',team:'${c.t || ''}',sc:{m:'pass'}})`), 'Share of reviews at or above the target');
-wdef('dash', 'kpi_fail', 'Fail rate', 12, (c, s, x) => kp(wt(x, 'Fail rate'), pc1(c.n ? 100 - c.pc : 0), (c.n - c.ps) + ' failed', 'var(--bad)', c.n ? 100 - c.pc : 0, `goCalls({ch:'${c.c}',team:'${c.t || ''}',sc:{m:'fail'}})`), 'Share of reviews below the target');
-wdef('dash', 'kpi_trend', 'Recent trend', 12, (c, s, x) => `<div class="card clk kpi kpc" onclick="goPage('cats')"><small>${wt(x, 'Recent trend')}</small><div class=big style="font:600 22px var(--font-d)">${c.tr}</div>${spark(c.wk, 120, 30)}<small>Δ ${c.dl >= 0 ? '+' : ''}${c.dl.toFixed(1)} pts</small></div>`, 'Newer reviews compared with older ones');
-wdef('dash', 'kpi_flags', 'Flags', 20, (c, s, x) => { const red = c.d.filter(e => e.fl === 'red').length + QF.filter(f => f.type === 'red' && (!c.t || teamOf(f.agent) === c.t)).length, green = c.d.filter(e => e.fl === 'green').length + QF.filter(f => f.type === 'green' && (!c.t || teamOf(f.agent) === c.t)).length; return kp(wt(x, 'Flags'), `<span style="color:var(--bad)">${red}</span> · <span style="color:var(--ok)">${green}</span>`, 'red · green (reviews and quick flags)', 'var(--tx)', null, "goPage('flags')"); }, 'Red and green flags');
-wdef('dash', 'kpi_disputes', 'Open disputes', 20, (c, s, x) => { const n = c.d.filter(e => e.dp && e.dp.status === 'open').length; return kp(wt(x, 'Open disputes'), n, n ? 'waiting for a decision' : 'nothing open', n ? 'var(--wn)' : 'var(--ok)', null, "goPage('disputes')"); }, 'Disputes that are not resolved');
+// a number tile: its name (the explanation on hover), the number, and the change against the period before (▲ ▼, green when it
+// is good news: good = 1 when up is good, -1 when down is good); ∅ = nothing to compare with
+const ktr = (cur, prev, good) => {
+  if (cur == null || prev == null || !isFinite(cur) || !isFinite(prev) || prev === 0) return `<small class=ktn title="${esc(tr('Nothing to compare with: pick a date range to see the change against the period before'))}">∅</small>`;
+  const r = Math.round((cur - prev) / Math.abs(prev) * 100); if (!r) return '<small class=ktn>▲ 0%</small>';
+  return `<small class=ktn style="color:${(r > 0) === (good > 0) ? 'var(--ok)' : 'var(--bad)'}">${r > 0 ? '▲' : '▼'} ${Math.abs(r)}%</small>`;
+};
+const kt = (t, desc, v, ch, act, band) => `<div class="card clk kt" onclick="${act}" title="${esc(tr(desc))}"><small class=ktt>${esc(tr(t))}</small><div class="ktv${band ? ' ' + band : ''}">${v}</div>${ch}</div>`;
+const kch = (c, fn, good) => ktr(fn(c.d), c.pv ? fn(c.pv) : null, good);
+const ksub = t => `<small class=ktn>${t}</small>`;
+const hasCm = e => !!String(e.cm || '').trim() || (e.cs || []).some(k => (k.it || []).some(i => String(i.cm || '').trim()));
+const kAvg = l => l.length ? avg(l.map(e => e.sc)) : null, kPct = (l, fn) => l.length ? l.filter(fn).length / l.length * 100 : null;
+const kRt = l => { const v = l.map(e => +e.rt).filter(x => x > 0); return v.length ? avg(v) : null; };
+const durS = s => s == null ? '—' : `${Math.floor(s / 60)}m ${String(Math.round(s % 60)).padStart(2, '0')}s`;
+const goAll = c => `goCalls({ch:'${c.c}',team:'${c.t || ''}'})`;
+wdef('dash', 'kpi_avg', 'Average score', 15, c => kt('Average score', 'The average score of the reviews, against the target', c.n ? pc1(c.a) : '—', kch(c, kAvg, 1), goAll(c), c.n ? (c.a >= c.g ? 'ok' : 'bad') : ''), 'The average score of the reviews, against the target', 'Numbers');
+wdef('dash', 'kpi_conv', 'Reviewed conversations', 15, c => kt('Reviewed conversations', 'How many different conversations were reviewed', new Set(c.d.map(e => e.id)).size, kch(c, l => new Set(l.map(e => e.id)).size, 1), goAll(c)), 'How many different conversations were reviewed', 'Numbers');
+wdef('dash', 'kpi_rtime', 'Average review time', 15, c => kt('Average review time', 'How long one review takes in QA Entry, on average', durS(kRt(c.d)), kch(c, kRt, -1), goAll(c)), 'How long one review takes in QA Entry, on average', 'Numbers');
+wdef('dash', 'kpi_agents', 'Reviewed agents', 15, c => kt('Reviewed agents', 'How many different agents were reviewed', new Set(c.d.map(e => e.agent)).size, kch(c, l => new Set(l.map(e => e.agent)).size, 1), "goPage('team')"), 'How many different agents were reviewed', 'Numbers');
+wdef('dash', 'kpi_disputed', 'Disputed reviews', 15, c => kt('Disputed reviews', 'Reviews that an agent disputed', c.d.filter(e => e.dp).length, kch(c, l => l.filter(e => e.dp).length, -1), "goPage('disputes')"), 'Reviews that an agent disputed', 'Numbers');
+wdef('dash', 'kpi_comments', 'Reviews with comments', 15, c => { const v = kPct(c.d, hasCm); return kt('Reviews with comments', 'Share of reviews with at least one comment', v == null ? '—' : pc1(v), kch(c, l => kPct(l, hasCm), 1), goAll(c)); }, 'Share of reviews with at least one comment', 'Numbers');
+wdef('dash', 'kpi_unseen', 'Unseen reviews', 15, c => { const v = kPct(c.d, e => !e.seen); return kt('Unseen reviews', 'Share of reviews the agent has not opened yet', v == null ? '—' : pc1(v), kch(c, l => kPct(l, e => !e.seen), -1), 'dUnseen()'); }, 'Share of reviews the agent has not opened yet', 'Numbers');
+wdef('dash', 'kpi_total', 'Total evaluations', 15, c => kt('Total evaluations', 'How many reviews were made', c.n, kch(c, l => l.length, 1), goAll(c)), 'How many reviews were made', 'Numbers');
+wdef('dash', 'kpi_pass', 'Pass rate', 15, c => kt('Pass rate', 'Share of reviews at or above the target', pc1(c.pc), kch(c, l => kPct(l, isPass), 1), `goCalls({ch:'${c.c}',team:'${c.t || ''}',sc:{m:'pass'}})`), 'Share of reviews at or above the target', 'Numbers');
+wdef('dash', 'kpi_fail', 'Fail rate', 15, c => kt('Fail rate', 'Share of reviews below the target', pc1(c.n ? 100 - c.pc : 0), kch(c, l => kPct(l, e => !isPass(e)), -1), `goCalls({ch:'${c.c}',team:'${c.t || ''}',sc:{m:'fail'}})`), 'Share of reviews below the target', 'Numbers');
+wdef('dash', 'kpi_trend', 'Recent trend', 15, c => kt('Recent trend', 'Newer reviews compared with older ones', `<span style="font:600 20px var(--font-d)">${c.tr}</span>`, `${spark(c.wk, 120, 26)}${ksub(`Δ ${c.dl >= 0 ? '+' : ''}${c.dl.toFixed(1)} pts`)}`, "goPage('cats')"), 'Newer reviews compared with older ones', 'Numbers');
+wdef('dash', 'kpi_flags', 'Flags', 15, c => { const red = c.d.filter(e => e.fl === 'red').length + QF.filter(f => f.type === 'red' && (!c.t || teamOf(f.agent) === c.t)).length, green = c.d.filter(e => e.fl === 'green').length + QF.filter(f => f.type === 'green' && (!c.t || teamOf(f.agent) === c.t)).length; return kt('Flags', 'Red and green flags, from reviews and quick flags', `<span style="color:var(--bad)">${red}</span> · <span style="color:var(--ok)">${green}</span>`, ksub(tr('red · green')), "goPage('flags')"); }, 'Red and green flags, from reviews and quick flags', 'Numbers');
+wdef('dash', 'kpi_disputes', 'Open disputes', 15, c => { const n = c.d.filter(e => e.dp && e.dp.status === 'open').length; return kt('Open disputes', 'Disputes that wait for a decision', n, ksub(tr(n ? 'waiting for a decision' : 'nothing open')), "goPage('disputes')", n ? 'wn' : ''); }, 'Disputes that wait for a decision', 'Numbers');
 wdef('dash', 'last5', 'Last 5 evaluated conversations', 30, (c, s, x) => card(wt(x, 'Last 5 evaluated conversations'), [...c.d].sort((p, q) => q.d - p.d).slice(0, 5).map(e => `<div class="row li clk" onclick="om('view','${e.rid}')"><div style="display:flex;gap:10px;align-items:center"><span class=av style="margin:0">${esc(ini(agn(e)))}</span><div>${lead(e)} ${chTag(chOf(e), 1)}</div></div>${sp(Math.round(e.sc * 10) / 10, e.tm)}</div>`).join('') || '<p class=mu>No evaluations yet</p>'), 'The newest reviews');
 wdef('dash', 'distribution', 'Score distribution', 30, (c, s, x) => { const bs = [...new Set([0, 50, 70, c.g, 101])].sort((p, q) => p - q);
   return card(`${wt(x, 'Score distribution')} <small class=mu style="float:right;font-weight:400">${c.n} reviews</small>`, bs.slice(0, -1).map((lo, i) => { const hi = bs[i + 1], k = c.d.filter(e => e.sc >= lo && e.sc < hi).length;
@@ -212,7 +185,7 @@ wdef('dash', 'coach_new', 'Latest coaching update', 60, (c, s, x) => {
 // ---- charts over time and category insights (ideas from Zendesk QA)
 const dgKey = d => { const x = new Date(d); if (DGR === 'day') return iso(x); if (DGR === 'month') return iso(x).slice(0, 7); if (DGR === 'quarter') return x.getFullYear() + ' Q' + (Math.floor(x.getMonth() / 3) + 1); const m = new Date(x); m.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return iso(m); };
 const dgLab = k => DGR === 'day' || DGR === 'week' ? k.slice(8, 10) + '/' + k.slice(5, 7) : DGR === 'month' ? new Date(k + '-01T12:00').toLocaleString(I18N.locale(), { month: 'short', year: '2-digit' }) : k;
-const dgBuckets = l => { const m = {}; l.forEach(e => { const k = dgKey(e.d); (m[k] = m[k] || []).push(e); }); return Object.keys(m).sort().slice(-16).map(k => ({ k, l: m[k] })); };
+const dgBuckets = l => { const m = {}; l.forEach(e => { const k = dgKey(evDay(e)); (m[k] = m[k] || []).push(e); }); return Object.keys(m).sort().slice(-16).map(k => ({ k, l: m[k] })); };
 function svgCombo(b, g) {          // bars = number of reviews, line = average score (wide and low so it fits a full-width card)
   if (b.length < 1) return '<p class=mu>No reviews in this period</p>';
   const W = 1000, H = 240, L = 38, R = 34, T = 12, B = 30, pw = W - L - R, ph = H - T - B, n = b.length, bw = pw / n, mx = Math.max(...b.map(x => x.l.length)), y = v => T + ph * (1 - v / 100), yc = v => T + ph * (1 - v / mx);
@@ -230,12 +203,10 @@ wdef('dash', 'cattime', 'Category scores over time', 60, (c, s, x) => card(`${wt
 wdef('dash', 'catins', 'Category insights', 60, (c, s, x) => { const half = [...c.d].sort((p, q) => p.d - q.d), h = Math.floor(half.length / 2), old = half.slice(0, h), nw = half.slice(h);
   return card(wt(x, 'Category insights'), c.cs.length ? tbl(['Category', 'Average', 'Trend', 'Ratings', 'Below target', 'Scored 0', 'Disputes'], c.cs.map(z => { const v = c.d.map(e => cpv(e, z.c)).filter(v => v != null), a1 = avg(old.map(e => cpv(e, z.c)).filter(v => v != null)), a2 = avg(nw.map(e => cpv(e, z.c)).filter(v => v != null)), zero = c.d.filter(e => (e.cs || []).some(k => k.n === z.c && k.m && k.e === 0)).length;
     return [esc(z.c), `<b class=mono style="color:${col(z.v)}">${z.v.toFixed(1)}%</b>`, old.length && nw.length ? trendPill(a2 - a1) : '—', v.length, v.filter(p => p < c.g).length, zero ? `<span style="color:var(--bad)">${zero}</span>` : 0, c.d.filter(e => e.dp && (e.cs || []).some(k => k.n === z.c && k.e < k.m)).length]; })) : '<p class=mu>No data</p>'); }, 'Average, trend, number of ratings, below target and 0% per category');
-wdef('dash', 'cat0', 'Category score 0%', 30, (c, s, x) => { const m = {}; c.d.forEach(e => (e.cs || []).forEach(k => { if (k.m && k.e === 0) m[k.n] = (m[k.n] || 0) + 1; })); const l = Object.entries(m).sort((a, b) => b[1] - a[1]), tot = l.reduce((a, z) => a + z[1], 0);
-  return card(wt(x, 'Category score 0%'), l.length ? l.map(([n, v], i) => `<div><div class=row><span><i class=dotk style="background:${CATCOL[i % CATCOL.length]}"></i>${esc(n)}</span><b class=mono>${v} · ${(v / tot * 100).toFixed(0)}%</b></div>${bar(v / tot * 100, CATCOL[i % CATCOL.length])}</div>`).join('') : '<p class=mu style="text-align:center">✓ No category scored 0 in this period</p>'); }, 'Which categories most often scored 0 (critical failures)');
 wdef('dash', 'goals', 'Goals this month', 30, (c, s, x) => { const l = (CO.goals || []).filter(g => (g.month || todayS().slice(0, 7)) === todayS().slice(0, 7)).slice(0, 6); return card(wt(x, 'Goals this month'), l.map(g => { const p = goalProgress(g); return `<div class=clk onclick="goPage('goals')"><div class=row><span>${esc(g.title || GMET[g.metric][0])} <small>${esc(gWho(g))}</small></span><b class=mono>${gFmt(g, p.v)} / ${gFmt(g, p.tg)}</b></div>${bar(p.pct, p.st === 'met' ? 'var(--ok)' : p.st === 'missed' ? 'var(--bad)' : 'var(--ac)')}</div>`; }).join('') || '<p class=mu>No goals for this month</p>'); }, 'Progress of the goals of this month');
 wdef('dash', 'kudos', 'Latest kudos', 30, (c, s, x) => card(wt(x, 'Latest kudos'), (CO.kudos || []).slice(0, 5).map(k => `<div class="row li clk" onclick="goPage('kudos')"><span>${esc(k.badge || '⭐')} <b>${esc(an(k.to) || k.to)}</b> <small>from ${esc(k.byName || '')}</small><br><small>${esc(String(k.text || '').slice(0, 70))}</small></span></div>`).join('') || '<p class=mu>No kudos yet</p>'), 'The newest thank-you messages');
-wdef('dash', 'csat', 'Customer satisfaction', 20, (c, s, x) => { const l = (CO.surveys || []).filter(z => !c.t || teamOf(z.agent) === c.t).map(z => +z.score).filter(Boolean); return kp(wt(x, 'Customer satisfaction'), l.length ? avg(l).toFixed(2) + '<small class=kps>/5</small>' : '—', l.length ? `${Math.round(l.filter(v => v >= 4).length / l.length * 100)}% satisfied · ${l.length} answers` : 'no survey answers yet', 'var(--ac)', null, "goPage('csat')"); }, 'Average survey score (CSAT)');
-wdef('dash', 'complaints', 'Open complaints', 20, (c, s, x) => { const l = (CO.complaints || []).filter(z => z.status !== 'resolved'); return kp(wt(x, 'Open complaints'), l.length, l.filter(z => ['high', 'critical'].includes(z.severity)).length + ' high or critical', l.length ? 'var(--bad)' : 'var(--ok)', null, "goPage('complaints')"); }, 'Complaints that are not resolved');
+wdef('dash', 'csat', 'Customer satisfaction', 15, (c, s, x) => { const l = (CO.surveys || []).filter(z => !c.t || teamOf(z.agent) === c.t).map(z => +z.score).filter(Boolean); return kt('Customer satisfaction', 'Average survey score (CSAT)', l.length ? avg(l).toFixed(2) + '<small class=kps>/5</small>' : '—', ksub(tr(l.length ? `${Math.round(l.filter(v => v >= 4).length / l.length * 100)}% satisfied · ${l.length} answers` : 'no survey answers yet')), "goPage('csat')"); }, 'Average survey score (CSAT)');
+wdef('dash', 'complaints', 'Open complaints', 15, (c, s, x) => { const l = (CO.complaints || []).filter(z => z.status !== 'resolved'); return kt('Open complaints', 'Complaints that are not resolved', l.length, ksub(tr(`${l.filter(z => ['high', 'critical'].includes(z.severity)).length} high or critical`)), "goPage('complaints')", l.length ? 'bad' : ''); }, 'Complaints that are not resolved');
 wdef('dash', 'planner', 'Review plan this month', 30, (c, s, x) => { if (typeof plRows !== 'function') return ''; const keep = PLN.m; PLN.m = todayS().slice(0, 7); const r = plRows(); PLN.m = keep; const tg = r.reduce((a, z) => a + z.tg, 0), dn = r.reduce((a, z) => a + Math.min(z.done, z.tg || z.done), 0), bh = r.filter(z => z.st === 'behind');
   return card(wt(x, 'Review plan this month'), `<div class=row><b style="font-size:26px">${dn}<small style="font-size:14px"> / ${tg}</small></b><small>reviews planned</small></div>${bar(tg ? dn / tg * 100 : 0, 'var(--ac)')}<small>${bh.length} agent${bh.length === 1 ? '' : 's'} behind</small>${bh.slice(0, 4).map(z => `<div class="row li clk" onclick="reviewNow('${esc(z.a.username)}')"><span>${esc(z.a.name)}</span><small>${z.done}/${z.tg} · review now ›</small></div>`).join('')}`); }, 'How many planned reviews are done, and who is behind');
 const KPIS = [['kpi_total', 12], ['kpi_avg', 12], ['kpi_pass', 12], ['kpi_fail', 12], ['kpi_trend', 12]];
@@ -245,21 +216,24 @@ DEFL.dash.trainer = wl(...KPIS, ['needs', 30], ['strong', 30], ['low', 30], ['te
 DEFL.dash.agent = wl(['kpi_avg', 15], ['kpi_pass', 15], ['kpi_fail', 15], ['kpi_trend', 15], ['coach_new', 60], ['todo', 60], ['last5', 30], ['needs', 30], ['strong', 30], ['attention', 30]);
 ['admin', 'qa'].forEach(r => { DEFL.dash[r] = DEFL.dash.all; });
 
+// the numbers every widget of a dashboard shares (the page filters); THR = the target of the team while the widgets are drawn
+const dashCtxOf = () => { const cache = {}; return () => { const k = P + '|' + T + '|' + DCH; THR = T ? PT(T) : PASSG(); return cache[k] = cache[k] || dashCtx(P, T, DCH); }; };
+// the Date chip and the other filters of the Dashboard (also above the preview in Home › Personalize)
+function dashChips() {
+  const sel = (on, opts) => opts.map(([k, n]) => `<option value="${esc(k)}" ${String(on) === String(k) ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  const l = DFL(), shown = l.filter(d => d.v || DADD.includes(d.k)), can = l.filter(d => !shown.includes(d)), any = shown.length || P !== 'all';
+  return `<div class=fchips><label class="fchip ${P !== 'all' ? 'set' : ''}">Date is <select onchange="P=this.value;render()">${sel(P, [['week', 'Last 7 days'], ['month', 'Last 30 days'], ['year', 'Last 12 months'], ['all', 'All time'], ['custom', 'Custom dates']])}</select></label>${P === 'custom' ? `<input type=date value=${DF} onchange="DF=this.value;render()"><input type=date value=${DT} onchange="DT=this.value;render()">` : ''}`
+    + shown.map(d => `<label class="fchip ${d.v ? 'set' : ''}">${d.n} is <select id="dfc-${d.k}" onchange="dfSet('${d.k}',this.value)">${sel(d.v, [['', 'All'], ...d.o()])}</select><button type=button class=fcx onclick="dfDel('${d.k}')" title="Remove this filter">✕</button></label>`).join('')
+    + (can.length ? `<span class=fadd><button type=button class="fchip fplus" onclick="DFM=!DFM;render()" aria-expanded="${DFM}">${IC.plus} Filter</button>${DFM ? `<div class=fpop role=menu>${can.map(d => `<button role=menuitem onclick="dfOpen('${d.k}')">${d.n}</button>`).join('')}</div>` : ''}</span>` : '')
+    + (any ? `<a href="javascript:void(0)" class=agl onclick="dfReset()">Reset</a>` : '') + `</div>`;
+}
 PG.dash = function () {
-  const cache = {}, ctxOf = x => { const p = (x.f && x.f.p) || P, t = (x.f && x.f.t) || T, c = (x.f && x.f.c) || DCH, k = p + '|' + t + '|' + c; THR = t ? PT(t) : PASSG(); return cache[k] = cache[k] || dashCtx(p, t, c); };
+  const ctxOf = dashCtxOf();
   try {
-    // "Date is …" is always there; the other filters show only once they are used, each with ✕ to take it away; "+ Filter" adds one
-    const sel = (on, opts) => opts.map(([k, n]) => `<option value="${esc(k)}" ${String(on) === String(k) ? 'selected' : ''}>${esc(n)}</option>`).join('');
-    const l = DFL(), shown = l.filter(d => d.v || DADD.includes(d.k)), can = l.filter(d => !shown.includes(d)), any = shown.length || P !== 'all';
-    const ctl = `<div class=fchips><label class="fchip ${P !== 'all' ? 'set' : ''}">Date is <select onchange="P=this.value;render()">${sel(P, [['week', 'Last 7 days'], ['month', 'Last 30 days'], ['year', 'Last 12 months'], ['all', 'All time'], ['custom', 'Custom dates']])}</select></label>${P === 'custom' ? `<input type=date value=${DF} onchange="DF=this.value;render()"><input type=date value=${DT} onchange="DT=this.value;render()">` : ''}`
-      + shown.map(d => `<label class="fchip ${d.v ? 'set' : ''}">${d.n} is <select id="dfc-${d.k}" onchange="dfSet('${d.k}',this.value)">${sel(d.v, [['', 'All'], ...d.o()])}</select><button type=button class=fcx onclick="dfDel('${d.k}')" title="Remove this filter">✕</button></label>`).join('')
-      + (can.length ? `<span class=fadd><button type=button class="fchip fplus" onclick="DFM=!DFM;render()" aria-expanded="${DFM}">${IC.plus} Filter</button>${DFM ? `<div class=fpop role=menu>${can.map(d => `<button role=menuitem onclick="dfOpen('${d.k}')">${d.n}</button>`).join('')}</div>` : ''}</span>` : '')
-      + (any ? `<a href="javascript:void(0)" class=agl onclick="dfReset()">Reset</a>` : '') + `</div>`;
-    const nv = namedOf('dash').length, tabs = `<div class=sg role=tablist><button role=tab aria-selected="${DV !== 'views'}" class="${DV !== 'views' ? 'on' : ''}" onclick="dvTab('main')">Dashboard</button><button role=tab aria-selected="${DV === 'views'}" class="${DV === 'views' ? 'on' : ''}" onclick="dvTab('views')">Dashboards</button></div>`;
     return head('Quality Dashboard', 'Personal overview of quality performance and quick actions',
       `<div style="display:flex;gap:8px;flex-wrap:wrap"><div class=sx style="width:290px"><span>${IC.search}</span><input class=qi style="padding-right:64px" placeholder="Search lead ID, agent, campaign…" onkeydown='if(event.key=="Enter"){Q=this.value.trim();KQ=true;location.hash="calls"}'><kbd class=kb>Ctrl K</kbd></div>${bellBtn()}<button class="ib ibx" onclick="viewHist()">${IC.clock} View history</button>${staff() ? `<button class="btn ibx" onclick="goPage('entry')">${IC.plus} New evaluation</button>` : ''}</div>`)
-      + `<div class=hd style="margin-bottom:10px;align-items:center"><div><h2 style="margin:0;font-size:20px">Welcome back, ${esc(ME.name)} ${pill(ROLE[ME.role] || ME.role, 'ac')}</h2><p class=mu style="margin:4px 0 0">Here is a quick overview of your recent quality performance.</p></div>${tabs}</div>`
-      + (DV === 'views' && DVG ? dashGallery()        : wBar('dash', ctl) + wGrid('dash', ctxOf));
+      + `<div class=hd style="margin-bottom:10px;align-items:center"><div><h2 style="margin:0;font-size:20px">Welcome back, ${esc(ME.name)} ${pill(ROLE[ME.role] || ME.role, 'ac')}</h2><p class=mu style="margin:4px 0 0">Here is a quick overview of your recent quality performance.</p></div></div>`
+      + wBar('dash', dashChips()) + wGrid('dash', ctxOf, 'std');
   } finally { THR = null; }
 };
 // the dashboard filters that can be added with "+ Filter" (agents only see their own reviews, so they get no team / agent / reviewer filter)
@@ -274,9 +248,80 @@ function dfSet(k, v) { dfVal(k, v); if (!DADD.includes(k)) DADD.push(k); render(
 function dfDel(k) { dfVal(k, ''); DADD = DADD.filter(x => x !== k); render(); }
 function dfOpen(k) { DFM = false; if (!DADD.includes(k)) DADD.push(k); render(); const s = $('#dfc-' + k); if (s) { s.focus(); try { s.showPicker(); } catch (e) { /* older browsers: the list opens on the next click */ } } }
 function dfReset() { P = 'all'; T = ''; DCH = ''; DRV = ''; DSC = ''; DAG = ''; DADD = []; render(); }
-function dvTab(t) { if (t === 'views') DVG = true; DV = t; LS.set('qa_dv', t); WDISP = null; WADD = null; render(); }
 document.addEventListener('click', e => { if (DFM && !e.target.closest('.fadd')) { DFM = false; render(); } });
 
-// the groups of the widget gallery
+// ---------------------------------------------------------------- category charts, people and review tables
+const noRev = () => `<p class=mu style="margin:0">${tr('No reviews in this period')}</p>`;
+const pvc = (v, g) => v == null ? '<span class=mu>—</span>' : `<span class=pvc style="--c:${v >= g ? 'var(--ok)' : 'var(--bad)'}">${v.toFixed(1)}%</span>`;
+const catOf = (l, n) => { const v = l.map(e => cpv(e, n)).filter(z => z != null); return v.length ? avg(v) : null; };
+const leadLink = e => `<a href="javascript:void(0)" class=agl onclick="om('view','${e.rid}')">${esc(e.id)}</a>`;
+// every category at its average, the target as a line across
+function svgDots(cs, g) {
+  if (!cs.length) return noRev();
+  const W = 1000, H = 290, L = 150, R = 48, T = 14, B = 104, pw = W - L - R, ph = H - T - B, n = cs.length, x = i => (L + (i + 0.5) * pw / n).toFixed(1), y = v => (T + ph * (1 - v / 100)).toFixed(1);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" class=rbsvg role=img aria-label="${esc(tr('Average category scores'))}">${[0, 25, 50, 75, 100].map(v => `<line x1=${L} x2=${W - R} y1=${y(v)} y2=${y(v)} style="stroke:var(--bd)"/><text x=${L - 6} y=${+y(v) + 4} font-size=12 text-anchor=end style="fill:var(--mu)">${v}%</text>`).join('')}`
+    + cs.map((z, i) => `<line x1=${x(i)} x2=${x(i)} y1=${T} y2=${T + ph} style="stroke:var(--bd)" stroke-dasharray="2 5"/>`).join('')
+    + `<line x1=${L} x2=${W - R} y1=${y(g)} y2=${y(g)} style="stroke:var(--tx)" stroke-width="1.5"/><text x=${W - R + 6} y=${+y(g) + 4} font-size=13 font-weight=600 style="fill:var(--tx)">${g}%</text>`
+    + cs.map((z, i) => `<circle cx=${x(i)} cy=${y(z.v)} r=8 style="fill:${z.v >= g ? 'var(--ok)' : 'var(--bad)'};stroke:var(--pn);stroke-width:2;cursor:pointer" onclick="goPage('cats')"><title>${esc(z.c)}: ${z.v.toFixed(1)}%</title></circle>`).join('')
+    + cs.map((z, i) => `<text transform="translate(${x(i)},${T + ph + 18}) rotate(-35)" text-anchor=end font-size=13 style="fill:var(--mu)">${esc(z.c.length > 24 ? z.c.slice(0, 23) + '…' : z.c)}</text>`).join('') + '</svg>';
+}
+// a ring with the share of each part, the biggest first, and a legend beside it
+function donut(rows, empty) {
+  const tot = rows.reduce((a, r) => a + r.v, 0); if (!tot) return `<p class=mu style="margin:0;text-align:center">${empty}</p>`;
+  const R = 70, r0 = 44, C = 80, colr = i => CATCOL[i % CATCOL.length]; let a0 = -Math.PI / 2;
+  const pt = (a, r) => `${(C + r * Math.cos(a)).toFixed(2)} ${(C + r * Math.sin(a)).toFixed(2)}`;
+  const arcs = rows.length === 1 ? `<circle cx=${C} cy=${C} r=${(R + r0) / 2} fill=none stroke="${colr(0)}" stroke-width=${R - r0}><title>${esc(rows[0].n)}: 100%</title></circle>`
+    : rows.map((r, i) => { const a1 = a0 + r.v / tot * 2 * Math.PI, big = a1 - a0 > Math.PI ? 1 : 0, d = `M${pt(a0, R)}A${R} ${R} 0 ${big} 1 ${pt(a1, R)}L${pt(a1, r0)}A${r0} ${r0} 0 ${big} 0 ${pt(a0, r0)}Z`; a0 = a1; return `<path d="${d}" fill="${colr(i)}"><title>${esc(r.n)}: ${(r.v / tot * 100).toFixed(1)}% (${r.v})</title></path>`; }).join('');
+  return `<div class=dnut><svg viewBox="0 0 160 160" width=150 height=150 role=img aria-label="${esc(rows.map(r => r.n).join(', '))}">${arcs}</svg><div class=dnl>${rows.slice(0, 8).map((r, i) => `<div><i style="background:${colr(i)}"></i><span>${esc(r.n)}</span><b class=mono>${(r.v / tot * 100).toFixed(1)}%</b></div>`).join('')}${rows.length > 8 ? `<small class=mu>${tr(`and ${rows.length - 8} more`)}</small>` : ''}</div></div>`;
+}
+const countBy = (d, fn) => { const m = {}; d.forEach(e => (e.cs || []).forEach(k => { if (fn(k)) m[k.n] = (m[k.n] || 0) + 1; })); return Object.entries(m).map(([n, v]) => ({ n, v })).sort((a, b) => b.v - a.v); };
+wdef('dash', 'catavg', 'Average category scores', 60, (c, s, x) => card(`${wt(x, 'Average category scores')} <small class=mu style="font-weight:400">${tr('the line is the target')}</small>`, svgDots([...c.cs].sort((a, b) => a.c.localeCompare(b.c)), c.g)), 'Every category at its average score, with the target as a line', 'Charts');
+wdef('dash', 'catover', 'Category score over target', 30, (c, s, x) => card(wt(x, 'Category score over target'), donut(countBy(c.d, k => k.m && k.e / k.m * 100 >= c.g), tr('No category reached the target in this period'))), 'Which categories make up the ratings at or above the target', 'Categories');
+wdef('dash', 'cat0', 'Category score 0%', 30, (c, s, x) => card(wt(x, 'Category score 0%'), donut(countBy(c.d, k => k.m && k.e === 0), tr('✓ No category scored 0 in this period'))), 'Which categories most often scored 0 (critical failures)', 'Categories');
+wdef('dash', 'rootc', 'Root causes', 30, (c, s, x) => {
+  const m = {}; c.d.forEach(e => (e.cs || []).forEach(k => (k.it || []).forEach(i => { if (i.rc && i.a !== 'y') { const key = i.rc + '\u0001' + k.n; m[key] = (m[key] || 0) + 1; } })));
+  const l = Object.entries(m).map(([key, n]) => { const [rc, cat] = key.split('\u0001'); return { rc, cat, n }; }).sort((a, b) => b.n - a.n);
+  return card(wt(x, 'Root causes'), l.length ? tbl(['Root cause', 'Category', 'Total count'], l.slice(0, 30).map(z => [esc(z.rc), esc(z.cat), `<b class=mono>${z.n}</b>`])) : `<p class=mu style="margin:0">${tr('No root causes chosen in this period')}</p>`);
+}, 'Why points were lost: the root causes chosen in the reviews, by category', 'Categories');
+wdef('dash', 'scperf', 'Scorecard performance', 30, (c, s, x) => {
+  const m = {}; c.d.forEach(e => { const k = e.scn || e.scid; (m[k] = m[k] || []).push(e); });
+  const rows = Object.entries(m).sort((a, b) => b[1].length - a[1].length).map(([n, l]) => [esc(n), pvc(kAvg(l), c.g), l.length, Math.round(l.filter(isPass).length / l.length * 100) + '%']);
+  return card(wt(x, 'Scorecard performance'), rows.length ? tbl(['Scorecard', 'Average', 'Reviews', 'Pass rate'], rows) : noRev());
+}, 'Average score, reviews and pass rate per scorecard', 'Categories');
+wdef('dash', 'wsperf', 'Workspace performance', 30, (c, s, x) => {
+  const rows = (WSP || []).map(w => ({ w, l: c.d.filter(e => (w.teams || []).includes(e.tm)) })).filter(z => z.l.length);
+  return card(wt(x, 'Workspace performance'), rows.length ? tbl(['Workspace', 'Average', 'Reviews'], [...rows.map(z => [esc(z.w.name), pvc(kAvg(z.l), c.g), z.l.length]), [`<b>${tr('Totals')}</b>`, pvc(kAvg(c.d), c.g), `<b>${c.n}</b>`]]) : noRev());
+}, 'Average score and reviews per workspace', 'People');
+const byKey = (l, fn) => { const m = {}; (l || []).forEach(e => { (m[fn(e)] = m[fn(e)] || []).push(e); }); return m; };
+wdef('dash', 'revperf', 'Reviewer performance', 60, (c, s, x) => {
+  const cur = byKey(c.d, e => e.by), old = byKey(c.pv, e => e.by);
+  const rows = Object.entries(cur).sort((a, b) => b[1].length - a[1].length).map(([u, l]) => [`<b>${esc(l[0].rv || an(u) || u)}</b>`, pvc(kAvg(l), c.g), old[u] ? ktr(kAvg(l), kAvg(old[u]), 1) : '<small class=ktn>∅</small>', l.length, l.filter(e => e.dp).length, durS(kRt(l)), l.filter(hasCm).length]);
+  return card(wt(x, 'Reviewer performance'), rows.length ? tbl(['Reviewer', 'Average', 'Change', 'Reviews', 'Disputes', 'Average review time', 'With comments'], rows) : noRev());
+}, 'Per reviewer: the average score they give, its change, reviews, disputes, review time and comments', 'People');
+wdef('dash', 'agperf', 'Agent performance', 60, (c, s, x) => {
+  const cur = byKey(c.d, e => e.agent), old = byKey(c.pv, e => e.agent);
+  const rows = Object.entries(cur).map(([u, l]) => ({ u, l, a: kAvg(l) })).sort((p, q) => q.a - p.a).map(z => [`<a href="javascript:void(0)" class=agl onclick="openAgent(${jsq(z.u)})">${esc(agn(z.l[0]))}</a>`, pvc(z.a, c.g), old[z.u] ? ktr(z.a, kAvg(old[z.u]), 1) : '<small class=ktn>∅</small>', z.l.length, z.l.filter(e => !e.seen).length, z.l.filter(hasCm).length]);
+  return card(wt(x, 'Agent performance'), rows.length ? tbl(['Agent', 'Average', 'Change', 'Reviews', 'Not seen yet', 'With comments'], rows) : noRev());
+}, 'Per agent: the average score, its change, reviews, reviews not seen yet and comments', 'People');
+wdef('dash', 'catpivot', 'Scores by category', 60, (c, s, x) => {
+  const cats = [...new Set(c.d.flatMap(e => (e.cs || []).map(k => k.n)))]; if (!cats.length) return card(wt(x, 'Scores by category'), noRev());
+  const ags = Object.entries(byKey(c.d, e => e.agent)).map(([u, l]) => ({ u, l, n: agn(l[0]) })).sort((a, b) => a.n.localeCompare(b.n));
+  const rows = ags.map(z => [`<a href="javascript:void(0)" class=agl onclick="openAgent(${jsq(z.u)})">${esc(z.n)}</a>`, pvc(kAvg(z.l), c.g), ...cats.map(n => pvc(catOf(z.l, n), c.g))]);
+  rows.push([`<b>${tr('Totals')}</b>`, pvc(kAvg(c.d), c.g), ...cats.map(n => pvc(catOf(c.d, n), c.g))]);
+  return card(wt(x, 'Scores by category'), tbl(['Agent', 'Total', ...cats.map(esc)], rows));
+}, 'Every agent × every category, with the totals', 'People');
+wdef('dash', 'byreview', 'Scores by reviews', 60, (c, s, x) => {
+  const l = [...c.d].sort((a, b) => evDay(b) - evDay(a)), dp = e => !e.dp ? '0' : e.dp.status === 'open' ? `<span style="color:var(--wn)">${tr('open')}</span>` : tr('resolved');
+  return card(wt(x, 'Scores by reviews'), l.length ? tbl(['Lead', 'Review date', 'Conversation date', 'Reviewer', 'Agent', 'Score', 'Review time', 'Seen', 'Dispute'], l.slice(0, 50).map(e => [leadLink(e), e.ra ? f(e.ra) : '—', f(e.d), esc(e.rv || an(e.by) || ''), esc(agn(e)), sp(Math.round(e.sc * 10) / 10, e.tm), durS(+e.rt > 0 ? +e.rt : null), e.seen ? tr('Yes') : tr('No'), dp(e)]))
+    + (l.length > 50 ? `<small class=mu>${tr(`The newest 50 of ${l.length} reviews`)}</small>` : '') : noRev());
+}, 'One row per review: dates, people, score, review time, seen, dispute', 'Lists');
+wdef('dash', 'rcreview', 'Ratings and root causes by reviews', 60, (c, s, x) => {
+  const lost = e => (e.cs || []).filter(k => k.m && k.e < k.m), l = c.d.filter(e => lost(e).length).sort((a, b) => evDay(b) - evDay(a)).slice(0, 30);
+  const chips = e => lost(e).map(k => { const rc = [...new Set((k.it || []).filter(i => i.a !== 'y' && i.rc).map(i => i.rc))], v = k.e / k.m * 100; return `<span class=rcp style="--c:${v >= THR0(e) ? 'var(--wn)' : 'var(--bad)'}"><b>${esc(k.n)}</b> ${Math.round(v)}%${rc.length ? ' · ' + esc(rc.join(', ')) : ''}</span>`; }).join(' ');
+  return card(wt(x, 'Ratings and root causes by reviews'), l.length ? tbl(['Lead', 'Agent', 'Score', 'Categories that lost points, and why'], l.map(e => [leadLink(e), esc(agn(e)), sp(Math.round(e.sc * 10) / 10, e.tm), chips(e)])) : `<p class=mu style="margin:0">${tr('✓ Every category got full marks in this period')}</p>`);
+}, 'For every review that lost points: which categories, and the root causes', 'Lists');
+const THR0 = e => PT(e.tm);
+
+// the groups of the widgets in Home › Personalize › Display
 const WGRP = { qtime: 'Charts', cattime: 'Charts', catins: 'Categories', cat0: 'Categories', goals: 'Performance', kudos: 'Performance', csat: 'Customers', complaints: 'Customers', planner: 'Work', kpi_total: 'Numbers', kpi_avg: 'Numbers', kpi_pass: 'Numbers', kpi_fail: 'Numbers', kpi_trend: 'Numbers', kpi_flags: 'Numbers', kpi_disputes: 'Numbers', channels: 'Charts', distribution: 'Charts', teams: 'Charts', strong: 'Categories', needs: 'Categories', top: 'People', low: 'People', last5: 'Lists', attention: 'Lists', qflags: 'Lists', targets: 'Lists', tasks: 'Work', todo: 'Work', coach_new: 'Work' };
 Object.entries(WGRP).forEach(([id, g]) => { if (WREG.dash[id]) WREG.dash[id].grp = g; });

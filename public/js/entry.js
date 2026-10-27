@@ -7,7 +7,7 @@ const ent0 = (id, ch = 'call') => {
   return { ch, scid: s.id, scn: s.name, team: '', agent: '', id: '', dt: '', lk: '', rl: '', cl: '', tx: '', subj: '', chn: '', cp: '', cm: '', fl: '',
     cats: s.cats.map(c => ({ n: c.n, k: !!c.k, it: c.it.map(i => ({ t: i.t, p: i.p, k: !!i.k, cp: !!i.cp, a: 'y', cm: '', rc: '' })) })) };
 };
-const newEnt = (id, ch) => { ENT = ent0(id, ch || (ENT && ENT.ch) || 'call'); ENT0 = JSON.stringify(ENT); EDITID = ''; };
+const newEnt = (id, ch) => { ENT = ent0(id, ch || (ENT && ENT.ch) || 'call'); ENT.t0 = Date.now(); ENT0 = JSON.stringify(ENT); EDITID = ''; };   // t0: when the review started (its review time)
 // switching the type keeps what was typed and the chosen scorecard (scorecards are never limited to one type)
 function setCh(ch) { if (ENT.ch === ch) return; ENT.ch = ch; render(); }
 const entDirty = () => !!ENT && JSON.stringify(ENT) !== ENT0;
@@ -94,7 +94,7 @@ function subE() {
 const saveE = () => once('ent', async () => {
   pvu();                                                         // the button now says "Saving…" and cannot be clicked again
   const E = ENT, a = E.cats.map(c => c.it.map(i => [i.a, i.cm, i.rc])), fl = E.ch === 'call' && $('#ef') && $('#ef').files[0];
-  const body = { scid: E.scid, ch: E.ch || 'call', agent: E.agent, id: E.id.trim(), dt: E.dt, lk: E.lk, rl: E.rl, cl: E.cl, tx: E.tx, subj: E.subj, chn: E.chn, cp: E.cp, cm: E.cm, fl: E.fl, a };
+  const body = { scid: E.scid, ch: E.ch || 'call', agent: E.agent, id: E.id.trim(), dt: E.dt, lk: E.lk, rl: E.rl, cl: E.cl, tx: E.tx, subj: E.subj, chn: E.chn, cp: E.cp, cm: E.cm, fl: E.fl, a, ...(EDITID || !E.t0 ? {} : { rt: Math.round((Date.now() - E.t0) / 1000) }) };
   const r = EDITID ? await api('/api/evaluations/' + EDITID, body, 'PUT') : await api('/api/evaluations', body);
   if (!r.ok) { if (r.status === 401) return; return toast(await errOf(r, r.status === 403 ? 'Your role cannot add evaluations' : 'Could not save the review'), true); }
   const ev = await r.json();

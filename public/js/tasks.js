@@ -1,6 +1,6 @@
 // ===================== Tasks: My Tasks (board), Team Progress (today), Evaluation (scores), Templates =====================
 // Score of a person (0-100) = 70% completion + 30% done on time − 2 points for every overdue task.
-let TV = { tab: 'my', q: '', st: 'all', team: '', agent: '', et: '', p: 'all', sk: 'score', sd: -1 }, TKV = null, TPLM = false;
+let TV = { tab: LS.get('qa_tktab', 'my'), q: '', st: 'all', team: '', agent: '', et: '', p: 'all', sk: 'score', sd: -1 }, TKV = null, TPLM = false;
 const isOver = t => t.status !== 'done' && !t.archived && t.due && t.due < todayS();
 const TIC = {
   my: svg('<path d="M10 6h11M10 12h11M10 18h11M3 6l1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2"/>', 17),
@@ -102,7 +102,7 @@ function tkMy() {
   const cnt = k => k === 'archive' ? arc.length : k === 'all' ? act.length : act.filter(t => k === 'active' ? (t.status === 'doing' || t.status === 'review') : t.status === k).length;
   const segs = [['all', `All (${cnt('all')})`], ['todo', 'To Do'], ['active', 'Active'], ['done', 'Done'], ['archive', `${TIC.arch} Archives (${cnt('archive')})`]];
   const all = tkMine().filter(t => !t.archived), people = AGENTS().filter(a => !TV.team || a.team === TV.team);
-  const filt = `<section class="card tkfl"><div class=row style="justify-content:flex-start;gap:12px;flex-wrap:wrap"><div class=sx style="width:300px"><span>${IC.search}</span><input id=tkq placeholder="Search tasks…" value="${esc(TV.q)}" oninput="TV.q=this.value;tkRt()"></div><div class=sg>${segs.map(([k, n]) => `<button class="${TV.st === k ? 'on' : ''}" onclick="TV.st='${k}';render()">${n}</button>`).join('')}</div><div class=sg role=group aria-label="View" style="margin-left:auto">${[['compact', 'Compact'], ['detail', 'Detailed'], ['list', 'List']].map(([k, n]) => `<button class="${TKVM === k ? 'on' : ''}" onclick="tkVm('${k}')">${n}</button>`).join('')}</div></div>`
+  const filt = `<section class="card tkfl"><div class=row style="justify-content:flex-start;gap:12px;flex-wrap:wrap"><div class=sx style="width:300px"><span>${IC.search}</span><input id=tkq placeholder="Search tasks…" value="${esc(TV.q)}" oninput="TV.q=this.value;tkRt()"></div><div class=sg>${segs.map(([k, n]) => `<button class="${TV.st === k ? 'on' : ''}" onclick="TV.st='${k}';render()">${n}</button>`).join('')}</div></div>`
     + (ed ? `<div class=tkrow><span class=cap>TEAM</span>${tkTeamChips('team', id => all.filter(t => teamOf(t.assignee) === id).length)}</div><div class=tkrow><span class=cap>AGENT</span><div class=tkchips><button class="tkcp ${TV.agent ? '' : 'on'}" onclick="TV.agent='';render()">All (${people.length})</button>${people.map(a => `<button class="tkcp ${TV.agent === a.username ? 'on' : ''}" onclick="TV.agent='${esc(a.username)}';render()" title="${esc(a.name)} · ${all.filter(t => t.assignee === a.username).length} tasks">${tkAv(a.username, 22)}${esc(a.name.split(' ')[0])}</button>`).join('')}</div></div>` : '') + `</section>`;
   return kp + filt + `<div id=tkbd>${tkBoard()}</div>`;
 }

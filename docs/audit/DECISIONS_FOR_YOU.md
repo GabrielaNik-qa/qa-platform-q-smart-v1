@@ -705,3 +705,33 @@ Nobody is planned before their start date or after their last working day.
   - with many campaigns, the totals were off-screen on the right. They now come first.
   - a change of share was described as "84 h less". It now says "share 100% → 50%".
   - some labels were half translated in Bulgarian and French (for example "Добави a campaign"). They are fixed, and "Left" no longer reads as "left the company".
+
+## Q. Menu panels, Home › Personalize and the new dashboard widgets (27 October)
+
+**What changed**
+- **The menu has four panels at the bottom**, like Learning and Admin before: **Workforce** (attendance, time off, rota, Team today, Capacity planning, and a new "Workforce set-up" group with work calendars, shift templates, leave types and attendance rules), **Compliance & CX**, **Learning** and **Admin**. Admin › People now keeps only users, teams, workspaces and skills. Every "Admin › People › …" hint in the app now says "Workforce set-up › …".
+- **Home is closed when the app opens** (and right after signing in). It opens when you click it or go to one of its pages.
+- **Home › Personalize** is new. The Dashboard, AutoQA and Tasks pages are now view-only; everything you change is here:
+  - **Dashboard tab:** your home dashboard, your own named dashboards (+ New dashboard), and the ready-made ones (one per role and focus). Pick one to preview it, then "Use as my home", "Make my own copy", rename, share or delete it. Admins can "View as" a role and set the home dashboard of that role.
+  - **Display** opens a panel like your screenshot: count the data by conversation date or review date; charts by day, week, month or quarter; and a switch for every widget, in groups (Numbers, Charts, Categories, People, Lists…). There are no names or sizes to edit: every widget has a preset size and place. Each switch saves at once, with an Undo.
+  - **AutoQA tab:** switches for the AutoQA widgets, with a preview.
+  - **Tasks tab:** how task cards look (Compact, Detailed, List) and which tab Tasks opens on.
+- **New widgets**, adapted from the Zendesk QA screenshots to our design:
+  - number tiles with ▲ ▼ change against the period before: Reviewed conversations, Average review time, Reviewed agents, Disputed reviews, Reviews with comments, Unseen reviews (the existing tiles got the same style). "∅" means there is nothing to compare with (for example on "All time"); hover it for the explanation.
+  - Average category scores (dots with the target as a line), Category score over target and Category score 0% (rings), Root causes, Scorecard performance, Workspace performance, Reviewer performance, Agent performance, Scores by category, Scores by reviews, Ratings and root causes by reviews.
+- **Every new review now keeps its review date and how long it took in QA Entry** (from opening the form to saving; at most 4 hours).
+
+**Please decide when you are ready**
+1. **Self-reviews:** your screenshot has a "Self-reviews" option. I left it out, because in Q-smart reviewers are never the agents being reviewed. Tell me if you want agents to review themselves one day.
+2. **"Category group performance"** from Zendesk became **"Scorecard performance"**, because we group categories by scorecard. Tell me if you want real category groups.
+3. **Review time and review date** exist only for reviews made from today. Older reviews show "—" for review time and use their conversation date. If you want, I can fill the review date of old reviews with their conversation date.
+4. **The order of the widgets** is fixed (numbers first, then charts, categories, people and lists). Tell me if you want a different order.
+
+**Good to know**
+- Found and fixed during the browser check:
+  - the dots of "Average category scores" did not show (a tag was not closed). Fixed.
+  - long tables in half-width cards needed a sideways scroll. Names now wrap onto two lines, and a long table scrolls inside its card. "Scores by category" still scrolls sideways, because it has one column per category (like Zendesk).
+  - a comment I added on the page-change line had switched off the "reset when you change page" steps. Fixed.
+  - when the browser tab came back into view many times quickly, the app could stack many full data reloads, so pages opened slowly. Now only one runs at a time.
+  - the switches in Display touched their labels in a narrow window. Fixed.
+- Everything is translated into Bulgarian and French. All 160 automatic tests pass (one new: the review date and review time are saved).

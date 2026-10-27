@@ -2,7 +2,7 @@
 // Workforce › Attendance: check in / break / check out (the server's clock), the status of every day worked out from the rota
 // (late, left early, short, absent), corrections the team lead approves, and for staff the team by day and by month.
 // Workforce › Time off: balances, requests (days, half days, hours), approvals, the team calendar, deputies.
-// Admin › People › Leave types and Attendance rules hold the set-up. The rules run on the server (wf.js, routes-att.js).
+// Workforce set-up › Leave types and Attendance rules hold the set-up. The rules run on the server (wf.js, routes-att.js).
 let ATTD = null, ATTF = 0, ATAB = LS.get('qa_atab', 'me'), ATT_T = LS.get('qa_atteam', ''), ATD = '', ATDAY = null, ATM = '', ATMON = null;
 let LVD = null, LTAB = LS.get('qa_ltab', 'me'), LTM = LS.get('qa_lteam', ''), LCM = '', LCAL = null, LBAL = null, LRQ = null, LPT = 0;
 const atRaw = s => { const x = new Date(s); return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); };   // HH:MM of a moment
@@ -40,7 +40,7 @@ function atToday(small) {
   return `<div class=atday><div class=atwhen><b>${wfDay(s.d, { weekday: 'long', day: 'numeric', month: 'long' })}</b><small class=mu>${plan}</small></div>
 <div class=attimes><span><small class=mu>${tr('In')}</small><b class=mono>${atHm(s.in)}</b></span><span><small class=mu>${tr('Out')}</small><b class=mono>${atHm(s.out)}</b></span><span><small class=mu>${tr('Worked')}</small><b class=mono id=attw>${s.in ? atDur(atWorked(s)) : '—'}</b></span></div>
 <div class=atst>${atPill(s)}</div><div class=atbtn>${atBtns(s)}</div></div>`
-    + (small ? '' : `<div class=row style="margin-top:10px;flex-wrap:wrap;gap:8px"><small class=mu>${A.since ? tr(`Late arrivals this ${A.latePeriod}: ${A.lates} of ${A.lateLimit} allowed`) : tr('Attendance is not tracked yet: until an admin sets the start date in Admin › People › Attendance rules, nobody is marked absent. Checking in already works.')}</small>${A.fixDays ? `<a href="javascript:void(0)" class=agl onclick="atFix('${s.d}')">${tr('Forgot to check in or out? Ask for a correction')}</a>` : ''}</div>`);
+    + (small ? '' : `<div class=row style="margin-top:10px;flex-wrap:wrap;gap:8px"><small class=mu>${A.since ? tr(`Late arrivals this ${A.latePeriod}: ${A.lates} of ${A.lateLimit} allowed`) : tr('Attendance is not tracked yet: until an admin sets the start date in Workforce set-up › Attendance rules, nobody is marked absent. Checking in already works.')}</small>${A.fixDays ? `<a href="javascript:void(0)" class=agl onclick="atFix('${s.d}')">${tr('Forgot to check in or out? Ask for a correction')}</a>` : ''}</div>`);
 }
 const atPunch = a => once('punch', async () => {
   const r = await api('/api/att/punch', { action: a }); if (!r.ok) return toast(await errOf(r, 'Could not save it'), true);
@@ -90,7 +90,7 @@ function atTeamPage() {
   const today = iso(new Date()), c = f => T.rows.filter(f).length;
   const chips = [['On time', c(r => ['done', 'working'].includes(r.st) && !r.late), 'ok'], ['Late', c(r => r.late), 'wn'], ['Not checked in', c(r => r.st === 'missing'), 'bad'], ['Absent', c(r => r.st === 'absent'), 'bad'], ['On leave', c(r => r.st === 'leave'), 'ac'], ['Day off', c(r => ['off', 'hol'].includes(r.st)), '']];
   return `<div class=row style="gap:8px;flex-wrap:wrap;margin:0 0 12px;justify-content:flex-start">${wfTeamSel(T.team, 'atTeam')}<div class=sg role=group aria-label="Day"><button onclick="atDay(wfAdd(ATDAY.d,-1))" aria-label="Previous day">‹</button><button onclick="atDay('${today}')" class="${T.d === today ? 'on' : ''}">${tr('Today')}</button><button onclick="atDay(wfAdd(ATDAY.d,1))" aria-label="Next day">›</button></div><input type=date value="${T.d}" onchange="atDay(this.value)" style="width:auto"><b>${wfDay(T.d, { weekday: 'long', day: 'numeric', month: 'long' })}</b></div>`
-    + (T.since ? '' : `<p class=mu style="margin:0 0 10px">${tr('Attendance is not tracked yet: until an admin sets the start date in Admin › People › Attendance rules, nobody is marked absent. Checking in already works.')}</p>`)
+    + (T.since ? '' : `<p class=mu style="margin:0 0 10px">${tr('Attendance is not tracked yet: until an admin sets the start date in Workforce set-up › Attendance rules, nobody is marked absent. Checking in already works.')}</p>`)
     + atWaiting(ATTD)
     + card('', `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px">${chips.map(([l, n, k]) => k ? pill(tr(l) + ' · ' + n, k) : `<span class=tg>${tr(l)} · ${n}</span>`).join(' ')}</div>`
       + (T.rows.length ? tbl(['Person', 'Plan', 'In', 'Out', 'Worked', 'Status', ''], T.rows.map(r => [`<b>${esc(r.name)}</b>`, atPlan(r), atHm(r.in), r.auto ? `<span class=mu>${atHm(r.out)}</span>` : atHm(r.out), r.in ? atDur(atWorked(r)) : '—', atPill(r),
@@ -201,7 +201,7 @@ ${t.unit !== 'hour' && t.half && one ? `<label>${tr('How much of the day')}<sele
 const lvSend = () => once('lvsend', async () => { const q = LRQ, r = await api('/api/leave', { u: q.u, lt: q.lt, from: q.from, to: q.to, part: q.part, hours: q.hours, note: q.note });
   if (!r.ok) return toast(await errOf(r, 'Could not send it'), true); const L = await r.json(); LRQ = null; await load(); render(); toast(L.status === 'approved' ? 'Time off saved' : 'Sent to your team lead'); });
 
-// ---------------------------------------------------------------- Admin › People › Leave types and Attendance rules
+// ---------------------------------------------------------------- Workforce set-up › Leave types and Attendance rules
 PG.ltypes = function () {
   const L = WF().leaveTypes, yn = v => v ? '✓' : '—';
   return head('Leave types', 'The kinds of time off, how much of each a year, and whether the team lead approves them.', `<button class=btn onclick="ltEdit('')">+ New leave type</button>`)
@@ -265,6 +265,6 @@ function atRepPage() {
     + `<p class=mu style="margin:10px 0 0;font-size:12.5px">${tr(`Over the 52 weeks up to ${wfDay(P.to)}. Watch from ${P.levels[0]}, talk to them from ${P.levels[1]}, serious from ${P.levels[2]}.`)}</p>`;
   if (k === 'teams') body = tbl(['Team', 'People', 'Planned days', 'Present', 'Late', 'Absent', 'On leave (days)', 'Worked / planned hours'], P.teams.map(t => [`<b>${esc(tn(t.team))}</b>`, t.people, t.planned, t.presentPct == null ? '—' : t.presentPct + '%', t.latePct == null ? '—' : t.latePct + '%', t.absentPct == null ? '—' : t.absentPct + '%', t.leave, `<span class=mono>${t.worked} / ${tr(`${t.plannedH} h`)}</span>`]));
   return ctl + kinds + card(`${tr(ATRKS.find(x => x[0] === k)[1])} · ${wfDay(P.from, { day: 'numeric', month: 'short' })} – ${wfDay(P.to, { day: 'numeric', month: 'short', year: 'numeric' })}`, P.people.length ? body : '<p class=mu style="margin:0">This team has no members yet.</p>')
-    + (!P.since ? `<p class=mu style="font-size:12.5px">${tr('Attendance is not tracked yet: until an admin sets the start date in Admin › People › Attendance rules, nobody is marked absent. Checking in already works.')}</p>`
+    + (!P.since ? `<p class=mu style="font-size:12.5px">${tr('Attendance is not tracked yet: until an admin sets the start date in Workforce set-up › Attendance rules, nobody is marked absent. Checking in already works.')}</p>`
       : P.since > P.from ? `<p class=mu style="font-size:12.5px">${tr(`Attendance is tracked from ${wfDay(P.since)}: days before that without a check-in are not counted.`)}</p>` : '');
 }

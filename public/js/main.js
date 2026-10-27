@@ -21,7 +21,7 @@ const LG = () => {
 const lerr = (id, m) => { const e = $(id); if (e) e.innerHTML = `<small class=lgerr>${esc(m)}</small>`; };
 async function login() {
   const r = await api('/api/login', { username: $('#lu').value, password: $('#lp').value });
-  if (r.ok) { MSG = ''; LU = ''; welAgain((await r.json()).username); await boot(); if (ME && location.hash !== '#dash') location.hash = 'dash'; } else lerr('#lge', await errOf(r, 'Could not sign in'));   // a new sign-in may show the welcome again
+  if (r.ok) { MSG = ''; LU = ''; welAgain((await r.json()).username); await boot(); if (ME && location.hash !== '#dash') { OGKEEP = true; location.hash = 'dash'; } } else lerr('#lge', await errOf(r, 'Could not sign in'));   // a new sign-in may show the welcome again
 }
 // username = first letter of the first name + "." + last name (the server makes the same one, this is just the preview)
 const plainName = t => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -46,21 +46,22 @@ function applySb() {
   document.documentElement.classList.toggle('co', COL); const s = $('#sb'); if (s) s.classList.toggle('co', COL);
   const b = $('#sbt'); if (b && !b.innerHTML) b.innerHTML = IC.chev;
 }
-function toggleSb() { COLP = !COL; COL = COLP || innerWidth <= 1100; LS.set('qa_col', COLP); FLY = null; OG = null; UMN = false; applySb(); if (ME) render(); }
+function toggleSb() { COLP = !COL; COL = COLP || innerWidth <= 1100; LS.set('qa_col', COLP); FLY = null; OG = OG === '' ? '' : null; UMN = false; applySb(); if (ME) render(); }
 // narrow screens: the sidebar becomes compact by itself, and goes back to your choice when the window is wide again
-addEventListener('resize', () => { const c = COLP || innerWidth <= 1100; if (c !== COL) { COL = c; FLY = null; OG = null; UMN = false; applySb(); if (ME) render(); } });
+addEventListener('resize', () => { const c = COLP || innerWidth <= 1100; if (c !== COL) { COL = c; FLY = null; OG = OG === '' ? '' : null; UMN = false; applySb(); if (ME) render(); } });
 function sbDbl(e) { if (!ME || e.target.closest('a,button,.usr,select,input')) return; toggleSb(); }
 // ---------------------------------------------------------------- menu: a few main groups with drop-downs (a pop-out list when the sidebar is collapsed)
-let OG = null, FLY = null, FLYY = 100;
+let OG = '', OGKEEP = false, FLY = null, FLYY = 100;                                 // OG = the open group of the main menu ('' = none: the app opens with every group closed; null = the group of the page)
 let SPF = LS.get('qa_spf', []);                                      // sections of the Learning and Admin panels folded with their arrow
 const gOpen = g => !COL && (g.space ? !SPF.includes(g.id) : OG === null ? groupOf(route) === g.id : OG === g.id);   // panel sections start open
-// ---- the menu panels: the main menu, and the Learning and Admin panels that open from the bottom of it ("Learning ›", "Admin ›";
+// ---- the menu panels: the main menu, and the Workforce, Compliance & CX, Learning and Admin panels that open from the bottom of it ("Admin ›";
 // "Set-up ›" for QA, team leads and trainers, who only have the scorecard pages there). The panel follows the page (a link to an
 // admin page opens the Admin panel); "← Back to the main menu" goes to the last page of the main menu.
 let SPV = null, LASTMAIN = 'dash';                                    // SPV = a panel opened by hand, until the next page opens
 const spaceOf = r => (GROUPS.find(g => g.items.some(([k]) => k === r)) || {}).space || 'main';
 const curSpace = () => SPV || spaceOf(route);
-const spName = s => s === 'learn' ? 'Learning' : ME.role === 'admin' ? 'Admin' : 'Set-up';
+const spName = s => ({ learn: 'Learning', wf: 'Workforce', cx: 'Compliance & CX' })[s] || (ME.role === 'admin' ? 'Admin' : 'Set-up');
+const SPIC = { wf: 'g_wf', cx: 'g_comply', learn: 'g_learning', admin: 'g_admin' };
 const spTop = () => { const n = $('#n'); if (n) n.scrollTop = 0; };   // a panel always opens at its top (where "Back" is)
 function spGo(s, ev) { ev.stopPropagation(); SPV = s; OG = null; FLY = null; UMN = false; render(); spTop(); }
 function spBack(ev) { ev.stopPropagation(); SPV = null; OG = null; FLY = null; UMN = false; if (spaceOf(route) !== 'main') location.hash = LASTMAIN; else { render(); spTop(); } }
@@ -85,7 +86,7 @@ const NAVH = () => { const sp = curSpace(), all = groupsFor();
   // the icon AND the name open the group's first page; only the small arrow opens or closes the list without leaving the page
   return `<div class="grp ${open ? 'open' : ''} ${act ? 'act' : ''}" onmouseenter="flyHover('${g.id}',this)" onmouseleave="flyLeave()"><button class=gh onclick="gGo('${g.id}',event)" title="Open ${g.items[0][1]}"><i>${IC[g.icon]}</i><span>${g.name}</span><em onclick="event.stopPropagation();tgG('${g.id}',event)" title="Show / hide">›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}${sys}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}${sys}</div>` : ''}</div>`; }).join('');
   const back = sp === 'main' ? '' : `<div class="grp spb"><button class=gh onclick="spBack(event)" title="Back to the main menu"><i>${IC.back}</i><span>Back to the main menu</span></button></div><div class=spt>${spName(sp)}</div>`;
-  const doors = sp !== 'main' ? '' : ['learn', 'admin'].filter(x => all.some(g => g.space === x)).map(x => `<div class="grp spc"><button class=gh onclick="spGo('${x}',event)" title="${spName(x)}"><i>${IC[x === 'learn' ? 'g_learning' : 'g_admin']}</i><span>${spName(x)}</span><em>&rsaquo;</em></button></div>`).join('');
+  const doors = sp !== 'main' ? '' : ['wf', 'cx', 'learn', 'admin'].filter(x => all.some(g => g.space === x)).map(x => `<div class="grp spc"><button class=gh onclick="spGo('${x}',event)" title="${spName(x)}"><i>${IC[SPIC[x]]}</i><span>${spName(x)}</span><em>&rsaquo;</em></button></div>`).join('');
   return back + grp + (doors ? `<div class=spsep></div>${doors}` : '');
 };
 document.addEventListener('click', e => { if ((FLY || UMN) && !e.target.closest('.fly,.gh,.av2')) { FLY = null; UMN = false; render(); } });
@@ -228,7 +229,7 @@ async function onHash() {
   if (n !== 'entry') { ENT = null; EDITID = ''; }
   if (n !== 'kb') KBE = null;
   SPV = null; if (spaceOf(n) === 'main') LASTMAIN = n;
-  OG = null; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; WE = null; WADD = null; WSET = null; WDISP = null; TXF = null; TXC = null; CSP = null; AINEW = false; AIDV = null; AIPV = null; voxStop(); RCE = null; WCE = null; PTE = null; LRQ = null; ARD = null; AQV = ''; PKN = null;
+  OG = OGKEEP ? '' : null; OGKEEP = false; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; PDSP = false; TXF = null; TXC = null; CSP = null; AINEW = false; AIDV = null; AIPV = null; voxStop(); RCE = null; WCE = null; PTE = null; LRQ = null; ARD = null; AQV = ''; PKN = null;   // OGKEEP: the jump to the Dashboard after signing in keeps the menu closed
   if (n === 'calls' && !KQ) { Q = ''; FSC = null; PN = 1; }   // opening Call Reviews from the menu starts with an empty search
   KQ = false; MD = null; NO = false; AC = null; SYS = false; RSV = null; PLY = null; SE = n === 'sco' ? SE : null;
   route = n; await load(); render(); window.scrollTo(0, 0); maybeWelcome();
@@ -262,13 +263,14 @@ document.addEventListener('focusin', e => { if (e.target.classList && e.target.c
 addEventListener('beforeunload', e => { if (entDirty() || kbDirty()) { e.preventDefault(); e.returnValue = ''; } });
 
 // new reviews and notifications show up by themselves (every 20 s and when you come back to the tab)
-let PREVU = null;
+let PREVU = null, POLLING = false;   // POLLING: a check is still running, so another one does not pile up behind it
 const refreshBell = () => $$('.ib[onclick*="openN"]').forEach(b => { b.innerHTML = IC.bell + (UN() ? `<sup>${UN()}</sup>` : ''); });
 async function poll() {
-  if (!ME || ME.mustChange) return;
-  const ch = await load(), u = UN(); if (PREVU !== null && u > PREVU) beep(); PREVU = u;
+  if (!ME || ME.mustChange || POLLING) return;
+  POLLING = true; let ch; try { ch = await load(); } finally { POLLING = false; }
+  const u = UN(); if (PREVU !== null && u > PREVU) beep(); PREVU = u;
   const busy = ['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement || {}).tagName) || $$('audio').some(a => !a.paused);   // never restart a recording that is playing
-  if (ch && (!MD || MD.t === 'view') && !NO && !AC && !SYS && !RSV && !CFM && !PLY && !FM && !TKV && !TEST && !SSV && !TPLM && !AQV && !WE && !WEL && !WADD && !WSET && !WDISP && !QFM && !PAL && !busy && route !== 'entry' && !SE && !KBE && !QZE && !NWE && !WCE && !PTE && !RCE && !LRQ) render(); else if (ch) refreshBell();
+  if (ch && (!MD || MD.t === 'view') && !NO && !AC && !SYS && !RSV && !CFM && !PLY && !FM && !TKV && !TEST && !SSV && !TPLM && !AQV && !WEL && !PDSP && !QFM && !PAL && !busy && route !== 'entry' && !SE && !KBE && !QZE && !NWE && !WCE && !PTE && !RCE && !LRQ) render(); else if (ch) refreshBell();
 }
 setInterval(poll, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });

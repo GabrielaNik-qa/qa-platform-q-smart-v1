@@ -123,7 +123,7 @@ function planOf(W, u, date, rota) {
 const cellHours = (W, c) => { const s = W.shifts.find(x => x.id === c.v); return s ? (c.half ? shiftHours(s) / 2 : shiftHours(s)) : 0; };
 
 // ======================== Phase 2: time off types, attendance rules, the status of a day, leave days and balances
-// the leave types a company starts with (Admin › People › Leave types changes them) and the attendance rules (Admin › People › Attendance rules)
+// the leave types a company starts with (Workforce set-up › Leave types changes them) and the attendance rules (Workforce set-up › Attendance rules)
 const LT0 = [
   { id: 'lt-annual', name: 'Annual leave', color: '#16a34a', paid: true, unit: 'day', allowance: 20, carry: 5, half: true, approval: true, sandwich: false, bradford: false },
   { id: 'lt-sick', name: 'Sick leave', color: '#e11d48', paid: true, unit: 'day', allowance: 0, carry: 0, half: false, approval: false, sandwich: false, bradford: true },

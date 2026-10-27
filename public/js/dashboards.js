@@ -1,8 +1,8 @@
 // ===================== Team pulse and the Dashboards gallery =====================
 // Team pulse (the "Overall" dashboard) answers three questions at a glance: how is my team doing (one sentence and four numbers),
 // what needs me now (a short list, one button each) and where it comes from (agents × categories). Every number opens its list in
-// one click, the item in two. Home › Dashboard › "Dashboards" holds the ready-made dashboards (one per role and focus) next to your
-// own, which you name as you like, share, or set as your home page.
+// one click, the item in two. Home › Personalize holds the ready-made dashboards (one per role and focus) next to your own, which
+// you name as you like, share, or set as your home page (personalize.js).
 const dAgo = d => (Date.now() - new Date(d)) / 864e5;
 const dScope = c => AGENTS().filter(a => !c.t || a.team === c.t);
 const dPlan = c => { if (typeof plRows !== 'function') return null; const keep = [PLN.m, PLN.t]; PLN.m = todayS().slice(0, 7); PLN.t = c.t || ''; const r = plRows(); [PLN.m, PLN.t] = keep; return r; };
@@ -27,7 +27,7 @@ wdef('dash', 'brief', 'Team briefing', 60, (c, s, x) => {
 wdef('dash', 'plan_kpi', 'Review plan', 15, (c, s, x) => {
   const r = dPlan(c); if (!r) return '';
   const tg = r.reduce((a, z) => a + z.tg, 0), dn = r.reduce((a, z) => a + Math.min(z.done, z.tg || z.done), 0), bh = r.filter(z => z.st === 'behind').length;
-  return kp(wt(x, 'Review plan'), `${dn}<small class=kps>/${tg}</small>`, bh ? `${bh} agents behind` : 'everyone on track', 'var(--tx)', tg ? dn / tg * 100 : 0, "goPage('planner')");
+  return kt('Review plan', 'Reviews done against this month\'s plan', `${dn}<small class=kps>/${tg}</small>`, ksub(tr(bh ? `${bh} agents behind` : 'everyone on track')), "goPage('planner')");
 }, 'Reviews done against this month\'s plan', 'Numbers');
 
 // ---- what needs you now: a short list, each with the one button that deals with it
@@ -43,7 +43,7 @@ wdef('dash', 'inbox', 'Needs you now', 30, (c, s, x) => {
 }, 'The things waiting for you, each with one button', 'Lists');
 
 // ---- where it comes from: agents × categories (the lowest first), a click opens that agent's reviews
-wdef('dash', 'heat', 'Team heat map', 30, (c, s, x) => {
+wdef('dash', 'heat', 'Team heat map', 60, (c, s, x) => {
   const cnt = {}; c.d.forEach(e => (e.cs || []).forEach(k => { cnt[k.n] = (cnt[k.n] || 0) + 1; }));
   const cats = Object.keys(cnt).sort((p, q) => cnt[q] - cnt[p]).slice(0, s >= 40 ? 8 : 5), rows = agS(c.d).filter(v => v.k && dScope(c).some(a => a.username === v.u)).sort((p, q) => p.a - q.a);
   if (!cats.length || !rows.length) return card(wt(x, 'Team heat map'), '<p class=mu style="margin:0">No reviews in this period yet.</p>');
@@ -87,20 +87,10 @@ const dashTpls = () => DTPL;
 DEFL.dash.trainer = DTPL[3].items; DEFL.dash.agent = DTPL[4].items;
 Object.assign(WGRP, { brief: 'Numbers', plan_kpi: 'Numbers', inbox: 'Lists', heat: 'Categories', ai_sim: 'Charts', learn_prog: 'Performance' });
 
-// ---- the gallery (Home › Dashboard › "Dashboards"): ready-made ones and yours; open one, use it as your home, or copy it
-let DVG = true;                                         // the gallery is showing (false: one dashboard is open in this tab)
-const dvGal = () => { DVG = true; WDISP = null; render(); };
-const dvOpen = id => { LS.set('qa_view_dash', id); DVG = false; DV = 'views'; LS.set('qa_dv', 'views'); render(); window.scrollTo(0, 0); };
+// ---- "Use as my home" (Home › Personalize): the widgets of a ready-made or named dashboard become your home dashboard
 async function dvUse(id) {
-  const v = viewsFor('dash').concat(DTPL).find(z => z.id === id); if (!v) return;
-  const r = await api('/api/layout', { page: 'dash', items: (v.items || []).map(wNorm) }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true);
-  ME = await r.json(); DV = 'main'; LS.set('qa_dv', 'main'); render(); window.scrollTo(0, 0); toast(`"${v.name}" is now your home dashboard`);
-}
-const dThumb = items => `<div class=dthumb>${items.slice(0, 9).map(z => `<i style="width:calc(${(z.size / 60 * 100).toFixed(1)}% - 3px)"></i>`).join('')}</div>`;
-function dashGallery() {
-  const mine = namedOf('dash'), share = v => v.kind === 'shared' ? 'Shared with ' + v.roles.map(r => r === 'all' ? 'everyone' : ROLE[r]).join(', ') : 'Only you';
-  return `<div class=row style="margin:0 0 10px"><h3 style="margin:0">Ready-made</h3><button class="ib ibx" onclick="wNewView('dash','empty')">${IC.plus} New dashboard</button></div>`
-    + `<div class=dgal>${DTPL.map((t, i) => `<div class="dgc ${i ? '' : 'rec'}"><div class=row><span class=dgi>${IC[t.ic] || ''}</span>${i ? '' : '<span class="pill ac">Recommended</span>'}</div><b>${t.name}</b><small class=mu>${t.desc}</small>${dThumb(t.items)}<div class=dgb><button class=ib onclick="dvOpen('${t.id}')">Preview</button><button class=ib onclick="dvUse('${t.id}')">Use as my home</button></div></div>`).join('')}</div>`
-    + `<h3 style="margin:18px 0 10px">Yours</h3><div class=dgal>${mine.map(v => `<div class=dgc><b>${esc(v.name)}</b><small class=mu>${esc(share(v))}</small>${dThumb((v.items || []).map(wNorm))}<div class=dgb><button class=ib onclick="dvOpen(${jsq(v.id)})">Open</button><button class=ib onclick="dvUse(${jsq(v.id)})">Use as my home</button></div></div>`).join('')}`
-    + `<button class="dgc dgnew" onclick="wNewView('dash','empty')">${IC.plus}<small>New dashboard: start empty, or open a ready-made one and make your own copy</small></button></div>`;
+  const v = allViews('dash').find(z => z.id === id); if (!v) return;
+  const items = itemsOf('dash', v).map(x => ({ ...x, size: (WREG.dash[x.id] || {}).w || 30 }));
+  const r = await api('/api/layout', { page: 'dash', items }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true);
+  ME = await r.json(); render(); toast(tr(`"${v.name}" is now your home dashboard`));
 }

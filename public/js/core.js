@@ -227,53 +227,53 @@ async function errOf(r, fallback) { const j = await r.json().catch(() => ({})); 
 let LASTSIG = '';
 async function load() {
   const g = async u => { try { const r = await api(u); return r.ok ? await r.text() : null; } catch (e) { return null; } };
-  const adm = ME && ME.role === 'admin', ed = ME && STAFFR.includes(ME.role);
+  const adm = ME && ME.role === 'admin', ed = ME && STAFFR.includes(ME.role), dashy = route === 'dash' || route === 'pers';   // Home › Personalize shows the dashboard widgets too
   const want = [['ev', '/api/evaluations'], ['sc', '/api/scorecards'], ['nf', '/api/notifications'], ['set', '/api/settings'], ['tm', '/api/teams'], ['ro', '/api/roster']];
   if (adm) want.push(['us', '/api/users'], ['rg', '/api/registrations']);
   if (route === 'tasks') { want.push(['tk', '/api/tasks']); if (ed) want.push(['tp', '/api/task-templates']); }
   if (route === 'agents') want.push(['se', '/api/sessions'], ['tk', '/api/tasks'], ['sm', '/api/simulations']);
   if (route === 'sim') want.push(['sm', '/api/simulations'], ['rp', '/api/ai/roleplay']);
   if (route === 'rota') want.push(['wr', '/api/wf/rota?team=' + encodeURIComponent(RTM) + '&from=' + RWK]);
-  if (route === 'att' || route === 'dash') want.push(['atme', '/api/att/me']);
+  if (route === 'att' || dashy) want.push(['atme', '/api/att/me']);
   if (route === 'att' && ed && ATAB === 'team') want.push(['atday', '/api/att/day?team=' + encodeURIComponent(ATT_T) + '&d=' + ATD]);
   if (route === 'att' && ed && ATAB === 'month') want.push(['atmon', '/api/att/month?team=' + encodeURIComponent(ATT_T) + '&m=' + ATM]);
   if (route === 'leave') want.push(['lvme', '/api/leave']);
   if (route === 'leave' && LTAB === 'cal') want.push(['lvcal', '/api/leave/calendar?team=' + encodeURIComponent(LTM) + '&m=' + LCM]);
   if (route === 'leave' && ed && LTAB === 'bal') want.push(['lvbal', '/api/leave/team?team=' + encodeURIComponent(LTM)]);
-  if (route === 'today' || (route === 'dash' && ed)) want.push(['tdy', '/api/wf/today?team=' + (route === 'today' ? encodeURIComponent(TDT) : '')]);
-  if (route === 'cap' || (route === 'dash' && ME && ME.role === 'agent')) want.push(['cap', '/api/cap?month=' + (route === 'cap' ? cpMon() : '') + '&plan=' + encodeURIComponent(CPP) + (route === 'cap' && CPFR ? '&from=' + CPFR : '')]);
+  if (route === 'today' || (dashy && ed)) want.push(['tdy', '/api/wf/today?team=' + (route === 'today' ? encodeURIComponent(TDT) : '')]);
+  if (route === 'cap' || (dashy && ME && ME.role === 'agent')) want.push(['cap', '/api/cap?month=' + (route === 'cap' ? cpMon() : '') + '&plan=' + encodeURIComponent(CPP) + (route === 'cap' && CPFR ? '&from=' + CPFR : '')]);
   if (route === 'att' && ed && ATAB === 'rep' && ATRQ) want.push(['atrep', '/api/att/report?team=' + encodeURIComponent(ATRTM) + '&from=' + ATRF + '&to=' + ATRT]);
-  if (['coach', 'o2o', 'acad'].includes(route) || (route === 'dash' && ME && ME.role === 'agent')) want.push(['se', '/api/sessions']);
+  if (['coach', 'o2o', 'acad'].includes(route) || (dashy && ME && ME.role === 'agent')) want.push(['se', '/api/sessions']);
   if (route === 'audit' && adm) want.push(['au', '/api/audit']);
-  if (route === 'tasks' || route === 'coach' || route === 'dash') want.push(['tk', '/api/tasks']);
+  if (route === 'tasks' || route === 'coach' || dashy) want.push(['tk', '/api/tasks']);
   if (route === 'cal' || (route === 'calendar' && ed)) want.push(['ca', '/api/calibrations']);
   // the new sections: their lists, plus what the Agents page and the dashboard show from them
   const CL = { rbuild: ['reports', 'surveys', 'complaints'], rsaved: ['reports', 'surveys', 'complaints'], goals: ['goals', 'surveys', 'kudos'], pips: ['pips'], kudos: ['kudos'], compliance: ['risks'], risks: ['risks'], complaints: ['complaints'], csat: ['surveys'], calendar: ['pips'], agents: ['goals', 'pips', 'kudos', 'surveys', 'complaints'], dash: ['goals', 'kudos', 'surveys', 'complaints'] };
   (Object.hasOwn(CL, route) ? CL[route] : []).forEach(c => { if (ME && (!['reports', 'risks', 'complaints'].includes(c) || ed)) want.push(['c_' + c, '/api/c/' + c]); });
-  if (['rbuild', 'rsaved', 'goals', 'calendar', 'kudos', 'dash'].includes(route)) want.push(['tk', '/api/tasks']);
+  if (['rbuild', 'rsaved', 'goals', 'calendar', 'kudos', 'dash', 'pers'].includes(route)) want.push(['tk', '/api/tasks']);
   if (route === 'calendar') want.push(['se', '/api/sessions']);
   if (route === 'rexp' && ed) want.push(['xp', '/api/exports']);
   if (route === 'backup' && adm) want.push(['bk', '/api/backups']);
   if (route === 'integ') want.push(['ai', '/api/ai/status']);
   if (route === 'integ' && adm) want.push(['ais', '/api/ai/settings']);
   if (['kb', 'news', 'acad', 'coach', 'quiz'].includes(route)) want.push(['kb', '/api/kb']);
-  if (route === 'dash' && ME && ME.role === 'agent') want.push(['kb', '/api/kb'], ['qz', '/api/quizzes']);
+  if (dashy && ME && ME.role === 'agent') want.push(['kb', '/api/kb'], ['qz', '/api/quizzes']);
   if (['quiz', 'acad'].includes(route)) want.push(['qz', '/api/quizzes']);
-  if (['kb', 'acad', 'coach', 'dash'].includes(route) && ed) want.push(['pg', '/api/kb/progress']);
+  if (['kb', 'acad', 'coach', 'dash', 'pers'].includes(route) && ed) want.push(['pg', '/api/kb/progress']);
   if (['kb', 'quiz'].includes(route)) want.push(['ai', '/api/ai/status']);
   want.push(['sk', '/api/skills'], ['rc', '/api/root-causes'], ['qf', '/api/qflags']);
-  if (['users', 'teams', 'wsp', 'sco', 'skills', 'dash'].includes(route)) want.push(['ws', '/api/workspaces']);
+  if (['users', 'teams', 'wsp', 'sco', 'skills', 'dash', 'pers'].includes(route)) want.push(['ws', '/api/workspaces']);
   if (['sco', 'scat'].includes(route)) want.push(['cl', '/api/categories']);
-  if (['autoqa', 'aqcats', 'aqlist', 'aqgaps', 'dash'].includes(route)) want.push(['ac', '/api/auto-cats']);
-  if (['autoqa', 'aqlist', 'aqgaps', 'dash'].includes(route)) want.push(['aq', '/api/autoqa']);
-  if (['autoqa', 'dash'].includes(route) && ME && ['admin', 'qa'].includes(ME.role)) want.push(['ad', '/api/ai/drafts']);
-  if (['autoqa', 'dash'].includes(route) && ed) want.push(['al', '/api/ai/lead'], ['at', '/api/ai/trainer'], ['aa', '/api/ai/analyst']);
+  if (['autoqa', 'aqcats', 'aqlist', 'aqgaps', 'dash', 'pers'].includes(route)) want.push(['ac', '/api/auto-cats']);
+  if (['autoqa', 'aqlist', 'aqgaps', 'dash', 'pers'].includes(route)) want.push(['aq', '/api/autoqa']);
+  if (['autoqa', 'dash', 'pers'].includes(route) && ME && ['admin', 'qa'].includes(ME.role)) want.push(['ad', '/api/ai/drafts']);
+  if (['autoqa', 'dash', 'pers'].includes(route) && ed) want.push(['al', '/api/ai/lead'], ['at', '/api/ai/trainer'], ['aa', '/api/ai/analyst']);
   const got = await Promise.all(want.map(w => g(w[1]))), R = {};
   want.forEach((w, k) => { R[w[0]] = got[k]; });
   const sig = got.join('|'), changed = sig !== LASTSIG; LASTSIG = sig;
   if (R.ro) ROSTER = JSON.parse(R.ro);
   if (R.tm) TEAMS = JSON.parse(R.tm);
-  if (R.ev) EV.splice(0, EV.length, ...JSON.parse(R.ev).map(x => ({ ...x, d: new Date(x.d), tm: teamOf(x.agent) || x.tid || '', tmh: x.tid || '' })));   // tm = the agent's CURRENT team, tmh = the team at review time
+  if (R.ev) EV.splice(0, EV.length, ...JSON.parse(R.ev).map(x => ({ ...x, d: new Date(x.d), ra: x.at ? new Date(x.at) : null, tm: teamOf(x.agent) || x.tid || '', tmh: x.tid || '' })));   // tm = the agent's CURRENT team, tmh = the team at review time
   if (R.sc) SCS = JSON.parse(R.sc);
   if (R.nf) NF = JSON.parse(R.nf).filter(n => !NDEL.has(n.id));   // a notification waiting for its Undo stays hidden
   if (R.set) SET = JSON.parse(R.set);

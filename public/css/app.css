@@ -284,6 +284,7 @@ mark{background:color-mix(in srgb,var(--yellow) 55%,transparent);color:inherit;b
 /* ---------------------------------------------------------------- Home widgets */
 .wgrid{display:grid;grid-template-columns:repeat(60,minmax(0,1fr));gap:var(--s4);column-gap:min(var(--s4),1.6%)}   /* 59 gaps need room: on narrower screens the gap shrinks a little so the cards still fit */
 .wgrid>.wg{grid-column:span var(--sp,30)}   /* --sp = how many of the 60 columns the widget takes (set by dragging its edge) */
+.wgrid .sc{max-height:400px}.wgrid .sc th,.wgrid .sc td{white-space:normal;padding:8px}   /* in a dashboard card long names wrap, so the table fits without scrolling sideways; a long one scrolls inside its card */
 .wg{position:relative;min-width:0}.wg>.card{margin:0;height:100%}
 .wg.edit{outline:2px dashed color-mix(in srgb,var(--brand) 60%,transparent);outline-offset:3px;border-radius:var(--r-m);cursor:grab}.wg.over{outline:2px solid var(--brand)}
 .wtb{position:absolute;top:-16px;right:8px;display:flex;gap:2px;background:var(--pn);border:1px solid var(--bd2);border-radius:var(--r-s);padding:2px;z-index:5;box-shadow:var(--sh-2)}
@@ -552,7 +553,7 @@ body.auth .sb{display:none}body.auth main{padding:0}
 .qft{display:grid;grid-template-columns:1fr 1fr;gap:10px}.qft button{display:inline-flex;gap:8px;align-items:center;justify-content:center;padding:12px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx);font:inherit;font-weight:600;cursor:pointer}.qft button svg{stroke:currentColor}
 .qft button.red{border-color:var(--bad);color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}.qft button.green{border-color:var(--ok);color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}.qft button.on svg{fill:currentColor}
 /* ===== form labels: the label text, the red * and "(optional)" stay on ONE line; the field goes underneath ===== */
-label:not(.rad):not([style*="display:flex"]){display:block}
+label:not(.rad):not(.pdt):not([style*="display:flex"]){display:block}   /* .pdt: the switch rows of Personalize stay a row */
 label:not(.rad):not([style*="display:flex"])>:is(input:not([type=checkbox]):not([type=radio]),select,textarea,.sx,.pw){display:block;width:100%;margin-top:6px;box-sizing:border-box}
 label:not(.rad):not([style*="display:flex"])>:is(.sg,.pk,div){margin-top:6px}
 label:not(.rad):not([style*="display:flex"])>.sg{display:flex}
@@ -870,3 +871,23 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .cpd small { font-size: 11px; color: var(--mu) } .cpd b { font-size: 16px } .cpd .past { opacity: .55 } .cpd .now { outline: 2px solid var(--ac) } .cpd .lost b { color: var(--bad); text-decoration: line-through }
 .cpg th, .cpg td { text-align: center; padding: 5px 6px; font-size: 12.5px; white-space: nowrap } .cpg th:first-child, .cpg td:first-child { text-align: left }
 .cpg th.tdy { color: var(--ac) } .cpg td.past { color: var(--mu) } .cpg td.lost { color: var(--bad); text-decoration: line-through }
+/* Dashboard widgets: number tiles (name, number, change against the period before), rings, cells of a pivot, root cause chips */
+.wgrid { grid-auto-flow: row dense }
+.kt { display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 6px; text-align: center; min-height: 128px; margin: 0; padding: 14px 10px }
+.kt .ktt { font-size: 12.5px; color: var(--mu) } .kt .ktn { font-size: 12px; color: var(--mu) }
+.kt .ktv { font: 600 30px/1.25 var(--font-d); padding: 4px 10px; border-radius: 8px; align-self: stretch }
+.kt .ktv.ok { background: color-mix(in srgb, var(--ok) 12%, transparent) } .kt .ktv.bad { background: color-mix(in srgb, var(--bad) 12%, transparent) } .kt .ktv.wn { color: var(--wn) }
+.dnut { display: flex; gap: 16px; align-items: center; flex-wrap: wrap } .dnut svg { flex: none }
+.dnl { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px } .dnl > div { display: flex; align-items: center; gap: 8px } .dnl i { width: 10px; height: 10px; border-radius: 50%; flex: none } .dnl span { flex: 1 }
+.pvc { display: inline-block; min-width: 64px; padding: 2px 8px; border-radius: 6px; text-align: right; background: color-mix(in srgb, var(--c) 12%, transparent); font-variant-numeric: tabular-nums }
+.rcp { display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px; border-radius: 6px; font-size: 12px; background: color-mix(in srgb, var(--c) 12%, transparent) }
+/* Home › Personalize: the dashboards, the preview, the Display panel */
+.pgt { margin: 18px 0 10px; font-size: 15px }
+.pgr { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px }
+.pgc { display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 12px; border: 1px solid var(--bd); border-radius: 12px; background: var(--pn); cursor: pointer; font: inherit; color: inherit }
+.pgc:hover { border-color: var(--bd2) } .pgc.on { border: 2px solid var(--ac); padding: 11px } .pgc .pgh { display: flex; gap: 8px; align-items: center } .pgnew { border-style: dashed; justify-content: center }
+.pgv { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--bd) }
+.pds { display: flex; flex-direction: column; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--bd) } .pds > b { font-size: 13px }
+.pdg { margin: 12px 0 2px; font-size: 11.5px; font-weight: 600; color: var(--mu); text-transform: uppercase; letter-spacing: .04em }
+.pdt, .wdp .pdt { display: flex; flex-direction: row; align-items: center; gap: 12px; padding: 5px 0; cursor: pointer; font-size: 13.5px } .pdt .switch { margin: 0 !important } .pdt span { line-height: 1.3 }
+.pdl { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px 16px }

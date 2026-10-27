@@ -70,6 +70,20 @@ test('QA creates a review: the server calculates the score, the agent only sees 
   assert.ok(mine.some(e => e.rid === r.json.rid));
 });
 
+test('a new review keeps when it was made and how long QA Entry took (at most 4 hours)', async () => {
+  const qa = client(); await qa.login('t.qa');
+  const sc = (await qa.get('/api/scorecards')).json[0], t0 = Date.now();
+  const r = await qa.post('/api/evaluations', { scid: sc.id, agent: AGENT, id: 'T-1004', dt: '2026-09-01', a: allYes(sc), rt: 312.4 });
+  assert.strictEqual(r.status, 200);
+  const e = readDb().evaluations.find(x => x.rid === r.json.rid);
+  assert.ok(Date.parse(e.at) >= t0 - 1000, 'the review date is today, not the conversation date');
+  assert.strictEqual(e.rt, 312);
+  const long = await qa.post('/api/evaluations', { scid: sc.id, agent: AGENT, id: 'T-1005', dt: '2026-09-01', a: allYes(sc), rt: 99999 });
+  assert.strictEqual(readDb().evaluations.find(x => x.rid === long.json.rid).rt, 4 * 3600);
+  const none = await qa.post('/api/evaluations', { scid: sc.id, agent: AGENT, id: 'T-1006', dt: '2026-09-01', a: allYes(sc), rt: 'abc' });
+  assert.ok(!('rt' in readDb().evaluations.find(x => x.rid === none.json.rid)));
+});
+
 test('quick flags keep their CRM and recording links (regression)', async () => {
   const lead = client(); await lead.login('t.lead');
   const r = await lead.post('/api/qflags', { agent: AGENT, lead: 'T-2001', date: '2026-10-02', type: 'red', lk: 'https://crm.example.com/lead/1', rl: 'https://rec.example.com/1', cm: 'test' });

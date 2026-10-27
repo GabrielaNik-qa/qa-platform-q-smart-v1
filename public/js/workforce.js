@@ -1,5 +1,5 @@
 // ===================== Workforce, phase 1: the rota, work calendars, shift templates and patterns =====================
-// Workforce › Shifts and rota: the plan of each team, week by week. Admin › People › Work calendars and Shift templates set up
+// Workforce › Shifts and rota: the plan of each team, week by week. Workforce set-up › Work calendars and Shift templates set up
 // the working days and public holidays of each country, the shifts and the repeating patterns. The server works out every day
 // (wf.js): a change made on the rota for that day, else a public holiday, else the person's pattern, else their usual shift.
 let RTM = LS.get('qa_rteam', ''), RWK = '', ROTA = null, RCE = null, WCE = null, PTE = null;   // team and week shown, the loaded rota, the cell / calendar / pattern being edited
@@ -66,7 +66,7 @@ const rtCopyWeek = () => ask('Copy last week into this week?', 'Every day of thi
 const rtAssign = () => openForm({ title: 'Usual shifts and patterns', yes: 'Save', d: { users: [], shift: '_', pattern: '_', patStart: ROTA.from },
   fields: [{ k: 'users', l: 'People', t: 'multi', o: () => ROTA.people.filter(p => p.edit).map(p => [p.u, p.name]) },
     { k: 'shift', l: 'Usual shift', t: 'select', o: () => [['_', tr('Keep as it is')], ['', tr('Company default') + ' (' + ((wfShift(WF().defShift) || {}).name || '') + ')'], ...WF().shifts.map(s => [s.id, s.name + ' · ' + wfTime(s)])], hint: 'Worked on the working days of their calendar.' },
-    { k: 'pattern', l: 'Repeating pattern', t: 'select', re: 1, o: () => [['_', tr('Keep as it is')], ['', tr('None: the usual shift on working days')], ...WF().patterns.map(p => [p.id, p.name + ' · ' + p.days.length + ' ' + tr('days')])], hint: 'A pattern repeats on its own, for example 4 days on and 4 days off. Patterns are made in Admin › People › Shift templates.' },
+    { k: 'pattern', l: 'Repeating pattern', t: 'select', re: 1, o: () => [['_', tr('Keep as it is')], ['', tr('None: the usual shift on working days')], ...WF().patterns.map(p => [p.id, p.name + ' · ' + p.days.length + ' ' + tr('days')])], hint: 'A pattern repeats on its own, for example 4 days on and 4 days off. Patterns are made in Workforce set-up › Shift templates.' },
     { k: 'patStart', l: 'The pattern starts on', t: 'date', show: d => d.pattern && d.pattern !== '_' }],
   save: async d => {
     if (!d.users.length) return tr('Choose at least one person');
@@ -79,7 +79,7 @@ const rtAssign = () => openForm({ title: 'Usual shifts and patterns', yes: 'Save
 const rtExcel = () => { const R = ROTA, txt = c => { const s = wfShift(c.v); return s ? s.name + ' ' + wfTime(s) + (c.half ? ' ½' : '') : c.v === 'off' ? tr('Day off') : c.v === 'hol' ? tr(c.hol || 'Holiday') : ''; };
   xlCopy([[tr('Person'), ...R.days.map(d => wfDay(d.d)), tr('Planned hours'), tr('Hours per week')], ...R.people.map(p => [p.name, ...p.cells.map(txt), p.planned, p.hours]), [tr('On shift'), ...R.days.map(d => d.on), '', '']]); };
 
-// ---------------------------------------------------------------- Admin › People › Work calendars
+// ---------------------------------------------------------------- Workforce set-up › Work calendars
 // saves the Workforce set-up; returns the error message (or nothing when it worked), so forms can stay open on an error
 const wfSave = async (body, msg) => { const r = await api('/api/wf/settings', body, 'PUT'); if (!r.ok) return errOf(r, 'Could not save'); await load(); render(); toast(msg || 'Saved'); };
 const wfDo = async (body, msg) => { const e = await wfSave(body, msg); if (e) toast(e, true); };
@@ -116,7 +116,7 @@ const wcSave = () => once('wcsave', async () => {
   const err = await wfSave({ calendars: list }, 'Work calendar saved'); if (err) return toast(err, true); WCE = null; render();
 });
 
-// ---------------------------------------------------------------- Admin › People › Shift templates (and repeating patterns)
+// ---------------------------------------------------------------- Workforce set-up › Shift templates (and repeating patterns)
 const AUTO = { end: 'At the end of the shift', fixed: 'At a fixed time', none: 'Never' };
 const usedBy = id => USR.filter(u => u.active !== false && (u.shift || WF().defShift) === id && !u.pattern).length;
 PG.shifts = function () {
@@ -168,7 +168,7 @@ const EMP_FIELDS = () => [{ t: 'h', l: 'Employment' },
   { k: 'empId', l: 'Employee ID', max: 30 }, { k: 'empType', l: 'Employment type', t: 'select', o: () => Object.entries(EMPT).map(([k, l]) => [k, tr(l)]) },
   { k: 'hours', l: 'Hours per week', t: 'number', hint: 'Used by the rota and, later, by the fair split of leads. 40 = full time.' },
   { k: 'manager', l: 'Reporting manager', t: 'select', o: d => [['', tr('The team lead (automatic)')], ...USR.filter(u => u.role !== 'agent' && u.active !== false && u.username !== d.username).map(u => [u.username, u.name + ' · ' + (ROLE[u.role] || u.role)])] },
-  { k: 'cal', l: 'Work calendar', t: 'select', o: () => [['', tr('Company default') + ' (' + ((WF().calendars.find(c => c.id === WF().defCal) || {}).name || '') + ')'], ...WF().calendars.map(c => [c.id, c.name])], hint: 'Working days and public holidays (Admin › People › Work calendars).' },
+  { k: 'cal', l: 'Work calendar', t: 'select', o: () => [['', tr('Company default') + ' (' + ((WF().calendars.find(c => c.id === WF().defCal) || {}).name || '') + ')'], ...WF().calendars.map(c => [c.id, c.name])], hint: 'Working days and public holidays (Workforce set-up › Work calendars).' },
   { k: 'location', l: 'Location', ph: 'Sofia office, home…' },
   { k: 'shift', l: 'Usual shift', t: 'select', o: () => [['', tr('Company default') + ' (' + ((wfShift(WF().defShift) || {}).name || '') + ')'], ...WF().shifts.map(s => [s.id, s.name + ' · ' + wfTime(s)])] },
   { k: 'pattern', l: 'Repeating pattern', t: 'select', re: 1, o: () => [['', tr('None: the usual shift on working days')], ...WF().patterns.map(p => [p.id, p.name])] },

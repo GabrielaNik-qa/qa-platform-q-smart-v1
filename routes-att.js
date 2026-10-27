@@ -47,7 +47,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, s
       lates: latesFrom(db, S, u, d, LV, now), lateLimit: R.lateLimit, latePeriod: R.latePeriod, fixDays: R.fixDays, fixReasons: R.fixReasons, since: R.since,
       fixes: fixes.filter(f => f.u === me.username).slice(0, 30), waiting: me.role === 'agent' ? [] : fixes.filter(f => f.status === 'pending' && canDecide(db, me, userBy(db, f.u))).map(fixOut(db)) };
   }
-  // after too many late arrivals in the week or month (Admin › People › Attendance rules) the person and their team lead are warned: no deduction
+  // after too many late arrivals in the week or month (Workforce set-up › Attendance rules) the person and their team lead are warned: no deduction
   function lateWarning(db, S, u, d, now) {
     const R = S.rules; if (!R.since || d < R.since) return;
     const LV = wf.leavesBy(db.leaves), st = statusOf(db, S, u, d, LV, now); if (!st.late) return;
