@@ -70,7 +70,14 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   const KEYS = { planner: ['admin', 'qa'], perm: ['admin'], integ: ['admin'], notifOff: ['admin'], mailtpl: ['admin'] };
   app.put('/api/settings/x/:key', need(), (req, res) => {
     const k = req.params.key, u = req.session.user; if (!KEYS[k]) return res.status(404).json({ error: 'unknown setting' }); if (!KEYS[k].includes(u.role)) return res.status(403).json({ error: 'not allowed' });
-    const db = load(); db.settings = { ...db.settings, [k]: clean((req.body || {}).value) }; save(db); res.json(setOut(db, u));
+    let v = clean((req.body || {}).value);
+    if (k === 'integ') {                                          // the integration links are shown to everybody as links: only https:// addresses (R-13)
+      if (!v || typeof v !== 'object' || Array.isArray(v)) return bad(res, 'Links must start with https://');
+      const out = {};
+      for (const [x, s] of Object.entries(v)) { const t = typeof s === 'string' ? s.trim() : ''; if (t && !/^https:\/\/[^\s"'<>`]+$/i.test(t)) return bad(res, 'Links must start with https://'); out[x] = t.slice(0, 400); }
+      v = out;
+    }
+    const db = load(); db.settings = { ...db.settings, [k]: v }; save(db); res.json(setOut(db, u));
   });
 
   // ---------------------------------------------------------------- export centre: every Excel file that was made, ready to download again
@@ -141,6 +148,7 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   // the data saved inside seed.js becomes today's data (what "node seed.js" brings back). Only when the app runs on its own data.json:
   // a copy started with DATA_FILE (the tests, a demo copy) must never write its made-up data into the project's seed.js
   app.post('/api/seed/refresh', need('admin'), (req, res) => {
+    if (!app.locals.devTools) return res.status(403).json({ error: 'The developer tools are switched off on this server' });
     if (path.resolve(FILE) !== path.join(DIR, 'data.json')) return bad(res, 'This copy of the app works on another data file, so seed.js was not changed');
     const p = path.join(DIR, 'seed.js'); let s; try { s = fs.readFileSync(p, 'utf8'); } catch (e) { return bad(res, 'seed.js was not found'); }
     const a = s.indexOf('const DATA = '), b = s.indexOf(';\n\nfunction restore'), b2 = s.indexOf(';\r\n\r\nfunction restore'), end = b >= 0 ? b : b2;

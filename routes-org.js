@@ -38,10 +38,19 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, setOut, lim
   // a person's data (the right of access): everything stored about one person, in one file
   app.get('/api/org/person/:u', need('admin'), (req, res) => {
     const db = load(), un = req.params.u, u = db.users.find(x => x.username === un); if (!u) return res.status(404).json({ error: 'not found' });
-    const { hash, reset, pwv, ...me } = u, mine = (c, f) => (Array.isArray(db[c]) ? db[c] : []).filter(f);
+    const { hash, reset, pwv, ...me } = u, mine = (c, f) => (Array.isArray(db[c]) ? db[c] : []).filter(x => x && f(x)), has = (l, v) => Array.isArray(l) && l.includes(v);
+    const email = String(u.email || '').toLowerCase(), aud = app.locals.audit && app.locals.audit.of ? app.locals.audit.of(un) : [];
     res.setHeader('Content-Disposition', `attachment; filename="personal-data-${un.replace(/[^\w.-]/g, '')}.json"`);
-    res.json({ exported: iso(), by: req.session.user.username, person: me, reviews: mine('evaluations', e => e.agent === un || e.by === un), tasks: mine('tasks', t => t.assignee === un), sessions: mine('sessions', s => s.agents.includes(un) || s.by === un),
-      quickFlags: mine('qflags', f => f.agent === un), simulations: mine('simulations', s => s.agent === un), surveys: mine('surveys', s => s.agent === un), attendance: Object.fromEntries(Object.entries(db.att || {}).map(([d, m]) => [d, m && m[un]]).filter(([, v]) => v)), timeOff: mine('leaves', l => l.u === un), notifications: mine('notifications', n => n.u === un || n.to === un) });
+    res.json({ exported: iso(), by: req.session.user.username, person: me,
+      registration: mine('registrations', r => r.username === un || (email && String(r.email || '').toLowerCase() === email)).map(({ hash: h, ...r }) => r),
+      reviews: mine('evaluations', e => e.agent === un || e.by === un), tasks: mine('tasks', t => t.assignee === un || t.by === un), sessions: mine('sessions', s => has(s.agents, un) || s.by === un),
+      calibrations: mine('calibrations', c => has(c.participants, un)), quickFlags: mine('qflags', f => f.agent === un), simulations: mine('simulations', s => s.agent === un), surveys: mine('surveys', s => s.agent === un),
+      autoQa: mine('conversations', c => c.agent === un), aiDrafts: mine('aiDrafts', d => d.agent === un), aiCoachingPlans: mine('aiPlans', p => p.agent === un),
+      goals: mine('goals', g => g.scope === 'agent' && g.target === un), improvementPlans: mine('pips', p => p.agent === un), recognition: mine('kudos', k => k.to === un || k.by === un),
+      complaints: mine('complaints', c => c.agent === un), risks: mine('risks', r => r.agent === un || r.owner === un), quizAttempts: mine('attempts', a => a.u === un || a.user === un || a.agent === un),
+      articlesRead: (db.kbReads || {})[un] || {}, attendance: Object.fromEntries(Object.entries(db.att || {}).map(([d, m]) => [d, m && m[un]]).filter(([, v]) => v)),
+      attendanceCorrections: mine('attFix', f => f.u === un), timeOff: mine('leaves', l => l.u === un), timeOffAdjustments: mine('leaveAdj', a => a.u === un),
+      notifications: mine('notifications', n => n.u === un || n.to === un), auditLog: aud });
   });
 
   // ---------------------------------------------------------------- Q-Intelligence: knowledge files

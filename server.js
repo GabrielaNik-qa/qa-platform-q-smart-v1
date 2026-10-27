@@ -79,6 +79,9 @@ async function mail(to, subject, text, key, vars = {}, html) {
   if (t && (t.subject || t.body)) { if (t.subject) subject = fill(t.subject); if (t.body) text = fill(t.body); }
   try {
     if (mailer) { await mailer.sendMail({ from: process.env.MAIL_FROM || process.env.SMTP_USER, to, subject, text, ...(html ? { html } : {}) }); console.log('Email sent to ' + to + ': ' + subject); }
+    // without SMTP the e-mail is printed for the person running the app on their own computer; on a production server it never is
+    // (it can hold a reset link), only the fact that it could not be sent (R-9)
+    else if (process.env.NODE_ENV === 'production') console.log('[no SMTP configured] An e-mail to ' + to + ' could not be sent: ' + subject);
     else console.log('[no SMTP configured] Email to ' + to + ' - ' + subject + '\n' + text + '\n');
   } catch (e) { console.error('Mail failed:', e.message); }
 }
@@ -148,14 +151,25 @@ const app = express();
 const TP = process.env.TRUST_PROXY;
 app.set('trust proxy', /^\d+$/.test(TP || '') ? Number(TP) : TP === 'true' ? true : TP || 'loopback');
 app.disable('x-powered-by');
+// the Content-Security-Policy: the pages still use inline onclick="…" handlers (R-7), so scripts must allow 'unsafe-inline' for now,
+// but nothing can be loaded from or sent to another site (connect-src 'self'), no plug-ins, no <base> tricks, no framing by others.
+// Images and audio may come from https links (company logo, recording links); fonts and their CSS from Google Fonts (R-24).
+const CSP = ["default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: blob: https:", "media-src 'self' blob: https:", "connect-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'self'"].join('; ');
 app.use((req, res, next) => {   // basic browser protections: no framing by other sites (clickjacking), no guessing of file types; data answers are never cached
-  res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'same-origin' });
+  res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'same-origin', 'Content-Security-Policy': CSP,
+    'Permissions-Policy': 'camera=(), geolocation=(), payment=(), usb=(), microphone=(self)' });   // the microphone: the AI Simulator's voice answers
   if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
   next();
 });
 app.use((req, res, next) => {   // a change sent by another website (CSRF) is refused, also from a neighbouring site of the same domain; the app itself sends "same-origin"
-  const from = req.get('sec-fetch-site');
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method) && from && from !== 'same-origin' && from !== 'none') return res.status(403).json({ error: 'Requests from other websites are not allowed' });
+  const from = req.get('sec-fetch-site'), origin = req.get('origin');
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    if (from && from !== 'same-origin' && from !== 'none') return res.status(403).json({ error: 'Requests from other websites are not allowed' });
+    // older browsers send no Sec-Fetch-Site: their Origin header must then be this app's own address (as the visitor sees it: behind the tunnel, the forwarded host)
+    let host = ''; try { host = !from && origin ? (origin === 'null' ? 'null' : new URL(origin).host) : ''; } catch (e) { host = 'bad'; }
+    if (host && host !== req.get('host') && host !== req.get('x-forwarded-host')) return res.status(403).json({ error: 'Requests from other websites are not allowed' });
+  }
   next();
 });
 app.use(session({
@@ -166,6 +180,9 @@ app.use(session({
 // only signed-in staff may send large data (imports, backups); an agent never needs more than a few hundred KB (an Excel file of their own reviews)
 const bigJson = express.json({ limit: '25mb' }), midJson = express.json({ limit: '2mb' }), smallJson = express.json({ limit: '100kb' });
 app.use((req, res, next) => { const u = req.session && req.session.user; (!u ? smallJson : u.role === 'agent' ? midJson : bigJson)(req, res, next); });
+// no real page sends data nested more than a few levels deep; thousands of levels would crash whatever reads it next (it is checked without recursion)
+const tooDeep = (v, max = 64) => { const st = [[v, 0]]; while (st.length) { const [x, d] = st.pop(); if (x && typeof x === 'object') { if (d >= max) return true; for (const k in x) st.push([x[k], d + 1]); } } return false; };
+app.use((req, res, next) => req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body) && tooDeep(req.body) ? res.status(400).json({ error: 'The request could not be read' }) : next());
 const AUDIT = require('./audit');
 app.use(AUDIT.middleware);
 // the account as it is saved right now (re-read only when data.json changed), so a deactivated user or a changed role takes effect at once, not at the next login
@@ -194,8 +211,13 @@ const need = (...roles) => (req, res, next) => {
   next();
 };
 AUDIT.routes(app, need);
+// the developer tools ("Reset to the seed data", "Refresh seed.js") work on your own computer; on a production server
+// (NODE_ENV=production) they are off unless DEV_TOOLS=1 is set, so a customer's admin can never wipe the data (R-26)
+const DEV_TOOLS = process.env.DEV_TOOLS === '1' || (process.env.DEV_TOOLS !== '0' && process.env.NODE_ENV !== 'production');
+app.locals.devTools = DEV_TOOLS;
+const devOnly = (req, res, next) => DEV_TOOLS ? next() : res.status(403).json({ error: 'The developer tools are switched off on this server' });
 // puts back the data saved in seed.js (same as running "node seed.js"); the current data is kept in data.backup.json
-app.post('/api/demo/reset', need('admin'), (req, res) => {
+app.post('/api/demo/reset', need('admin'), devOnly, (req, res) => {
   try { require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'seed.js')], { cwd: __dirname, stdio: 'ignore' }); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: 'The reset failed - run "node seed.js" in the terminal to see why' }); }
 });
@@ -214,6 +236,7 @@ app.post('/api/login', (req, res) => {
   const id = String(username || '').trim().toLowerCase(), db = load();
   const u = db.users.find(x => x.username === id || (x.email || '').toLowerCase() === id);   // username OR email
   const fail = 'fail:' + (u ? u.username : id);                                               // wrong passwords are also counted per account, whatever the address
+  res.locals.loginAs = u ? u.username : '';   // the audit log keeps the account of a failed sign-in, never the typed text (it may be a password typed in the wrong box)
   if (recent(fail, 9e5) >= (((db.settings || {}).signin || {}).lockAfter || 10)) return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });
   if (u && u.active !== false && bcrypt.compareSync(String(password || ''), u.hash)) {   // a fresh session id at every sign-in (an id planted before the sign-in is useless)
     delete hits[fail]; u.lastIn = iso(); save(db);                                         // last sign-in, shown in Admin › Users
@@ -766,7 +789,7 @@ app.post('/api/forgot', async (req, res) => {
     u.reset = { h: sha(token), exp: now + 36e5 }; save(db);          // link is valid for 1 hour
     const url = `${BASE}/?reset=${token}&u=${encodeURIComponent(u.username)}`;
     await mail(u.email, 'Reset your password', `Hi ${u.name},\n\nChoose a new password here (valid for 1 hour):\n${url}\n\nIf you did not ask for this, ignore this email.`, 'reset', { name: u.name, link: url });
-  } else console.log('Reset requested, but no account with an email address matched "' + id + '"');
+  } else console.log('Reset requested, but no account with an email address matched');   // the typed text is not printed (it may be a password)
   res.json({ ok: 1 });   // same answer whether or not the account exists
 });
 app.post('/api/reset', (req, res) => {
@@ -788,12 +811,18 @@ try { fs.mkdirSync(REC, { recursive: true }); const old = path.join(__dirname, '
 const EXT = { 'audio/mpeg': 'mp3', 'audio/mp3': 'mp3', 'audio/wav': 'wav', 'audio/x-wav': 'wav', 'audio/wave': 'wav',
   'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/aac': 'aac', 'audio/ogg': 'ogg', 'audio/webm': 'webm' };
 const EXTS = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'webm'];
+// the first bytes of each kind of audio file: a web page or a program renamed ".mp3" is refused (R-15)
+const isAudio = (b, ext) => {
+  const at = (s, o = 0) => b.length >= o + s.length && b.toString('latin1', o, o + s.length) === s, sync = b.length > 1 && b[0] === 0xff && (b[1] & 0xe0) === 0xe0;
+  return { mp3: at('ID3') || sync, wav: at('RIFF') && at('WAVE', 8), m4a: at('ftyp', 4), aac: sync || at('ADIF') || at('ftyp', 4), ogg: at('OggS'), webm: b.length > 3 && b.readUInt32BE(0) === 0x1a45dfa3 }[ext] || false;
+};
 app.post('/api/evaluations/:rid/recording', need('admin', 'qa'), express.raw({ type: () => true, limit: '100mb' }), (req, res) => {
   const db = load(), ev = evOf(db, req.session.user, req.params.rid);
   const q = String(req.query.ext || '').toLowerCase(), ext = EXT[String(req.headers['content-type']).split(';')[0]] || (EXTS.includes(q) ? q : '');   // some browsers send no audio type: the file name decides
   if (!ev) return res.status(404).json({ error: 'evaluation not found' });
   if (!ext) return res.status(415).json({ error: 'unsupported audio type' });
   if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'empty file' });
+  if (!isAudio(req.body, ext)) return res.status(415).json({ error: 'This file is not a real audio recording' });
   fs.mkdirSync(REC, { recursive: true });
   const name = String(ev.rid).replace(/[^\w-]/g, '') + '-' + Date.now() + '.' + ext;   // only letters and numbers: the file always lands in the recordings folder
   fs.writeFileSync(path.join(REC, name), req.body);

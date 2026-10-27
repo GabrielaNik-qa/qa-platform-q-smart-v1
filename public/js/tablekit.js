@@ -119,9 +119,13 @@ function ttCopy(k) {
   const rows = [ttHead(t), ...ttRows(t).filter(r => !r.hidden)], keep = ttCols(t).map((c, j) => !ttHead(t).children[j].hidden && rows.slice(1).some(r => ttTxt(r.children[j])));
   xlCopy(rows.map(r => [...r.children].filter((c, j) => keep[j]).map(ttTxt)));
 }
+// a text that starts with = + - or @ would become a formula when pasted into Excel (a name like "=HYPERLINK(…)" typed by
+// somebody): it is pasted as text instead; plain numbers such as -5 or +3.5 stay numbers
+const xlFormula = s => /^[=+\-@]/.test(s) && !/^[-+]?\d[\d\s.,]*%?$/.test(s);
 async function xlCopy(data) {
-  const cell = v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' '), n = data.length - 1;
-  const tsv = data.map(r => r.map(cell).join('\t')).join('\r\n'), html = `<table>${data.map((r, i) => `<tr>${r.map(v => i ? `<td>${esc(cell(v))}</td>` : `<th>${esc(cell(v))}</th>`).join('')}</tr>`).join('')}</table>`;
+  const cell = v => String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' '), n = data.length - 1, safe = v => { const s = cell(v); return xlFormula(s) ? "'" + s : s; };
+  const td = v => { const s = cell(v); return xlFormula(s) ? `<td style="mso-number-format:'\\@'">${esc(s)}</td>` : `<td>${esc(s)}</td>`; };
+  const tsv = data.map(r => r.map(safe).join('\t')).join('\r\n'), html = `<table>${data.map((r, i) => `<tr>${r.map(v => i ? td(v) : `<th>${esc(safe(v))}</th>`).join('')}</tr>`).join('')}</table>`;
   try {
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) await navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([tsv], { type: 'text/plain' }), 'text/html': new Blob([html], { type: 'text/html' }) })]);
     else await navigator.clipboard.writeText(tsv);

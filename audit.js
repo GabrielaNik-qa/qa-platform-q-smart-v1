@@ -32,10 +32,11 @@ function middleware(req, res, next) {
     if (res.statusCode >= 500 || (!u && !isLogin)) return;
     if (res.statusCode >= 400 && !isLogin) return;
     const key = req.method + ' ' + req.path, det = [];
-    for (const k of SHOW) if (b[k] !== undefined && typeof b[k] !== 'object') det.push(k + ': ' + String(b[k]).slice(0, 60));
+    if (!isLogin) for (const k of SHOW) if (b[k] !== undefined && typeof b[k] !== 'object') det.push(k + ': ' + String(b[k]).slice(0, 60));
     if (b.teams && typeof b.teams === 'object' && !Array.isArray(b.teams)) det.push('team pass rates: ' + JSON.stringify(b.teams).slice(0, 100));
     if (b.sc !== undefined) det.push('score: ' + b.sc);
-    LOG.push({ t: new Date().toISOString(), u: u ? u.username : String(b.username || '').slice(0, 40), n: u ? u.name : '', r: u ? u.role : '',
+    // a failed sign-in names the account only when the typed name or e-mail belongs to one (R-25: a password typed into the username box is never kept)
+    LOG.push({ t: new Date().toISOString(), u: u ? u.username : res.locals.loginAs || (isLogin ? '(unknown account)' : ''), n: u ? u.name : '', r: u ? u.role : '',
       a: isLogin ? (res.statusCode < 400 ? 'Signed in' : 'Failed sign-in') : label(key), p: req.method + ' ' + req.path, d: det.join(' · '), ok: res.statusCode < 400, ip: req.ip });
     if (LOG.length > MAX) LOG.splice(0, LOG.length - MAX);
     flush();
@@ -47,4 +48,6 @@ function routes(app, need) {
 }
 // data protection (Admin › Organization): entries older than the chosen months are removed; returns how many
 const prune = months => { const cut = Date.now() - months * 30.44 * 864e5, n = LOG.length; LOG = LOG.filter(x => !x.t || new Date(x.t).getTime() >= cut); if (LOG.length !== n) flush(); return n - LOG.length; };
-module.exports = { middleware, routes, prune };
+// the entries of one person (Admin › Organization › personal data download)
+const of = username => LOG.filter(x => x.u === username);
+module.exports = { middleware, routes, prune, of };
