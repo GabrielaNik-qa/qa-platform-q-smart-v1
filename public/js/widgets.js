@@ -2,13 +2,16 @@
 // Every card on the Dashboard and AutoQA pages is a widget from a preset catalog: each has its own name, size and place, so every
 // dashboard reads the same way, top to bottom (summary, numbers, charts, categories, people, lists, work). The pages only show
 // them: Home › Personalize (personalize.js) chooses which dashboard is your home, switches each widget on or off, and sets how the
-// data is counted. Views: "Standard" is your home (your own version > the default of your role set by an admin > built in); named
+// data is counted. The widgets are packed so every row is full; there, an admin can also arrange a dashboard by hand (move and
+// resize its widgets), and that dashboard then keeps exactly the order and sizes they chose ("arranged": ar on every item). Views: "Standard" is your home (your own version > the default of your role set by an admin > built in); named
 // views (personal ones, and shared ones made by admins / QA for chosen roles or everyone); and the ready-made dashboards (dashboards.js).
 const WREG = { dash: {}, autoqa: {} }, DEFL = { dash: {}, autoqa: {} };
 let WPREV = '', WUNDO = null;                                                   // WPREV = an admin previews the Standard view of another role
 const wdef = (page, id, title, w, r, desc = '', grp = 'More') => { WREG[page][id] = { title, w, r, desc, grp }; };
 const wl = (...a) => a.filter(([, , on = true]) => on).map(([id]) => ({ k: id, id, on: true }));
-const wNorm = x => ({ k: x.k || x.id, id: x.id, on: x.on !== false });
+const wNorm = x => ({ k: x.k || x.id, id: x.id, on: x.on !== false, ...(x.ar ? { ar: true, size: x.size, ...(x.h ? { h: x.h } : {}) } : {}) });
+const isArr = items => items.some(x => x.ar);                                   // arranged by an admin: its own order and sizes
+const wKeep = page => x => x.ar ? { ...wNorm(x), size: x.size || (WREG[page][x.id] || {}).w || 30 } : { ...wNorm(x), size: (WREG[page][x.id] || {}).w || 30 };
 const canShare = () => ['admin', 'qa'].includes(ME.role);
 const ROLESEL = [['all', 'Everyone'], ...Object.entries(ROLE)];
 const PERN = { week: 'Week', month: 'Month', year: 'Year', all: 'All time' };
@@ -23,7 +26,27 @@ const WORD = { dash: ['brief', 'att_me', 'cap_me', 'wf_today', 'ai_lead',
   'planner', 'tasks', 'goals', 'kudos', 'learn_prog', 'ai_sim', 'ai_train', 'ai_ana'], autoqa: [] };
 const wRank = (page, id) => { const i = WORD[page].indexOf(id); return i < 0 ? 1000 + Object.keys(WREG[page]).indexOf(id) : i; };
 const wOrder = page => Object.keys(WREG[page]).sort((a, b) => wRank(page, a) - wRank(page, b));
-const wSorted = (page, items) => { const seen = new Set(); return items.filter(x => WREG[page][x.id] && x.on !== false && !seen.has(x.id) && seen.add(x.id)).sort((a, b) => wRank(page, a.id) - wRank(page, b.id)); };
+const wSorted = (page, items) => { const seen = new Set(), l = items.filter(x => WREG[page][x.id] && x.on !== false && !seen.has(x.id) && seen.add(x.id)); return isArr(l) ? l : l.sort((a, b) => wRank(page, a.id) - wRank(page, b.id)); };
+// the width of every widget on screen (sp, of the 60 columns), so no row has an empty end: number tiles share their own rows (at most
+// five, as even as possible), and in the other rows the cards grow to fill the row. An arranged dashboard keeps its own sizes.
+function wPack(page, items) {
+  const l = wSorted(page, items), reg = WREG[page], out = [];
+  if (isArr(l)) return l.map(x => ({ ...x, sp: x.size || reg[x.id].w }));
+  const fill = row => { const t = row.reduce((a, x) => a + x.w, 0); let used = 0; row.forEach((x, i) => { const sp = i === row.length - 1 ? 60 - used : Math.round(x.w * 60 / t); used += sp; out.push({ ...x.x, sp }); }); };
+  const tile = x => reg[x.id].w <= 15, wd = x => Math.min(60, reg[x.id].w);
+  for (let i = 0; i < l.length;) {
+    if (tile(l[i])) {                                  // a run of tiles: the fewest rows of at most 5, the first rows one longer
+      let j = i; while (j < l.length && tile(l[j])) j++;
+      const run = l.slice(i, j), rows = Math.ceil(run.length / 5); let a = 0;
+      for (let k = 0; k < rows; k++) { const n = Math.ceil((run.length - a) / (rows - k)); fill(run.slice(a, a + n).map(x => ({ x, w: 1 }))); a += n; }
+      i = j; continue;
+    }
+    const row = []; let w = 0;
+    while (i < l.length && !tile(l[i]) && w + wd(l[i]) <= 60) { row.push({ x: l[i], w: wd(l[i]) }); w += wd(l[i]); i++; }
+    fill(row);
+  }
+  return out;
+}
 
 // ---- which widgets a view shows
 function stdLayout(page, role) {
@@ -44,7 +67,7 @@ const canEditView = v => !WPREV && v.kind !== 'tpl' && (v.kind !== 'shared' || c
 async function wCommit(page, items, msg, patch = {}, vid = 'std') {
   const v = curView(page, vid); if (!canEditView(v)) return;
   const before = { page, vid: v.id, items: itemsOf(page, v), name: v.name, roles: v.roles };
-  items = items.map(x => ({ ...wNorm(x), size: (WREG[page][x.id] || {}).w || 30 }));
+  items = items.map(wKeep(page));
   let req;
   if (v.kind === 'std') { ME = { ...ME, layouts: { ...(ME.layouts || {}), [page]: items } }; req = api('/api/layout', { page, items }, 'PUT').then(async r => { if (r.ok) ME = await r.json(); return r; }); }
   else if (v.kind === 'mine') { const views = myViews(page).map(x => x.id === v.id ? { ...x, ...patch, items } : x); ME = { ...ME, views: { ...(ME.views || {}), [page]: views } }; req = api('/api/views', { page, views }, 'PUT').then(async r => { if (r.ok) ME = await r.json(); return r; }); }
@@ -57,7 +80,7 @@ async function wUndo() { const u = WUNDO; if (!u) return; WUNDO = null; const b 
 // a widget switched on or off on one view (Home › Personalize › Display)
 function wToggle(page, vid, id, on) {
   const l = itemsOf(page, curView(page, vid)).filter(x => x.id !== id && x.on !== false), t = WREG[page][id].title;
-  if (on) l.push({ k: id, id, on: true });
+  if (on) l.push({ k: id, id, on: true, ...(isArr(l) ? { ar: true, size: WREG[page][id].w } : {}) });   // on an arranged dashboard it comes last, at its preset size
   wCommit(page, l, on ? `Shown: ${t}` : `Hidden: ${t}`, {}, vid);
 }
 
@@ -68,7 +91,7 @@ function wNewView(page, src) {
     fields: [{ k: 'name', l: 'Name', req: 1, ph: tr('For example: My team, Chats, Mondays') }, ...(canShare() ? [{ k: 'roles', l: 'Also show it to (leave empty for a personal dashboard)', t: 'multi', o: ROLESEL }] : [])],
     save: async d => {
       if (!d.name.trim()) return tr('Give the dashboard a name');
-      const id = 'v' + Date.now().toString(36), items = from ? itemsOf(page, from) : builtin(page, ME.role), v = { id, name: d.name.trim().slice(0, 40), items: items.map(x => ({ ...wNorm(x), size: (WREG[page][x.id] || {}).w || 30 })) };
+      const id = 'v' + Date.now().toString(36), items = from ? itemsOf(page, from) : builtin(page, ME.role), v = { id, name: d.name.trim().slice(0, 40), items: items.map(wKeep(page)) };
       if (canShare() && (d.roles || []).length) { const r = await api('/api/shared-views', { page, views: [...sharedViews(page), { ...v, roles: d.roles, by: ME.name }] }, 'PUT'); if (!r.ok) return errOf(r, 'Could not create the dashboard'); SET = await r.json(); }
       else { const r = await api('/api/views', { page, views: [...myViews(page), v] }, 'PUT'); if (!r.ok) return errOf(r, 'Could not create the dashboard'); ME = await r.json(); }
       if (typeof pSel === 'function') pSel(id); toast(tr(`Dashboard "${v.name}" created`));
@@ -78,7 +101,7 @@ async function wViewPatch(page, vid, patch, msg) { const v = curView(page, vid);
 async function wShare(page, vid, r) {
   const v = curView(page, vid); let roles = [...(v.roles || [])];
   if (r === 'all') roles = roles.includes('all') ? [] : ['all']; else { roles = roles.filter(x => x !== 'all'); roles = roles.includes(r) ? roles.filter(x => x !== r) : [...roles, r]; }
-  const items = itemsOf(page, v).map(x => ({ ...x, size: (WREG[page][x.id] || {}).w || 30 }));
+  const items = itemsOf(page, v).map(wKeep(page));
   if (v.kind === 'mine' && roles.length) {            // a personal dashboard becomes shared
     const r1 = await api('/api/shared-views', { page, views: [...sharedViews(page), { id: v.id, name: v.name, items, roles, by: ME.name }] }, 'PUT'); if (!r1.ok) return toast(await errOf(r1, 'Could not share'), true); SET = await r1.json();
     const r2 = await api('/api/views', { page, views: myViews(page).filter(x => x.id !== v.id) }, 'PUT'); if (r2.ok) ME = await r2.json(); render(); return toast('Shared');
@@ -94,16 +117,54 @@ const wDelView = (page, vid) => { const v = curView(page, vid); ask(tr(`Delete "
   else { const r = await api('/api/views', { page, views: myViews(page).filter(x => x.id !== v.id) }, 'PUT'); if (r.ok) ME = await r.json(); }
   if (typeof pSel === 'function') pSel('std'); toast('Dashboard deleted');
 }, { yes: 'Yes, delete', no: 'Cancel', danger: true }); };
-async function wRoleDefault(page, role, vid) { if (!role) return; const items = itemsOf(page, curView(page, vid)).map(x => ({ ...x, size: (WREG[page][x.id] || {}).w || 30 })); const r = await api('/api/layouts/' + role, { page, items }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true); const j = await r.json(); SET = { ...SET, layouts: j.layouts }; toast(tr(`This is now the home dashboard of every ${ROLE[role]} who has not chosen their own`)); }
+async function wRoleDefault(page, role, vid) { if (!role) return; const items = itemsOf(page, curView(page, vid)).map(wKeep(page)); const r = await api('/api/layouts/' + role, { page, items }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true); const j = await r.json(); SET = { ...SET, layouts: j.layouts }; toast(tr(`This is now the home dashboard of every ${ROLE[role]} who has not chosen their own`)); }
 async function wResetStd(page) { const r = await api('/api/layout', { page, reset: true, items: [] }, 'PUT'); if (r.ok) { ME = await r.json(); render(); toast('Back to the default of your role'); } }
 
-// ---- showing a view: the widgets in their preset order and size (nothing to drag or resize on the page itself)
+// ---- showing a view: the widgets packed in their preset order and size, or as an admin arranged them (edit = the handles to do so)
 const wBk = s => s < 20 ? 'ws' : s < 30 ? 'wm' : s < 60 ? 'wl' : 'wf';   // size group: on narrow screens small widgets grow so they stay readable
-function wGrid(page, ctxOf, vid) {
-  const reg = WREG[page], items = wSorted(page, itemsOf(page, curView(page, vid)));
+function wGrid(page, ctxOf, vid, edit) {
+  const reg = WREG[page], items = wPack(page, itemsOf(page, curView(page, vid)));
   if (!items.length) return `<div class="agem wempty"><b>${tr('This dashboard has no widgets yet.')}</b><br><a href="javascript:void(0)" class=agl onclick="goPage('pers')">${tr('Choose them in Home › Personalize ›')}</a></div>`;
-  return `<div class=wgrid>${items.map(x => { const r = reg[x.id]; return `<div class="wg ${wBk(r.w)}" style="--sp:${r.w}">${r.r(typeof ctxOf === 'function' ? ctxOf(x) : ctxOf, r.w, x)}</div>`; }).join('')}</div>`;
+  return `<div class="wgrid${edit ? ' warr' : ''}">${items.map(x => { const r = reg[x.id], h = x.ar && x.h; return `<div class="wg ${wBk(x.sp)}${h ? ' hset' : ''}${edit ? ' ed' : ''}" style="--sp:${x.sp}${h ? `;height:${h}px` : ''}"${edit ? wDnD(page, vid, x.k) : ''}>${edit ? wTb(page, vid, x) : ''}${r.r(typeof ctxOf === 'function' ? ctxOf(x) : ctxOf, x.sp, x)}${edit ? wRzH(page, vid, x.k) : ''}</div>`; }).join('')}</div>`;
 }
+// ---- arranging by hand (admins only, in Home › Personalize): the first move or resize fixes the dashboard as it is shown, then every
+// change keeps exactly that order and those sizes. "Automatic layout" goes back to the packed preset.
+const canArrange = () => ME.role === 'admin' && !WPREV;
+const wArrItems = (page, vid) => wPack(page, itemsOf(page, curView(page, vid))).map(x => ({ k: x.k, id: x.id, on: true, ar: true, size: x.sp, ...(x.ar && x.h ? { h: x.h } : {}) }));
+const wIdx = (l, k) => l.findIndex(x => x.k === k);
+function wArrAuto(page, vid) { const l = itemsOf(page, curView(page, vid)).filter(x => x.on !== false).map(x => ({ k: x.k, id: x.id, on: true })); wCommit(page, l, 'Automatic layout', {}, vid); }
+function wRemove(page, vid, k) { const l = wArrItems(page, vid), x = l[wIdx(l, k)]; wCommit(page, l.filter(z => z.k !== k), `Hidden: ${WREG[page][x.id].title}`, {}, vid); }
+// resizing: drag the right edge (width), the bottom edge (height) or the corner (both); the width snaps to the 60 columns of the grid
+function wRz(ev, page, vid, k, mode) {
+  if (ev.button) return; ev.preventDefault(); ev.stopPropagation();
+  const el = ev.currentTarget.closest('.wg'), grid = el.parentElement, gap = parseFloat(getComputedStyle(grid).columnGap) || 0, col = (grid.clientWidth - 59 * gap) / 60;
+  const l = wArrItems(page, vid), x = l[wIdx(l, k)]; if (!x) return;
+  const r0 = el.getBoundingClientRect(), x0 = ev.clientX, y0 = ev.clientY, tip = document.createElement('div');
+  let sp = x.size, h = x.h || 0;
+  tip.className = 'wrtip'; el.appendChild(tip); el.classList.add('rz'); document.body.classList.add('wrzing');
+  const show = () => { tip.textContent = Math.round(sp / 60 * 100) + '% × ' + (h ? h + ' px' : tr('automatic height')); };
+  const move = e => {   // with the corner, a dimension changes only once the mouse really moves that way
+    if (mode === 'x' || (mode === 'xy' && Math.abs(e.clientX - x0) > 6)) { sp = Math.max(6, Math.min(60, Math.round((r0.width + e.clientX - x0 + gap) / (col + gap)))); el.style.setProperty('--sp', sp); }
+    if (mode === 'y' || (mode === 'xy' && Math.abs(e.clientY - y0) > 6)) { h = Math.max(90, Math.min(1400, Math.round((r0.height + e.clientY - y0) / 10) * 10)); el.style.height = h + 'px'; el.classList.add('hset'); }
+    show();
+  };
+  const up = () => {
+    removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up);
+    tip.remove(); el.classList.remove('rz'); document.body.classList.remove('wrzing');
+    if (sp === x.size && h === (x.h || 0)) return;
+    x.size = sp; if (h) x.h = h; else delete x.h; wCommit(page, l, 'Size changed', {}, vid);
+  };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up); show();
+}
+function wAutoH(page, vid, k) { const l = wArrItems(page, vid), x = l[wIdx(l, k)]; if (!x || !x.h) return; delete x.h; wCommit(page, l, 'Automatic height', {}, vid); }
+const wRzH = (page, vid, k) => `<i class="wrz wrx" onpointerdown="wRz(event,'${page}',${jsq(vid)},${jsq(k)},'x')" title="${esc(tr('Drag to change the width'))}"></i><i class="wrz wry" onpointerdown="wRz(event,'${page}',${jsq(vid)},${jsq(k)},'y')" ondblclick="wAutoH('${page}',${jsq(vid)},${jsq(k)})" title="${esc(tr('Drag to change the height (double-click: automatic height)'))}"></i><i class="wrz wrxy" onpointerdown="wRz(event,'${page}',${jsq(vid)},${jsq(k)},'xy')" ondblclick="wAutoH('${page}',${jsq(vid)},${jsq(k)})" title="${esc(tr('Drag to change the size (double-click: automatic height)'))}"></i>`;
+// moving: grab the ⠿ handle of a widget and drop it on another one (it takes that place)
+let WDRAG = null;
+const wGrip = `onmousedown="this.closest('[data-wk]').draggable=true" onmouseup="this.closest('[data-wk]').draggable=false"`;
+function wDragStart(ev, page, k) { WDRAG = { page, k }; ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', k); }
+function wDropOn(ev, page, vid, k) { ev.preventDefault(); ev.currentTarget.classList.remove('over'); const d = WDRAG; WDRAG = null; if (!d || d.page !== page || d.k === k) return; const l = wArrItems(page, vid), x = l.splice(wIdx(l, d.k), 1)[0]; l.splice(wIdx(l, k), 0, x); wCommit(page, l, 'Widget moved', {}, vid); }
+const wDnD = (page, vid, k) => ` data-wk="${esc(k)}" ondragstart="wDragStart(event,'${page}',${jsq(k)})" ondragend="this.draggable=false" ondragover="event.preventDefault();this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="wDropOn(event,'${page}',${jsq(vid)},${jsq(k)})"`;
+const wTb = (page, vid, x) => `<div class=wtb2><span class=wgrip title="${esc(tr('Drag to move'))}" ${wGrip}>⠿</span><button onclick="wRemove('${page}',${jsq(vid)},${jsq(x.k)})" title="${esc(tr('Hide this widget'))}" aria-label="${esc(tr('Hide this widget'))}">✕</button></div>`;
 // the bar above the widgets of the Dashboard: its filters, and the way to Personalize
 const wBar = (page, chips = '') => `<div class=wvbar>${chips || '<div></div>'}<button class="ib ibx" onclick="goPage('pers')" title="${esc(tr('Choose your dashboard and its widgets'))}">${IC.gear} ${tr('Personalize')}</button></div>`;
 

@@ -891,3 +891,7 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .pdg { margin: 12px 0 2px; font-size: 11.5px; font-weight: 600; color: var(--mu); text-transform: uppercase; letter-spacing: .04em }
 .pdt, .wdp .pdt { display: flex; flex-direction: row; align-items: center; gap: 12px; padding: 5px 0; cursor: pointer; font-size: 13.5px } .pdt .switch { margin: 0 !important } .pdt span { line-height: 1.3 }
 .pdl { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 2px 16px }
+/* Home › Personalize, an admin arranging a dashboard: the pressed Arrange button, the tip above, and a dashed outline on every widget */
+.ib.on{background:color-mix(in srgb,var(--ac) 14%,var(--pn));border-color:var(--ac);color:var(--tx)}
+.pnote{margin:0 0 12px;padding:10px 14px;border:1px dashed var(--ac);border-radius:10px;font-size:13px;color:var(--tx);background:color-mix(in srgb,var(--ac) 6%,transparent)}
+.warr>.wg.ed{outline:1px dashed color-mix(in srgb,var(--ac) 55%,transparent);outline-offset:3px;border-radius:14px}

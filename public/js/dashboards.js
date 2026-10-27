@@ -90,7 +90,7 @@ Object.assign(WGRP, { brief: 'Numbers', plan_kpi: 'Numbers', inbox: 'Lists', hea
 // ---- "Use as my home" (Home › Personalize): the widgets of a ready-made or named dashboard become your home dashboard
 async function dvUse(id) {
   const v = allViews('dash').find(z => z.id === id); if (!v) return;
-  const items = itemsOf('dash', v).map(x => ({ ...x, size: (WREG.dash[x.id] || {}).w || 30 }));
+  const items = itemsOf('dash', v).map(wKeep('dash'));
   const r = await api('/api/layout', { page: 'dash', items }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true);
   ME = await r.json(); render(); toast(tr(`"${v.name}" is now your home dashboard`));
 }

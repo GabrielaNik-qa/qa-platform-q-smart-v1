@@ -735,3 +735,20 @@ Nobody is planned before their start date or after their last working day.
   - when the browser tab came back into view many times quickly, the app could stack many full data reloads, so pages opened slowly. Now only one runs at a time.
   - the switches in Display touched their labels in a narrow window. Fixed.
 - Everything is translated into Bulgarian and French. All 160 automatic tests pass (one new: the review date and review time are saved).
+
+## R. No empty spaces, and admins arrange dashboards in Personalize (27 October)
+
+**What changed**
+- **No more empty spaces.** The widgets are packed so every row is full. Number tiles share their own rows (at most 5 in a row, as even as possible, so 5 tiles make one row and 7 make 4 + 3). They are never put next to a big card, so they don't stretch into tall empty boxes. A card left alone at the end of a row grows to fill the row.
+- **Admins can arrange a dashboard by hand, only in Home › Personalize.** Click "Arrange" above the preview. Then:
+  - drag ⠿ to move a widget
+  - drag its right or bottom edge (or the corner) to resize it; double-click the edge to get the automatic height back
+  - click ✕ to hide it
+
+  From the first change on, that dashboard keeps exactly the order and sizes you chose, also on the Dashboard page. "Automatic layout" goes back to the packed preset, and Undo works as before.
+- **Other roles** get their role's default, as an admin arranged it ("Make it the home dashboard of…"). In Personalize › Display they can switch widgets on or off for themselves only. They cannot move or resize, and a widget they add goes at the end at its preset size. "Back to the default of my role" undoes their changes.
+
+**Good to know**
+- An arranged dashboard can have gaps if the sizes chosen don't add up to a full row. You see them while arranging, so you can fix them, or press "Automatic layout".
+- In Bulgarian, the newer texts now say "уиджет" like the rest of the app (they said "приспособление").
+- All 161 automatic tests pass (one new: the server keeps the "arranged" mark).

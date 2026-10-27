@@ -481,7 +481,7 @@ app.put('/api/layouts/:role', need('admin'), (req, res) => {                    
 const safeId = (v, n) => str(v, n).replace(/[^\w-]/g, '');
 // a widget is as wide as any number of the 60 columns (old layouts used 3 … 12) and as high as its content, or a height in px chosen by dragging
 const wSize = s => { s = Math.round(Number(s)); return s >= 1 && s <= 60 ? s : 30; }, wHigh = h => { h = Math.round(Number(h)); return h >= 90 ? Math.min(h, 1400) : undefined; };
-const cleanLayout = a => Array.isArray(a) && a.length <= 80 ? a.filter(x => x && typeof x === 'object').map(x => ({ k: safeId(x.k, 40) || undefined, id: safeId(x.id, 30), size: wSize(x.size), h: wHigh(x.h), on: x.on !== false, title: str(x.title, 60) || undefined,
+const cleanLayout = a => Array.isArray(a) && a.length <= 80 ? a.filter(x => x && typeof x === 'object').map(x => ({ k: safeId(x.k, 40) || undefined, id: safeId(x.id, 30), size: wSize(x.size), h: wHigh(x.h), on: x.on !== false, ar: x.ar === true || undefined, title: str(x.title, 60) || undefined,
   f: x.f && typeof x.f === 'object' ? { c: CHANNELS.includes(x.f.c) ? x.f.c : '', t: safeId(x.f.t, 40), p: safeId(x.f.p, 10) } : undefined })).filter(x => x.id) : null;
 // named dashboard views: personal ones (everybody) and shared ones (admins and QA) that are shown to chosen roles or to everyone
 const cleanViews = (a, shared) => Array.isArray(a) && a.length <= 20 ? a.filter(v => v && typeof v === 'object').map(v => ({ id: safeId(v.id, 20) || 'v' + hex(4), name: str(v.name, 40) || 'My view', items: cleanLayout(v.items) || [], ...(shared ? { roles: list(v.roles, 6, 10).filter(r => r === 'all' || ROLES.includes(r)), by: str(v.by, 60) } : {}) })) : null;

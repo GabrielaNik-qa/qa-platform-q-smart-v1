@@ -101,6 +101,13 @@ test('a dashboard widget can be as wide (any of the 60 columns) and as high as y
   assert.deepEqual(l.map(x => [x.size, x.h]), [[13, 223], [30, undefined], [30, 1400], [30, 1000]]);
 });
 
+test('a dashboard an admin arranged by hand keeps that mark (only a real true counts)', async () => {
+  const a = await as('a.one');
+  const r = await a.put('/api/layout', { page: 'dash', items: [{ k: 'k1', id: 'kpi_avg', size: 29, ar: true }, { k: 'k2', id: 'last5', size: 60, ar: 'yes' }, { k: 'k3', id: 'top', size: 30 }] });
+  assert.equal(r.status, 200);
+  assert.deepEqual(db().users.find(u => u.username === 'a.one').layouts.dash.map(x => [x.size, x.ar]), [[29, true], [60, undefined], [30, undefined]]);
+});
+
 test('everyone keeps their own table columns (short keys only, no doubles; null = the standard columns again)', async () => {
   const a = await as('a.two');
   let r = await a.put('/api/prefs', { cols: { page: 'calls', keys: ['id', 'ag', 'ag', 'sc', 'BAD', '<x>', 'res'] } });

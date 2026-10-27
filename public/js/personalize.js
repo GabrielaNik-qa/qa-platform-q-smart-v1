@@ -2,15 +2,15 @@
 // The Dashboard, AutoQA and Tasks pages only show; everything you choose about them is here. Dashboard: choose your home among the
 // ready-made dashboards and your own (named as you like; admins and QA can share them), and with "Display" switch each widget on or
 // off and choose how the data is counted. The widgets keep their preset name, size and place. AutoQA: switch its widgets on or off.
-// Tasks: how task cards look and which tab opens first.
-let PST = LS.get('qa_pst', 'dash'), PSEL = LS.get('qa_psel', 'std'), PDSP = false;   // the tab, the dashboard shown here, the Display panel is open
-const pTab = t => { PST = t; LS.set('qa_pst', t); PDSP = false; render(); };
-const pSel = id => { PSEL = id; LS.set('qa_psel', id); PDSP = false; render(); };
+// Tasks: how task cards look and which tab opens first. Admins can also arrange a dashboard by hand here ("Arrange": move and resize).
+let PST = LS.get('qa_pst', 'dash'), PSEL = LS.get('qa_psel', 'std'), PDSP = false, PARR = false;   // the tab, the dashboard shown here, the Display panel is open, an admin is arranging
+const pTab = t => { PST = t; LS.set('qa_pst', t); PDSP = false; PARR = false; render(); };
+const pSel = id => { PSEL = id; LS.set('qa_psel', id); PDSP = false; PARR = false; render(); };
 const pBase = v => { DBASE = v; LS.set('qa_dbase', v); render(); };
 const pGran = v => { DGR = v; LS.set('qa_dgr', v); render(); };
 const pTkTab = t => { LS.set('qa_tktab', t); TV.tab = t; render(); };
 const pWho = v => v.kind === 'std' ? tr('Shown on your Dashboard page') : v.kind === 'tpl' ? tr(v.desc || 'Ready-made') : v.kind === 'shared' ? tr(`Shared with ${v.roles.map(r => r === 'all' ? tr('everyone') : ROLE[r]).join(', ')}`) : tr('Only you');
-const dThumb = items => `<div class=dthumb>${wSorted('dash', items).slice(0, 12).map(z => `<i style="width:calc(${(WREG.dash[z.id].w / 60 * 100).toFixed(1)}% - 3px)"></i>`).join('')}</div>`;
+const dThumb = items => `<div class=dthumb>${wPack('dash', items).slice(0, 12).map(z => `<i style="width:calc(${(z.sp / 60 * 100).toFixed(1)}% - 3px)"></i>`).join('')}</div>`;
 // one switch per widget: on = it is on this view (the size and place are preset)
 const pSwitch = (page, vid, id, on, ed) => { const r = WREG[page][id]; return `<label class=pdt title="${esc(tr(r.desc || ''))}"><input type=checkbox class=switch ${on ? 'checked' : ''} ${ed ? '' : 'disabled'} onchange="wToggle('${page}',${jsq(vid)},'${id}',this.checked)"><span>${esc(tr(r.title))}</span></label>`; };
 const pSeg = (cur, opts, fn) => `<div class=sg role=group>${opts.map(([k, l]) => `<button class="${cur === k ? 'on' : ''}" aria-pressed="${cur === k}" onclick="${fn}('${k}')">${tr(l)}</button>`).join('')}</div>`;
@@ -26,7 +26,10 @@ function pGallery() {
 function pDash() {
   const v = curView('dash', PSEL), ed = canEditView(v), adm = ME.role === 'admin', home = v.kind === 'std';
   if (v.id !== PSEL) PSEL = v.id;
+  const arr = canArrange() && ed, man = isArr(itemsOf('dash', v));
   const tools = `<button class="btn ibx" onclick="PDSP=true;render()">${TIC.list || IC.list} ${tr('Display')}</button>`
+    + (arr ? `<button class="ib ibx${PARR ? ' on' : ''}" aria-pressed="${PARR}" onclick="PARR=!PARR;render()">${IC.pen} ${tr(PARR ? 'Done arranging' : 'Arrange')}</button>` : '')
+    + (arr && man ? `<button class="ib ibx" onclick="wArrAuto('dash',${jsq(v.id)})" title="${esc(tr('Back to the preset order and sizes, packed with no empty spaces'))}">${tr('Automatic layout')}</button>` : '')
     + (!home ? `<button class="ib ibx" onclick="dvUse(${jsq(v.id)})">${IC.g_home} ${tr('Use as my home')}</button>` : '')
     + (!ed ? `<button class="ib ibx" onclick="wNewView('dash',${jsq(v.id)})">${IC.plus} ${tr('Make my own copy')}</button>` : '')
     + (ed && !home ? `<button class=ic onclick="pRename()" title="${esc(tr('Rename'))}" aria-label="${esc(tr('Rename'))}">${IC.pen}</button><button class=ic onclick="wDelView('dash',${jsq(v.id)})" title="${esc(tr('Delete'))}" aria-label="${esc(tr('Delete'))}">${IC.bin}</button>` : '')
@@ -37,7 +40,7 @@ function pDash() {
   const ctxOf = dashCtxOf();
   try {
     return `<div class=pgv><div class=row style="flex-wrap:wrap;gap:10px"><div><h3 style="margin:0">${esc(name)}</h3><small class=mu>${esc(note)}</small></div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${tools}</div></div>`
-      + `<div style="margin:12px 0">${dashChips()}</div>` + wGrid('dash', ctxOf, v.id) + '</div>';
+      + `<div style="margin:12px 0">${dashChips()}</div>` + (PARR && arr ? `<p class="pnote">${tr('Arranging: drag ⠿ to move a widget onto another place, drag its right or bottom edge to resize it (double-click the edge: automatic height), ✕ hides it. Every change is saved at once. Only admins can arrange.')}</p>` : '') + wGrid('dash', ctxOf, v.id, PARR && arr) + '</div>';
   } finally { THR = null; }
 }
 const pRename = () => { const v = curView('dash', PSEL);
@@ -65,7 +68,8 @@ function pAutoqa() {
   const v = curView('autoqa', 'std'), on = new Set(itemsOf('autoqa', v).map(x => x.id)), ed = canEditView(v);
   return card(tr('AutoQA widgets'), `<p class=mu style="margin:0 0 10px">${tr('Switch on the widgets the AutoQA page shows. Their size and place are preset.')}</p><div class=pdl>${wOrder('autoqa').map(id => pSwitch('autoqa', 'std', id, on.has(id), ed)).join('')}</div>`
     + ((ME.layouts || {}).autoqa && ed ? `<button class=ib style="margin-top:10px" onclick="wResetStd('autoqa')">${tr('Back to the default of my role')}</button>` : ''))
-    + `<h3 class=pgt>${tr('Preview')}</h3>` + wGrid('autoqa', {}, 'std');
+    + `<div class=row style="margin-top:18px;flex-wrap:wrap;gap:8px"><h3 class=pgt style="margin:0">${tr('Preview')}</h3>${canArrange() && ed ? `<span style="display:flex;gap:8px"><button class="ib ibx${PARR ? ' on' : ''}" aria-pressed="${PARR}" onclick="PARR=!PARR;render()">${IC.pen} ${tr(PARR ? 'Done arranging' : 'Arrange')}</button>${isArr(itemsOf('autoqa', v)) ? `<button class="ib ibx" onclick="wArrAuto('autoqa','std')">${tr('Automatic layout')}</button>` : ''}</span>` : ''}</div>`
+    + wGrid('autoqa', {}, 'std', PARR && canArrange() && ed);
 }
 // ---- Tasks: how task cards look, and which tab opens first
 function pTasks() {
