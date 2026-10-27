@@ -772,3 +772,18 @@ Nobody is planned before their start date or after their last working day.
 - A repeating sequence that was not opened for a while only gives the latest round, never a pile of missed ones.
 - When a card is sent back, the comment is also in the person's notification.
 - All 163 automatic tests pass (two new: the review flow, and the dates of a sequence). Everything is translated into Bulgarian and French.
+
+## T. Loading animations, Reviews table, QA Entry text, Last updated line (27 October)
+
+**What changed**
+- **Loading animations** (your choices from the three ideas), on a dark screen with the Q logo, a letter inside and three dots:
+  - **Heartbeat** with "Q": when you sign in, and when you open the app already signed in, until the first page is ready.
+  - **Drawn by hand** with the panel's letter: when you open a panel (L Learning, W Workforce, C Compliance & CX, A Admin, or S Set-up for non-admins). It fades in and out like a slide transition, about 1 second.
+  - **Sonar**: when a page takes longer than 1.5 seconds, and with "AI" inside when you open the AI Call Simulator.
+  - With "reduce motion" switched on in the computer's settings, the logo stays still.
+- **Reviews:** the table grows down with "Items per page" instead of scrolling inside its box. At a normal screen width all columns fit without a sideways bar. The exact channel (WhatsApp, Messenger, SMS…) moved from the Type column into the review window's header.
+- **QA Entry:** larger text for labels, fields, questions and the score panel.
+- **Last data update time (UTC)** at the bottom of every dashboard (your own local time on hover).
+
+**Please decide when you are ready**
+- **The AI Simulator as its own panel** (moved out of Learning › Practice, with Transcripts staying there): see the proposal I sent. Per your rule, I change the menu only after your yes.

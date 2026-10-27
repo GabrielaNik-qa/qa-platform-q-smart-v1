@@ -20,7 +20,9 @@ const LG = () => {
 };
 const lerr = (id, m) => { const e = $(id); if (e) e.innerHTML = `<small class=lgerr>${esc(m)}</small>`; };
 async function login() {
+  qlShow('beat', 'Q');                                          // the heartbeat plays until the first page is ready (boot hides it)
   const r = await api('/api/login', { username: $('#lu').value, password: $('#lp').value });
+  if (!r.ok) qlHide();
   if (r.ok) { MSG = ''; LU = ''; welAgain((await r.json()).username); await boot(); if (ME && location.hash !== '#dash') { OGKEEP = true; location.hash = 'dash'; } } else lerr('#lge', await errOf(r, 'Could not sign in'));   // a new sign-in may show the welcome again
 }
 // username = first letter of the first name + "." + last name (the server makes the same one, this is just the preview)
@@ -63,7 +65,7 @@ const curSpace = () => SPV || spaceOf(route);
 const spName = s => ({ learn: 'Learning', wf: 'Workforce', cx: 'Compliance & CX' })[s] || (ME.role === 'admin' ? 'Admin' : 'Set-up');
 const SPIC = { wf: 'g_wf', cx: 'g_comply', learn: 'g_learning', admin: 'g_admin' };
 const spTop = () => { const n = $('#n'); if (n) n.scrollTop = 0; };   // a panel always opens at its top (where "Back" is)
-function spGo(s, ev) { ev.stopPropagation(); SPV = s; OG = null; FLY = null; UMN = false; render(); spTop(); }
+function spGo(s, ev) { ev.stopPropagation(); qlShow('draw', qlLetter(s)); qlHide(1100); SPV = s; OG = null; FLY = null; UMN = false; render(); spTop(); }
 function spBack(ev) { ev.stopPropagation(); SPV = null; OG = null; FLY = null; UMN = false; if (spaceOf(route) !== 'main') location.hash = LASTMAIN; else { render(); spTop(); } }
 // clicking a group's icon opens its first page; when the sidebar is closed its pop-out menu stays open too
 let PENDFLY = null;
@@ -232,7 +234,7 @@ async function onHash() {
   OG = OGKEEP ? '' : null; OGKEEP = false; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; PDSP = false; PARR = false; TXF = null; TXC = null; CSP = null; AINEW = false; AIDV = null; AIPV = null; voxStop(); RCE = null; WCE = null; PTE = null; LRQ = null; ARD = null; AQV = ''; PKN = null;   // OGKEEP: the jump to the Dashboard after signing in keeps the menu closed
   if (n === 'calls' && !KQ) { Q = ''; FSC = null; PN = 1; }   // opening Call Reviews from the menu starts with an empty search
   KQ = false; MD = null; NO = false; AC = null; SYS = false; RSV = null; PLY = null; SE = n === 'sco' ? SE : null;
-  route = n; await load(); render(); window.scrollTo(0, 0); maybeWelcome();
+  const from = route; route = n; await qlRun(async () => { await load(); render(); }, n, from); window.scrollTo(0, 0); maybeWelcome();
 }
 addEventListener('hashchange', onHash);
 // ---------------------------------------------------------------- quick jump (Ctrl+K or the search box in any header): pages, agents, leads and actions in one list
@@ -278,7 +280,7 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) poll
 async function boot() {
   const r = await api('/api/me'); ME = r.ok ? await r.json() : null;
   if (ME) userLang();                                           // the person's own language, before anything is drawn
-  if (ME && !ME.mustChange) await load();
-  PREVU = UN(); render(); maybeWelcome();
+  if (ME && !ME.mustChange) { if (!QL) qlShow('beat', 'Q'); await load(); }   // opening the app signed in: the heartbeat while the data loads
+  PREVU = UN(); render(); maybeWelcome(); qlHide(1600);
 }
 I18N.start(); applyTheme(); boot();
