@@ -18,7 +18,7 @@ const CR = () => {
 // the columns of the table: everybody picks the ones they need with "Columns" (the lead ID always stays)
 const RCOLS = [
   { k: 'id', t: 'LEAD ID', lock: 1, td: e => `<a href="javascript:void(0)" class=mono style="color:var(--ac);font-weight:600;text-decoration:none" onclick="om('view','${e.rid}')">${esc(e.id)}</a>` },
-  { k: 'ch', t: 'TYPE', td: e => `${chTag(chOf(e))}${e.chn ? ` <small>${esc(e.chn)}</small>` : ''}` },
+  { k: 'ch', t: 'TYPE', td: e => chTag(chOf(e)) },   // the exact channel (WhatsApp, Messenger…) shows in the review window
   { k: 'd', t: 'DATE', td: e => f(e.d) },
   { k: 'ag', t: 'AGENT', td: e => `<span class=av>${ini(agn(e))}</span>${e.agent && ME.role !== 'agent' ? agLink(e.agent, agn(e)) : esc(agn(e))}` },
   { k: 'tm', t: 'TEAM', td: e => teamLink(e.tm) },
