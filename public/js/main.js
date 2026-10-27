@@ -128,7 +128,7 @@ function fitTables() {
       sc.addEventListener('scroll', () => { if (top.scrollLeft !== sc.scrollLeft) top.scrollLeft = sc.scrollLeft; });
     }
     top.hidden = true; top.firstChild.style.width = sc.scrollWidth + 'px';
-    sc.style.maxHeight = Math.max(320, innerHeight - Math.max(sc.getBoundingClientRect().top, 0) - 16) + 'px';
+    if (!sc.classList.contains('scg')) sc.style.maxHeight = Math.max(320, innerHeight - Math.max(sc.getBoundingClientRect().top, 0) - 16) + 'px';   // scg (Reviews): grows down with its rows; the bar above stays
   });
   topBars();
 }
