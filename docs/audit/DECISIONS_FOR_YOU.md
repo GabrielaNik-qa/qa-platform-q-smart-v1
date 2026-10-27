@@ -785,5 +785,13 @@ Nobody is planned before their start date or after their last working day.
 - **QA Entry:** larger text for labels, fields, questions and the score panel.
 - **Last data update time (UTC)** at the bottom of every dashboard (your own local time on hover).
 
-**Please decide when you are ready**
-- **The AI Simulator as its own panel** (moved out of Learning › Practice, with Transcripts staying there): see the proposal I sent. Per your rule, I change the menu only after your yes.
+- **Agents page:** the decorative sound wave on the agent card is removed.
+
+## U. The AI Simulator panel (27 October, your yes)
+
+- **A panel of its own** in the menu, between Learning and Admin. Opening it plays the sonar animation with "AI" inside the Q. It has three pages:
+  - **Practice a call:** the call simulator, as before.
+  - **Results:** agents see their own practice calls, and leads, QA, trainers and admins see the people they can see. It shows numbers on top (calls, average score, scores of 85% or more, minutes), filters by team and person, and a click opens the score, what went well, the tips and the whole conversation.
+  - **Scenarios** (trainers and admins): the 5 built-in customers can be switched off, and you can write your own: name, who the customer is, the situation, and the customer's first sentence. "Try it" opens the practice straight on that scenario. Practice calls already made keep their results.
+- **Learning › Tools** keeps **Transcripts** (import a recording, transcribe, analyse and auto QA once the API key is in).
+- All 164 automatic tests pass (one new: agents cannot change scenarios, and a switched-off scenario disappears from practice). Translated into Bulgarian and French.

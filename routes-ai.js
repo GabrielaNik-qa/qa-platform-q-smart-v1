@@ -263,11 +263,39 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     { id: 'ident', name: 'Identity check', who: 'Customer in a hurry', persona: 'a customer in a hurry', brief: 'You want your delivery address changed right now and find security questions annoying, but you answer them when the agent explains why.', open: "Just change my address, I don't have time for questions." }
   ];
   const rpOn = db => !!conf(db).rolePlay && ai.enabled();
-  const scOf = id => SCEN.find(s => s.id === id);
+  // the scenarios to practise: the built-in ones a trainer or admin did not switch off, and the ones they wrote (AI Simulator › Scenarios)
+  const scenList = db => { const off = (db.settings && db.settings.scenOff) || []; return [...SCEN.filter(s => !off.includes(s.id)), ...(db.simScen || []).filter(s => s.active !== false)]; };
+  const scOf = (db, id) => scenList(db).find(s => s.id === id);
+  const SCW = ['admin', 'trainer'];
+  const scBody = b => {
+    const name = str(b.name, 80); if (!name) throw new Error('Give the scenario a name');
+    const open = str(b.open, 400); if (!open) throw new Error('Write the first sentence of the customer');
+    const who = str(b.who, 60) || 'Customer';
+    return { name, who, persona: str(b.persona, 120) || who.toLowerCase(), brief: str(b.brief, 1200), open };
+  };
   const msgsOf = v => (Array.isArray(v) ? v : []).slice(0, 60).map(m => ({ r: m && m.r === 'a' ? 'a' : 'c', t: str(m && m.t, 600) })).filter(m => m.t);
-  app.get('/api/ai/roleplay', need(), (req, res) => res.json({ on: rpOn(load()), scenarios: SCEN.map(({ id, name, who, open }) => ({ id, name, who, open })) }));
+  app.get('/api/ai/roleplay', need(), (req, res) => res.json({ on: rpOn(load()), scenarios: scenList(load()).map(({ id, name, who, open }) => ({ id, name, who, open })) }));
+  app.get('/api/ai/scenarios', need(...SCW), (req, res) => {
+    const db = load(), off = (db.settings && db.settings.scenOff) || [];
+    res.json({ builtin: SCEN.map(({ id, name, who, brief, open }) => ({ id, name, who, brief, open, off: off.includes(id) })), custom: db.simScen });
+  });
+  app.post('/api/ai/scenarios', need(...SCW), (req, res) => {
+    const db = load(); try { const s = { id: 'sc' + hex(4), ...scBody(req.body || {}), active: true, by: req.session.user.username, created: iso() }; db.simScen.push(s); save(db); res.json(s); } catch (e) { bad(res, e.message); }
+  });
+  app.put('/api/ai/scenarios/:id', need(...SCW), (req, res) => {
+    const db = load(), b = req.body || {}, id = req.params.id;
+    if (SCEN.some(s => s.id === id)) {                                   // a built-in scenario is only switched on or off
+      const off = new Set((db.settings.scenOff || []).filter(x => SCEN.some(s => s.id === x))); if (b.off) off.add(id); else off.delete(id);
+      db.settings.scenOff = [...off]; save(db); return res.json({ ok: 1 });
+    }
+    const s = db.simScen.find(x => x.id === id); if (!s) return res.status(404).json({ error: 'not found' });
+    try { if (b.active !== undefined && Object.keys(b).length === 1) s.active = !!b.active; else Object.assign(s, scBody(b), { updated: iso() }); save(db); res.json(s); } catch (e) { bad(res, e.message); }
+  });
+  app.delete('/api/ai/scenarios/:id', need(...SCW), (req, res) => {
+    const db = load(); db.simScen = db.simScen.filter(s => s.id !== req.params.id); save(db); res.json({ ok: 1 });
+  });
   app.post('/api/ai/roleplay/turn', need(), async (req, res) => {
-    const db = load(), b = req.body || {}, sc = scOf(b.sc), msgs = msgsOf(b.msgs);
+    const db = load(), b = req.body || {}, sc = scOf(db, b.sc), msgs = msgsOf(b.msgs);
     if (!rpOn(db)) return bad(res, 'Practice with the AI customer is switched off (Admin › Integrations).');
     if (!sc || !msgs.length || msgs[msgs.length - 1].r !== 'a') return bad(res, 'Write your reply first');
     if (msgs.filter(m => m.r === 'a').length > 25) return bad(res, 'This practice call is long enough: finish it to get your score.');
@@ -275,7 +303,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     try { res.json(await ai.roleCustomer(sc, msgs, conf(db).playbook)); } catch (e) { bad(res, e.message); }
   });
   app.post('/api/ai/roleplay/finish', need(), async (req, res) => {
-    const db0 = load(), b = req.body || {}, sc = scOf(b.sc), msgs = msgsOf(b.msgs), me = req.session.user;
+    const db0 = load(), b = req.body || {}, sc = scOf(db0, b.sc), msgs = msgsOf(b.msgs), me = req.session.user;
     if (!rpOn(db0)) return bad(res, 'Practice with the AI customer is switched off (Admin › Integrations).');
     if (!sc || !msgs.some(m => m.r === 'a')) return bad(res, 'Write at least one reply first');
     if (limited('ai-rpf:' + me.username, 30, 36e5)) return res.status(429).json({ error: 'Too many practice calls in one hour. Try again later.' });

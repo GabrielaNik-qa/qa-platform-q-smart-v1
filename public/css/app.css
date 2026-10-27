@@ -929,3 +929,4 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .qlblink{animation:qlbl 1.5s infinite}@keyframes qlbl{0%,100%{opacity:1}50%{opacity:.55}}
 @media (prefers-reduced-motion:reduce){#qload *{animation:none!important;opacity:1!important;stroke-dashoffset:0!important}#qload{transition:none}}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.simtx{white-space:pre-wrap;font:13px/1.5 var(--font);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;max-height:280px;overflow:auto;margin:6px 0 0}   /* the conversation of a practice call */

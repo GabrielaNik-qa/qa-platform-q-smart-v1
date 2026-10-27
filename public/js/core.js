@@ -96,6 +96,7 @@ const IC = {
   g_home: svg('<path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-7H9v7H5a2 2 0 01-2-2z"/>', 22), g_quality: svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>', 22),
   g_sc: svg('<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 13l2 2 4-4"/>', 22), g_analytics: svg('<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>', 22),
   g_coaching: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', 22), g_learning: svg('<path d="M12 6c-2-1.5-5-2-9-2v14c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2zM12 6v14"/>', 22),
+  g_aisim: svg('<path d="M3 13v-1a9 9 0 0118 0v1"/><rect x="2" y="13" width="5" height="7" rx="2"/><rect x="17" y="13" width="5" height="7" rx="2"/><path d="M19 20a4 4 0 01-4 3h-2"/><path d="M10 9.5l1.5 2 1-3 1.5 2"/>', 22),
   g_tools: svg('<path d="M21 7l-5 5-3-3 5-5a5 5 0 00-6 7L3 19l2 2 8-8a5 5 0 008-6z"/>', 22), g_admin: svg('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>', 22),
   g_people: svg('<path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>', 22),
   g_sys: svg('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>', 22),
@@ -232,7 +233,8 @@ async function load() {
   if (adm) want.push(['us', '/api/users'], ['rg', '/api/registrations']);
   if (route === 'tasks') { want.push(['tk', '/api/tasks']); if (ed) want.push(['tp', '/api/task-templates'], ['sq', '/api/task-seqs']); }
   if (route === 'agents') want.push(['se', '/api/sessions'], ['tk', '/api/tasks'], ['sm', '/api/simulations']);
-  if (route === 'sim') want.push(['sm', '/api/simulations'], ['rp', '/api/ai/roleplay']);
+  if (['sim', 'simres', 'simsc'].includes(route)) want.push(['sm', '/api/simulations'], ['rp', '/api/ai/roleplay']);
+  if (route === 'simsc' && ME && ['admin', 'trainer'].includes(ME.role)) want.push(['ss', '/api/ai/scenarios']);
   if (route === 'rota') want.push(['wr', '/api/wf/rota?team=' + encodeURIComponent(RTM) + '&from=' + RWK]);
   if (route === 'att' || dashy) want.push(['atme', '/api/att/me']);
   if (route === 'att' && ed && ATAB === 'team') want.push(['atday', '/api/att/day?team=' + encodeURIComponent(ATT_T) + '&d=' + ATD]);
@@ -284,6 +286,7 @@ async function load() {
   if (R.sq) TSEQ = JSON.parse(R.sq);
   if (R.se) SESS = JSON.parse(R.se);
   if (R.sm) SIMS = JSON.parse(R.sm);
+  if (R.ss) SCNS = JSON.parse(R.ss);
   if (R.qf) QF = JSON.parse(R.qf);
   Object.keys(R).filter(k => k.startsWith('c_') && R[k]).forEach(k => { CO[k.slice(2)] = JSON.parse(R[k]); });
   if (R.xp) XPS = JSON.parse(R.xp);

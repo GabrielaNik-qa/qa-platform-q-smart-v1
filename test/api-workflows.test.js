@@ -98,6 +98,19 @@ test('a sequence gives every step with its own dates; steps without a title are 
   assert.strictEqual((await qa.post('/api/task-seqs/' + s.id + '/give', { start: 'soon', users: [AGENT] })).status, 400);
 });
 
+test('practice scenarios: trainers and admins add their own and switch built-in ones off; agents only see the list', async () => {
+  const adm = client(), ag = client(); await adm.login('t.admin'); await ag.login(AGENT);
+  assert.strictEqual((await ag.get('/api/ai/scenarios')).status, 403);
+  assert.strictEqual((await ag.post('/api/ai/scenarios', { name: 'x', open: 'y' })).status, 403);
+  assert.strictEqual((await adm.post('/api/ai/scenarios', { name: 'Refund' })).status, 400, 'the first sentence of the customer is needed');
+  const s = (await adm.post('/api/ai/scenarios', { name: 'Refund', who: 'Upset customer', open: 'I want my money back.' })).json;
+  assert.strictEqual((await adm.put('/api/ai/scenarios/price', { off: true })).status, 200);
+  const names = (await ag.get('/api/ai/roleplay')).json.scenarios.map(x => x.name);
+  assert.ok(names.includes('Refund') && !names.includes('Price objection'));
+  await adm.put('/api/ai/scenarios/price', { off: false }); await adm.call('DELETE', '/api/ai/scenarios/' + s.id);
+  assert.ok((await ag.get('/api/ai/roleplay')).json.scenarios.some(x => x.name === 'Price objection'));
+});
+
 test('a new review keeps when it was made and how long QA Entry took (at most 4 hours)', async () => {
   const qa = client(); await qa.login('t.qa');
   const sc = (await qa.get('/api/scorecards')).json[0], t0 = Date.now();
