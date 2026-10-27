@@ -945,3 +945,7 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .o2tl{display:grid;gap:8px}.o2tc{display:grid;gap:2px;text-align:left;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;font:inherit;color:var(--tx);cursor:pointer}.o2tc.on{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 8%,var(--bg))}.o2new{color:var(--ac)}
 .o2sr{border:1px solid var(--bd);border-radius:10px;padding:8px 10px;margin-bottom:8px;display:grid;gap:4px}
 .o2ty{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}.o2ty button{display:grid;gap:2px;text-align:left;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px;font:inherit;color:var(--tx);cursor:pointer}.o2ty button:hover{border-color:var(--ac)}
+/* ideas from the Zendesk QA dashboards: calibration blocks, root causes per week, the word cloud of survey comments */
+.calb{border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:12px}
+.rcw{display:flex;align-items:flex-end;gap:6px;height:110px;padding-top:6px}.rcw>div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px}.rcw i{display:block;width:100%;max-width:34px;background:var(--ac);border-radius:6px 6px 2px 2px;min-height:3px}.rcw small{font-size:10.5px;color:var(--mu)}
+.wcl{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;line-height:1.3}.wcl span{color:var(--tx);font-weight:600}

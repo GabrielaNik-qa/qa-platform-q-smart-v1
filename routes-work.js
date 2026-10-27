@@ -307,7 +307,13 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
 
   // ---------------------------------------------------------------- calibration sessions (QA, team leads and trainers compare impressions and decide together)
   const decisions = v => (Array.isArray(v) ? v : []).slice(0, 30).map(d => ({ t: str(d.t, 250), owner: str(d.owner, 40), due: DAY.test(d.due || '') ? d.due : '', done: !!d.done })).filter(d => d.t);
-  app.get('/api/calibrations', need(...EDIT), (req, res) => res.json(load().calibrations));
+  // blind scoring: until a participant has scored a review, they do not see the others' scores of it (the owner and admins always do,
+  // and everybody does once the session is closed)
+  app.get('/api/calibrations', need(...EDIT), (req, res) => {
+    const me = req.session.user;
+    res.json(load().calibrations.map(c => { const open = c.status === 'closed' || me.role === 'admin' || c.by === me.username;
+      return open || !c.scores ? c : { ...c, scores: Object.fromEntries(Object.entries(c.scores).map(([rid, s]) => [rid, s[me.username] ? s : { [me.username]: undefined, _n: Object.keys(s).length }])) }; }));
+  });
   app.post('/api/calibrations', need(...EDIT), (req, res) => {
     const db = load(), b = req.body || {}, me = req.session.user;
     if (!DAY.test(b.date || '')) return bad(res, 'Choose the date');
@@ -323,6 +329,12 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     const owner = me.role === 'admin' || c.by === me.username, member = c.participants.includes(me.username);
     if (!owner && !member) return res.status(403).json({ error: 'Only the participants can change a calibration' });
     if (b.entry && member) c.entries[me.username] = { impression: str(b.entry.impression, 4000), done: str(b.entry.done, 4000), at: iso() };   // everybody writes only their own part
+    if (b.score && member && c.reviews.includes(b.score.rid)) {           // my own score of one review: hidden from the others until they score it too
+      const sc = Math.round(Number(b.score.sc)); if (!(sc >= 0 && sc <= 100)) return bad(res, 'Give a score from 0 to 100');
+      c.scores = c.scores || {}; c.scores[b.score.rid] = { ...(c.scores[b.score.rid] || {}), [me.username]: { sc, note: str(b.score.note, 500), at: iso() } };
+    }
+    if (b.base && owner && c.reviews.includes(b.base.rid)) { c.base = c.base || {}; c.base[b.base.rid] = b.base.who === 'review' ? 'review' : str(b.base.who, 40); }   // the reference score: the review itself, or one participant
+    if (b.reviews !== undefined && member && !owner) c.reviews = list(b.reviews, 30, 40).filter(r => db.evaluations.some(e => e.rid === r));
     if (b.decisions !== undefined) c.decisions = decisions(b.decisions);
     if (b.notes !== undefined) c.notes = str(b.notes, 5000);
     if (b.status !== undefined && ['planned', 'held', 'closed'].includes(b.status)) c.status = b.status;

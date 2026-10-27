@@ -35,6 +35,8 @@ const client = () => {
   };
   return { call, get: u => call('GET', u), post: (u, b) => call('POST', u, b || {}), put: (u, b) => call('PUT', u, b || {}), login: (u, p = 'password') => call('POST', '/api/login', { username: u, password: p }), cookie: () => cookie };
 };
+// one signed-in session per person for the newer tests (the server allows 30 sign-ins per 15 minutes from one address)
+const SIGNED = {}; const asU = u => SIGNED[u] = SIGNED[u] || (async () => { const c = client(); await c.login(u); return c; })();
 const allYes = sc => sc.cats.map(c => c.it.map(() => ['y']));
 
 test('basic browser protections are sent and the server type is hidden', async () => {
@@ -71,7 +73,7 @@ test('QA creates a review: the server calculates the score, the agent only sees 
 });
 
 test('a task that needs review waits in In review; the one who checks it sends it back with a comment or approves it', async () => {
-  const qa = client(), ag = client(); await qa.login('t.qa'); await ag.login(AGENT);
+  const qa = await asU('t.qa'), ag = await asU(AGENT);
   const [t] = (await qa.post('/api/tasks', { title: 'Call summary', rev: true, assignees: [AGENT], due: '2026-12-01' })).json;
   assert.strictEqual(t.rev, true);
   assert.strictEqual((await ag.put('/api/tasks/' + t.id, { status: 'doing' })).json.status, 'doing');
@@ -88,7 +90,7 @@ test('a task that needs review waits in In review; the one who checks it sends i
 });
 
 test('a sequence gives every step with its own dates; steps without a title are dropped', async () => {
-  const qa = client(); await qa.login('t.qa');
+  const qa = await asU('t.qa');
   const s = (await qa.post('/api/task-seqs', { name: 'First weeks', steps: [{ title: 'Read the guide', day: 0, days: 2 }, { title: '', day: 1 }, { title: 'First solo review', day: 7, days: 3, rev: true }] })).json;
   assert.strictEqual(s.steps.length, 2);
   const g = await qa.post('/api/task-seqs/' + s.id + '/give', { start: '2026-11-02', users: [AGENT] });
@@ -99,7 +101,7 @@ test('a sequence gives every step with its own dates; steps without a title are 
 });
 
 test('practice scenarios: trainers and admins add their own and switch built-in ones off; agents only see the list', async () => {
-  const adm = client(), ag = client(); await adm.login('t.admin'); await ag.login(AGENT);
+  const adm = await asU('t.admin'), ag = await asU(AGENT);
   assert.strictEqual((await ag.get('/api/ai/scenarios')).status, 403);
   assert.strictEqual((await ag.post('/api/ai/scenarios', { name: 'x', open: 'y' })).status, 403);
   assert.strictEqual((await adm.post('/api/ai/scenarios', { name: 'Refund' })).status, 400, 'the first sentence of the customer is needed');
@@ -112,7 +114,7 @@ test('practice scenarios: trainers and admins add their own and switch built-in 
 });
 
 test('one-to-ones: a template per team, sent to the agent to sign, and a monthly target only admins set', async () => {
-  const qa = client(), ag = client(), adm = client(); await qa.login('t.qa'); await ag.login(AGENT); await adm.login('t.admin');
+  const qa = await asU('t.qa'), ag = await asU(AGENT), adm = await asU('t.admin');
   assert.strictEqual((await qa.post('/api/o2o-templates', { name: 'Monthly', sections: [] })).status, 400, 'a template needs a section');
   const tpl = (await qa.post('/api/o2o-templates', { name: 'Monthly', teams: ['t-b2c'], sections: [{ id: 's1', t: 'yesno', title: 'Strengths', items: ['Communication'] }, { id: 's2', t: 'bogus', title: 'Notes' }] })).json;
   assert.deepEqual(tpl.sections.map(x => x.t), ['yesno', 'text'], 'an unknown section type becomes free text');
@@ -126,8 +128,27 @@ test('one-to-ones: a template per team, sent to the agent to sign, and a monthly
   assert.deepEqual(set.o2o, { target: 1, teams: { 't-b2c': 3 } });
 });
 
+test('calibration is blind: a participant sees the others\' scores only after giving their own; a dispute can end "partly changed"', async () => {
+  const qa = await asU('t.qa'), qa2 = await asU('t.qa2'), adm = await asU('t.admin');
+  const rid = readDb().evaluations[0].rid;
+  const c = (await qa.post('/api/calibrations', { date: '2026-10-20', participants: ['t.qa2'], reviews: [rid] })).json;
+  assert.strictEqual((await qa.put('/api/calibrations/' + c.id, { score: { rid, sc: 140 } })).status, 400);
+  await qa.put('/api/calibrations/' + c.id, { score: { rid, sc: 80, note: 'missed the closing' } });
+  let mine = (await qa2.get('/api/calibrations')).json.find(x => x.id === c.id);
+  assert.deepEqual(Object.keys(mine.scores[rid]).filter(k => mine.scores[rid][k]), ['_n'], 'before scoring, t.qa2 only sees how many scored');
+  await qa2.put('/api/calibrations/' + c.id, { score: { rid, sc: 90 } });
+  mine = (await qa2.get('/api/calibrations')).json.find(x => x.id === c.id);
+  assert.deepEqual([mine.scores[rid]['t.qa'].sc, mine.scores[rid]['t.qa2'].sc], [80, 90]);
+  assert.strictEqual((await qa.put('/api/calibrations/' + c.id, { base: { rid, who: 't.qa2' } })).json.base[rid], 't.qa2');
+  const ag = await asU(AGENT), sc = (await qa.get('/api/scorecards')).json[0];
+  const ev = (await qa.post('/api/evaluations', { scid: sc.id, agent: AGENT, id: 'T-2001', dt: '2026-10-01', a: allYes(sc) })).json;
+  await ag.post('/api/evaluations/' + ev.rid + '/dispute', { text: 'I do not agree' });
+  const r = (await adm.post('/api/evaluations/' + ev.rid + '/dispute/resolve', { outcome: 'partly' })).json;
+  assert.strictEqual(r.dp.res.outcome, 'partly');
+});
+
 test('a new review keeps when it was made and how long QA Entry took (at most 4 hours)', async () => {
-  const qa = client(); await qa.login('t.qa');
+  const qa = await asU('t.qa');
   const sc = (await qa.get('/api/scorecards')).json[0], t0 = Date.now();
   const r = await qa.post('/api/evaluations', { scid: sc.id, agent: AGENT, id: 'T-1004', dt: '2026-09-01', a: allYes(sc), rt: 312.4 });
   assert.strictEqual(r.status, 200);
@@ -151,7 +172,7 @@ test('quick flags keep their CRM and recording links (regression)', async () => 
 });
 
 test('a deactivated user is signed out at once, not at the next login', async () => {
-  const adm = client(), ag = client(); await adm.login('t.admin'); await ag.login(AGENT);
+  const adm = await asU('t.admin'), ag = await asU(AGENT);
   assert.strictEqual((await ag.get('/api/evaluations')).status, 200);
   assert.strictEqual((await adm.put('/api/users/' + AGENT, { active: false })).status, 200);
   assert.strictEqual((await ag.get('/api/evaluations')).status, 401);

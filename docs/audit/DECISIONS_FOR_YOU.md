@@ -848,3 +848,26 @@ I looked at Kainami's One-to-One page, its "New One-to-One" form and its Form Te
 - Signatures are a click with the name and the time, not a drawn signature as in Kainami.
 - While testing I fixed an older test about capacity planning that failed only in the evening; the app itself was right.
 - All 165 automatic tests pass (one new for templates, sending, signing and the target). Everything is translated into Bulgarian and French.
+
+## X. Ideas from the Zendesk QA dashboards, added to the pages we already have (27 October)
+
+I read Zendesk's help pages for their Assignments, Coaching, Surveys, Disputes, Calibration, Categories and Reviewer QA dashboards (the dashboards themselves didn't load in my browser). As you asked, there is no Reviewer QA; the other ideas went into our existing pages:
+- **Disputes (Quality › Disputes):**
+  - A dispute can now end **"Score partly changed"** (the agent was right about some points, not all), next to "kept" and "changed".
+  - New cards: **How disputes end** (average time to resolve, how often the agent was right, the three endings), **Disputed categories**, **Who disputes** (per agent: reviews, seen, disputes, open, changed, partly, kept) and **Whose reviews are disputed** (the same per reviewer).
+  - The page filters apply to all of them.
+- **Category Stats:** a new **Root causes** card: root causes chosen per week, and tables **by reviewer** and **by agent** (the 6 most used root causes).
+- **Calibration:**
+  - **Score the same reviews.** Every participant gives the reviews in the session a score (0–100) on their own, and sees the others' scores only after saving their own; the owner and admins always see everything, and everybody does once the session is closed.
+  - The **reference** is the review's own score; the owner can make one participant's score the reference instead.
+  - Every score shows its difference from the reference, and a table shows each person's average difference (Aligned, Close, Calibrate).
+  - Participants can now also add reviews to the session.
+- **Coaching › Sessions log:** an overview on top: sessions held, coming, overdue (planned in the past), feedback signed by the agents, and **score after coaching** (the agents' average 30 days after a session against the 30 days before). There's also a table per coach.
+- **Surveys (CSAT):**
+  - Each answer can be **CSAT** (how satisfied) or **CES** (how easy it was), and can have a **reason** (Long wait, Solved quickly…).
+  - New cards: CSAT and CES side by side, **From conversation to comment** (reviewed conversations → answers → answers with a comment), **Reasons**, and **Words customers use** (the most frequent words in the comments).
+- **Not taken:**
+  - Zendesk's **Assignments** works from a shared pool of conversations that reviewers take from, which Q-smart doesn't have. Our Review planner already covers the goals per reviewer, so I left it as it is.
+  - Root-cause **tiers** (groups and sub-groups) would need a new setting in Admin › Root causes; tell me if you want it.
+
+All 166 automatic tests pass (one new for blind calibration and "partly changed"). I also made the newer tests reuse their sign-ins, because together they had reached the app's sign-in limit. Translated into Bulgarian and French.

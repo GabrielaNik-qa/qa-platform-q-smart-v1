@@ -47,6 +47,17 @@ ${mine.length ? `<div class=trp><div><div class=cap>TOP PERFORMERS</div>${mine.s
 };
 
 // ---- Category Stats: trends among categories and items, the most common mistakes, root causes
+// ---- root causes (from the Zendesk QA categories dashboard): who chose them, for whom, and how often week by week
+function catRootCauses(ev) {
+  const by = {}, ag = {}, wk = {}, all = {};
+  ev.forEach(e => { const w = iso(new Date(e.d.getTime() - ((e.d.getDay() + 6) % 7) * 864e5)); (e.cs || []).forEach(c => c.it.forEach(i => { if (!i.rc || i.a !== 'n') return; all[i.rc] = (all[i.rc] || 0) + 1;
+    const r = e.rv || e.by || '—'; (by[r] = by[r] || {})[i.rc] = (by[r][i.rc] || 0) + 1; (ag[e.agent] = ag[e.agent] || {})[i.rc] = (ag[e.agent][i.rc] || 0) + 1; wk[w] = (wk[w] || 0) + 1; })); });
+  const rcs = Object.entries(all).sort((a, b) => b[1] - a[1]).slice(0, 6).map(x => x[0]); if (!rcs.length) return '';
+  const tot = Object.values(all).reduce((a, b) => a + b, 0), mat = (m, name) => tbl([name, ...rcs.map(esc), 'Total'], Object.entries(m).map(([k, o]) => ({ k, o, t: Object.values(o).reduce((a, b) => a + b, 0) })).sort((a, b) => b.t - a.t).slice(0, 12).map(x => [esc(name === 'Agent' ? an(x.k) || x.k : x.k), ...rcs.map(r => x.o[r] || '—'), `<b>${x.t}</b>`]));
+  const ws = Object.keys(wk).sort().slice(-12), mx = Math.max(1, ...ws.map(w => wk[w]));
+  return card(`${tr('Root causes')} <small class=mu style="font-weight:400">${tot} ${tr('chosen in this period')}</small>`, `<div class=rcw>${ws.map(w => `<div title="${w}: ${wk[w]}"><i style="height:${wk[w] / mx * 100}%"></i><small>${w.slice(8, 10)}/${w.slice(5, 7)}</small></div>`).join('')}</div><small class=mu>${tr('Root causes chosen per week')}</small>`
+    + `<div class="g g2" style="margin-top:12px"><div><h4 style="margin:0 0 6px">${tr('By reviewer')}</h4>${mat(by, 'Reviewer')}</div><div><h4 style="margin:0 0 6px">${tr('By agent')}</h4>${mat(ag, 'Agent')}</div></div>`);
+}
 PG.cats = function () {
   const okSc = e => !AN.sc || e.scid === AN.sc, ev = anEV().filter(e => (!AN.t || e.tm === AN.t) && inPer(e, AN.p) && okSc(e)), pv = AN.p === 'all' ? [] : anEV().filter(e => (!AN.t || e.tm === AN.t) && inPer(e, AN.p, 1) && okSc(e)), cn = CATS(ev);
   const cat = cn.map(c => { const v = ev.map(e => cpv(e, c)).filter(x => x != null), p = pv.map(e => cpv(e, c)).filter(x => x != null); return { c, a: avg(v), mn: v.length ? Math.min(...v) : 0, low: Math.round(v.filter(x => x < PASSG()).length / (v.length || 1) * 100), tr: p.length ? avg(v) - avg(p) : null, wk: weekBuckets(anEV().filter(e => !AN.t || e.tm === AN.t), 8).map(b => { const l = anEV().filter(e => (!AN.t || e.tm === AN.t) && inPer(e, 'week', b.k)).map(e => cpv(e, c)).filter(x => x != null); return l.length ? avg(l) : null; }) }; });
@@ -61,7 +72,7 @@ PG.cats = function () {
     + `<div class="g g2">${card('▲ Strongest categories', rank(srt.slice(0, 3), 'var(--ok)'))}${card('▼ Weakest categories', rank([...srt].reverse().slice(0, 3), 'var(--bad)'))}</div>`
     + card('Categories <small class=mu style="font-weight:400">— click one to see where it comes from</small>', cat.length ? `<div class=cstl>${cat.map(x => `<button class=cst onclick="csOpen('cat',${jsq(x.c)})"><span class=cstn>${esc(x.c)}</span><b style="color:${col(x.a)}">${x.a.toFixed(1)}%</b><span class=cstm>${trendPill(x.tr)}<small class=mu>${x.low}% below ${PASSG()}%</small></span>${spark(x.wk, 150, 26)}${bar(x.a, col(x.a))}</button>`).join('')}</div>` : '<p class=mu>No data</p>')
     + `<div class="g g2">${card('Most common mistakes (items answered No)', top.map((x, i) => `<div class="row li clk" style="align-items:flex-start" onclick="csOpen('item',${jsq(x.cat)},${jsq(x.t)})"><span>${i + 1}. ${esc(x.t)}<br><small class=mu>${esc(x.cat)}${Object.keys(x.rc).length ? ' · ' + Object.entries(x.rc).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, v]) => esc(k) + ' ×' + v).join(', ') : ''}</small></span><span style="text-align:right"><b class=mono>${x.n}×</b><br><small class=mu>${x.pct.toFixed(0)}% of answers</small></span></div>`).join('') || '<p class=mu>No mistakes recorded</p>')}
-${card('Root causes', rcl.map(([k, v]) => `<div class=clk style="margin-bottom:8px" onclick="csOpen('rc',${jsq(k)})"><div class=row><span>${esc(k)}</span><b class=mono>${v}</b></div>${bar(v / rmax * 100, 'var(--wn)')}</div>`).join('') || '<p class=mu>No root causes were chosen yet. Reviewers pick one when an item is answered No (QA Entry).</p>')}</div>`
+${card('Root causes', rcl.map(([k, v]) => `<div class=clk style="margin-bottom:8px" onclick="csOpen('rc',${jsq(k)})"><div class=row><span>${esc(k)}</span><b class=mono>${v}</b></div>${bar(v / rmax * 100, 'var(--wn)')}</div>`).join('') || '<p class=mu>No root causes were chosen yet. Reviewers pick one when an item is answered No (QA Entry).</p>')}</div>` + catRootCauses(ev)
     + card('Categories by team', tbl(['Category', ...TEAMS.filter(t => !t.system).map(t => esc(t.name))], cn.map(c => [`<a href="javascript:void(0)" class=agl onclick="csOpen('cat',${jsq(c)})">${esc(c)}</a>`, ...TEAMS.filter(t => !t.system).map(t => { const v = ev.filter(e => e.tm === t.id).map(e => cpv(e, c)).filter(x => x != null); return v.length ? `<span class=heat style="--c:${col(avg(v))}">${avg(v).toFixed(0)}%</span>` : '—'; })])));
 };
 

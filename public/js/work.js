@@ -20,6 +20,19 @@ function insight(u) {
   return { u, n: mine.length, a, trend, weak, disputes, last, arts, prio: mine.length ? (PASSG() - a) + weak.length * 3 + disputes * 2 + (trend != null && trend < -2 ? 3 : 0) : -99 };
 }
 const planCoaching = (agents, focus, kind) => openSession({ kind: kind || (agents.length > 1 ? 'group' : 'coaching'), date: todayS(), title: '', agents, focus: focus || [], topics: [], notes: '', goals: '', actions: [], follow: '', status: 'planned' });
+// ---- coaching overview (from the Zendesk QA coaching dashboard): sessions held, coming and overdue; whether the agents read and signed
+// the feedback; and the average score of the coached agents 30 days before and after each session
+function coachOverview() {
+  const td = todayS(), l = SESS.filter(s => s.kind !== 'o2o' && (!CT.team || s.agents.some(a => teamOf(a) === CT.team))), held = l.filter(s => s.status !== 'planned');
+  const up = l.filter(s => s.status === 'planned' && s.date >= td).length, late = l.filter(s => s.status === 'planned' && s.date < td).length;
+  const pairs = held.flatMap(s => s.agents.map(a => ({ s, a }))), read = pairs.filter(x => (x.s.signed || {})[x.a]).length;
+  const imp = held.flatMap(s => s.agents.map(a => { const t = new Date(s.date + 'T12:00:00'), b4 = EV.filter(e => e.agent === a && e.d < t && t - e.d < 30 * 864e5), af = EV.filter(e => e.agent === a && e.d >= t && e.d - t < 30 * 864e5);
+    return b4.length && af.length ? { by: s.by, byName: s.byName, d: avg(af.map(e => e.sc)) - avg(b4.map(e => e.sc)) } : null; })).filter(Boolean);
+  const coaches = {}; held.forEach(s => { const x = coaches[s.by] = coaches[s.by] || { n: s.byName || s.by, k: 0, ag: new Set(), d: [] }; x.k++; s.agents.forEach(a => x.ag.add(a)); }); imp.forEach(x => coaches[x.by] && coaches[x.by].d.push(x.d));
+  const di = imp.length ? avg(imp.map(x => x.d)) : null;
+  return `<div class=fkp style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">${kpiS('Sessions held', held.length, '')}${kpiS('Coming', up, '', 'var(--ac)')}${kpiS('Overdue', late, tr('planned in the past'), late ? 'var(--bad)' : '')}${kpiS('Feedback signed', pairs.length ? Math.round(read / pairs.length * 100) + '%' : '—', read + '/' + pairs.length)}${kpiS('Score after coaching', di == null ? '—' : (di > 0 ? '+' : '') + di.toFixed(1) + ' pts', tr('30 days after vs 30 days before'), di == null ? '' : di >= 0 ? 'var(--ok)' : 'var(--bad)')}</div>`
+    + (Object.keys(coaches).length ? card('Coaches', tbl(['Coach', 'Sessions', 'Agents coached', 'Score after coaching'], Object.values(coaches).sort((a, b) => b.k - a.k).map(x => [`<b>${esc(x.n)}</b>`, x.k, x.ag.size, x.d.length ? `<b style="color:${avg(x.d) >= 0 ? 'var(--ok)' : 'var(--bad)'}">${avg(x.d) > 0 ? '+' : ''}${avg(x.d).toFixed(1)} pts</b>` : '—']))) : '');
+}
 PG.coach = function () {
   const tab = CT.tab, ag = AGENTS().filter(a => !CT.team || a.team === CT.team), ins = ag.map(insight).sort((x, y) => y.prio - x.prio);
   const head2 = `<div class=row style="justify-content:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:14px"><div class=sg><button class="${tab === 'insights' ? 'on' : ''}" onclick="CT.tab='insights';render()">Insights</button><button class="${tab === 'sessions' ? 'on' : ''}" onclick="CT.tab='sessions';render()">Sessions log</button></div><select onchange="CT.team=this.value;render()"><option value="">All teams</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${t.id}" ${CT.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></div>`;
@@ -31,7 +44,7 @@ PG.coach = function () {
         `<div class=row style="flex-wrap:wrap"><span>${i.n ? `Average <b class=mono style="color:${scol(i.a, i.u.team)}">${i.a.toFixed(1)}%</b> over ${i.n} reviews` : '<small class=mu>No reviews in the last 30 days</small>'}</span>${i.trend != null ? `<span class="pill ${i.trend >= 0 ? 'ok' : 'bad'}">${i.trend >= 0 ? '↗' : '↘'} ${i.trend.toFixed(1)} pts</span>` : ''}</div>`
         + (i.weak.length ? `<div style="margin-top:10px"><b style="font-size:13px">Work on</b>${i.weak.map(w => `<div style="margin-top:8px"><div class=row><span>${esc(w.c)}</span><b class=mono>${w.a.toFixed(0)}%</b></div>${bar(w.a, col(w.a))}<small class=mu>${w.t ? 'Team average ' + w.t.toFixed(0) + '%' : ''}${i.arts(w.c).length ? ' · Read: ' + i.arts(w.c).map(a => `<a href="javascript:void(0)" style="color:var(--ac)" onclick="kbOpen('${a.id}')">${esc(a.title)}</a>`).join(', ') : ''}</small></div>`).join('')}</div>` : (i.n ? '<p class=mu style="margin:10px 0 0">All categories are above the pass rate. Keep it up!</p>' : ''))
         + `<div class=row style="margin-top:12px;flex-wrap:wrap"><small class=mu>${i.last ? 'Last coached ' + i.last : 'Never coached'}${i.disputes ? ' · ' + i.disputes + ' open dispute(s)' : ''}</small><button class="ib" onclick="planCoaching([${jsq(i.u.username)}],${esc(JSON.stringify(i.weak.map(w => w.c)))})">Plan coaching</button></div>`)).join('') || '<p class=mu>No agents</p>'}</div>`;
-  } else body = SESSLIST(['coaching', 'group', 'training']);
+  } else body = coachOverview() + SESSLIST(['coaching', 'group', 'training']);
   return head('Coaching', 'See what each agent needs to work on, and document coaching sessions and trainings', `<div style="display:flex;gap:8px">${bellBtn()}<button class=btn onclick="planCoaching([],[])">+ New session</button></div>`) + head2 + body;
 };
 // PG.o2o (the One-to-One page) is in o2o.js
@@ -86,9 +99,31 @@ const CALD = c => { const mine = c.participants.includes(ME.username), owner = M
 ${card('Agenda / notes', `<p style="margin:0">${lineBr(c.notes || '—')}</p><div style="margin-top:10px"><b>Teams</b> ${chips(c.teams.map(tn))}</div>`)}</div>`
     + card('Impressions and what each of us has done', `<div class=g style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr));margin:0">${c.participants.map(u => { const en = c.entries[u] || {}, me = u === ME.username;
       return `<div class=card style="margin:0"><b>${esc(an(u) || u)}</b> <small class=mu>${ROLE[(ROSTER.find(r => r.username === u) || {}).role] || ''}</small>${me ? `<label style="margin-top:8px">Impressions of the team(s)<textarea id=ci rows=4>${esc(e0.impression || '')}</textarea></label><label style="margin-top:8px">What I have done<textarea id=cd rows=3>${esc(e0.done || '')}</textarea></label><button class=btn style="margin-top:8px" onclick="calMine('${c.id}')">Save my part</button>` : `<p style="margin:8px 0 0"><small>Impressions</small><br>${lineBr(en.impression || '—')}</p><p style="margin:8px 0 0"><small>Has done</small><br>${lineBr(en.done || '—')}</p>`}</div>`; }).join('')}</div>`)
+    + calScores(c, mine)
     + card('Decisions and actions', c.decisions.map((d, i) => `<div class="row li"><label class=rad style="align-items:center"><input type=checkbox ${d.done ? 'checked' : ''} ${mine ? '' : 'disabled'} onchange="calDec('${c.id}',x=>x[${i}].done=this.checked)"> <span style="${d.done ? 'text-decoration:line-through;opacity:.6' : ''}">${esc(d.t)} <small class=mu>${d.owner ? '— ' + esc(an(d.owner) || d.owner) : ''} ${d.due || ''}</small></span></label>${mine ? `<button class=ic onclick="calDec('${c.id}',x=>x.splice(${i},1))">${IC.x}</button>` : ''}</div>`).join('') + (mine ? `<div class=row style="gap:8px;margin-top:10px;flex-wrap:wrap"><input id=cdt placeholder="New decision or action" style="flex:2;min-width:200px"><select id=cdo style="flex:1"><option value="">Owner</option>${staffOpts().map(([u, n]) => `<option value="${esc(u)}">${esc(n)}</option>`).join('')}</select><input id=cdd type=date style="flex:1"><button class=btn onclick="calDec('${c.id}',x=>{const t=$('#cdt').value.trim();if(t)x.push({t,owner:$('#cdo').value,due:$('#cdd').value,done:false})})">Add</button></div>` : ''));
 };
 
+
+// ---------- blind scoring (from Zendesk QA calibration): every participant scores the same reviews on their own; the reference is
+// the original review (or one participant's score, chosen by the owner); each score shows its difference from the reference
+const calScore = (id, rid) => { const v = $('#cs-' + rid).value, n = $('#cn-' + rid).value; if (v === '') return toast('Write your score from 0 to 100', true); calPut(id, { score: { rid, sc: +v, note: n } }, 'Your score is saved'); };
+const calBase = (id, rid, who) => calPut(id, { base: { rid, who } });
+function calScores(c, mine) {
+  if (!c.reviews.length) return '';
+  const owner = ME.role === 'admin' || c.by === ME.username, dev = {};
+  const blocks = c.reviews.map(rid => { const e = EV.find(x => x.rid === rid); if (!e) return '';
+    const s = (c.scores || {})[rid] || {}, me = s[ME.username], seen = !!me || owner || c.status === 'closed', who = (c.base || {})[rid] || 'review';
+    const ref = who === 'review' ? e.sc : (s[who] || {}).sc, people = c.participants.filter(u => s[u]);
+    const rows = [[`<b>${tr('The review')}</b> <small class=mu>${esc(e.rv || '')}</small>`, `<b class=mono>${Math.round(e.sc)}%</b>`, who === 'review' ? pill('Reference', 'ac') : '—', '', owner && who !== 'review' ? `<button class=ib onclick="calBase('${c.id}','${rid}','review')">${tr('Make reference')}</button>` : '']]
+      .concat(seen ? people.map(u => { const v = s[u].sc, d = ref == null ? null : v - ref; if (d != null && u !== who) (dev[u] = dev[u] || []).push(Math.abs(d));
+        return [esc(an(u) || u), `<b class=mono>${v}%</b>`, who === u ? pill('Reference', 'ac') : d == null ? '—' : `<b style="color:${Math.abs(d) <= 5 ? 'var(--ok)' : Math.abs(d) <= 10 ? 'var(--wn)' : 'var(--bad)'}">${d > 0 ? '+' : ''}${Math.round(d)} pts</b>`, esc(s[u].note || ''), owner && who !== u ? `<button class=ib onclick="calBase('${c.id}','${rid}','${esc(u)}')">${tr('Make reference')}</button>` : '']; }) : []);
+    return `<div class=calb><div class=row><span><b class=mono style="color:var(--ac)">${esc(e.id)}</b> <small>${esc(agn(e))} · ${esc(e.scn || '')}</small></span><button class=ib onclick="om('view','${e.rid}')">${tr('Open the review')}</button></div>`
+      + (mine && !me && c.status !== 'closed' ? `<div class=row style="gap:8px;margin:8px 0;flex-wrap:wrap"><input id="cs-${rid}" type=number min=0 max=100 placeholder="${esc(tr('Your score %'))}" style="width:130px"><input id="cn-${rid}" placeholder="${esc(tr('Why (optional)'))}" style="flex:1;min-width:160px"><button class=btn onclick="calScore('${c.id}','${rid}')">${tr('Save my score')}</button></div><small class=mu>${tr('Score it on your own first: the others\' scores show after you save yours.')}${s._n ? ' ' + tr(`${s._n} already scored.`) : ''}</small>` : '')
+      + tbl(['Who', 'Score', 'Difference', 'Note', ''], rows) + `</div>`; }).join('');
+  const sum = Object.entries(dev).map(([u, l]) => ({ u, d: avg(l), n: l.length })).sort((a, b) => b.d - a.d);
+  return card(`${tr('Score the same reviews')} <small class=mu style="font-weight:400">${tr('blind: you see the others after you score')}</small>`, blocks
+    + (sum.length ? `<h4 style="margin:14px 0 6px">${tr('How far each person is from the reference')}</h4>` + tbl(['Who', 'Reviews', 'Average difference', ''], sum.map(x => [esc(an(x.u) || x.u), x.n, `<b class=mono>${x.d.toFixed(1)} pts</b>`, x.d <= 5 ? pill('Aligned', 'ok') : x.d <= 10 ? pill('Close', 'wn') : pill('Calibrate', 'bad')])) : ''));
+}
 
 // ---------- reviewer consistency: do reviewers score alike? Built from the reviews and the disputes that were decided.
 function reviewerCard() {

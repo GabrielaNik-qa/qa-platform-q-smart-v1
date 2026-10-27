@@ -672,11 +672,11 @@ app.post('/api/evaluations/:rid/dispute/resolve', need('admin', 'qa'), (req, res
   const db = load(), u = req.session.user, ev = evOf(db, u, req.params.rid), b = req.body || {};
   if (!ev || !ev.dp) return res.status(404).json({ error: 'not found' });
   if (ev.dp.status !== 'open') return bad(res, 'This dispute is already resolved');
-  const outcome = b.outcome === 'changed' ? 'changed' : 'kept', note = str(b.note, 500);
+  const outcome = ['changed', 'partly'].includes(b.outcome) ? b.outcome : 'kept', note = str(b.note, 500), ow = { kept: 'kept', changed: 'changed', partly: 'partly changed' }[outcome];   // partly = the agent was partly right
   ev.dp.status = 'resolved'; ev.dp.res = { outcome, note, by: u.name, at: iso() };
-  ev.dp.msgs.push({ u: u.username, n: u.name, r: u.role, sys: 1, t: `Dispute resolved - score ${outcome === 'kept' ? 'kept' : 'changed'}${note ? ': ' + note : ''}`, at: iso() });
+  ev.dp.msgs.push({ u: u.username, n: u.name, r: u.role, sys: 1, t: `Dispute resolved - score ${ow}${note ? ': ' + note : ''}`, at: iso() });
   ev.st = 'ok';
-  notify(db, ev.agent, 'resolved', `Your dispute for Lead #${ev.id} was resolved: score ${outcome === 'kept' ? 'kept' : 'changed'}`, { rid: ev.rid, lead: ev.id });
+  notify(db, ev.agent, 'resolved', `Your dispute for Lead #${ev.id} was resolved: score ${ow}`, { rid: ev.rid, lead: ev.id });
   save(db); res.json(ev);
 });
 
