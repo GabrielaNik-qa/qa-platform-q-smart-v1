@@ -9,20 +9,30 @@ const { DEFAULT_SC } = require('../scorecard');
 
 const ROOT = path.join(__dirname, '..'), ROLES = ['admin', 'qa', 'lead', 'trainer', 'agent'];
 // ---- the routes: method, path and which roles the guard lets in (null = public, [] = anybody signed in)
+// the lists of roles a file names (const EDIT = ['admin', 'qa'], QA = [...] …), for guards such as need(...EDIT); server.js's
+// STAFF and ROLES reach every route file too
+function roleLists(src) {
+  const out = {};
+  for (const m of src.matchAll(/\b([A-Z][A-Z0-9_]*) = \[((?:\s*'(?:admin|qa|lead|trainer|agent)'\s*,?)+)\]/g)) out[m[1]] = m[2].match(/[a-z]+/g);
+  return out;
+}
 function routes() {
-  const out = [];
-  for (const f of fs.readdirSync(ROOT).filter(f => f.endsWith('.js'))) {
-    const src = fs.readFileSync(path.join(ROOT, f), 'utf8'), edit = (src.match(/const EDIT = (\[[^\]]*\])/) || [])[1], EDIT = edit ? JSON.parse(edit.replace(/'/g, '"')) : null;
+  const out = [], files = fs.readdirSync(ROOT).filter(f => f.endsWith('.js')), common = roleLists(fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8'));
+  for (const f of files) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8'), L = { ...common, ...roleLists(src) };
     for (const m of src.matchAll(/app\.(get|post|put|delete|patch)\(\s*'(\/api\/[^']*)'\s*,\s*([^\n]*)/g)) {
       const g = m[3]; let roles = null;
       if (/^authed\b/.test(g) || /^need\(\)/.test(g)) roles = [];
-      else if (/^need\(\.\.\.EDIT\)/.test(g)) roles = EDIT;
+      else if (/^need\(\.\.\.([A-Z0-9_]+)\)/.test(g)) { const n = g.match(/^need\(\.\.\.([A-Z0-9_]+)\)/)[1]; roles = L[n]; if (!roles) throw new Error(`${f}: need(...${n}) uses a role list the test cannot find`); }
       else if (/^need\(((?:'[a-z]+'(?:,\s*)?)+)\)/.test(g)) roles = g.match(/^need\(((?:'[a-z]+'(?:,\s*)?)+)\)/)[1].match(/[a-z]+/g);
+      else if (/^need\(/.test(g)) throw new Error(`${f}: a guard the test does not understand: ${g.slice(0, 60)}`);
       out.push({ f, method: m[1].toUpperCase(), path: m[2], roles });
     }
   }
   return out;
 }
+// every route that is not public on purpose: a route with no guard the test can read is listed here, or the test fails
+const PUBLIC = new Set(['POST /api/login', 'POST /api/logout', 'POST /api/register', 'POST /api/forgot', 'POST /api/reset', 'GET /api/notice']);
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qsmart-roles-')), DATA = path.join(DIR, 'data.json');
 const H = bcrypt.hashSync('password', 4);
@@ -65,11 +75,12 @@ const SKIP = new Set(['POST /api/logout']);   // would end the session in the mi
 const SKIP_FOR = { 'POST /api/demo/reset': ['admin'] };
 // the project's own files must come out of the run exactly as they went in (once, "Refresh seed.js" wrote this run's data into seed.js)
 const crypto = require('crypto'), sum = f => { try { return crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, f))).digest('hex'); } catch (e) { return 'missing'; } };
-const BEFORE = { 'seed.js': sum('seed.js'), 'data.json': sum('data.json') };
+const OWN = ['seed.js', 'data.json', 'audit.json', '.qsmart-key'], sums = () => Object.fromEntries(OWN.map(f => [f, sum(f)])), BEFORE = sums();
 
 test('every route: no crash on empty or wrong-type input, 403 for roles it does not allow, 401 when not signed in', async t => {
   const all = routes().filter(r => !SKIP.has(r.method + ' ' + r.path));
-  assert.ok(all.length > 100, 'found ' + all.length + ' routes');
+  assert.ok(all.length > 200, 'found ' + all.length + ' routes');
+  assert.deepEqual(all.filter(r => r.roles === null && !PUBLIC.has(r.method + ' ' + r.path)).map(r => r.method + ' ' + r.path), [], 'routes without a guard the test can read');
   const callers = { none: await client(null) };
   for (const r of ROLES) callers[r] = await client('r.' + r);
   const crashes = [], leaks = [], seen = {};
@@ -89,7 +100,7 @@ test('every route: no crash on empty or wrong-type input, 403 for roles it does 
   const bad = [], walk = (v, p) => { if (Array.isArray(v)) v.forEach((x, i) => walk(x, p + '[' + i + ']')); else if (v && typeof v === 'object') Object.entries(v).forEach(([k, x]) => { if (['name', 'title', 'text', 'desc', 't', 'n'].includes(k) && x != null && typeof x !== 'string' && !(k === 'n' && typeof x === 'number')) bad.push(p + '.' + k + ' = ' + JSON.stringify(x).slice(0, 40)); walk(x, p + '.' + k); }); };
   walk(JSON.parse(fs.readFileSync(DATA, 'utf8')), 'db');
   assert.deepEqual(bad, [], 'wrong types were saved:\n' + bad.join('\n'));
-  assert.deepEqual({ 'seed.js': sum('seed.js'), 'data.json': sum('data.json') }, BEFORE, "the project's seed.js and data.json are untouched");
+  assert.deepEqual(sums(), BEFORE, "the project's seed.js, data.json, audit.json and .qsmart-key are untouched");
   assert.deepEqual(crashes, [], 'server errors:\n' + crashes.join('\n'));
   assert.deepEqual(leaks, [], 'routes that let in the wrong people:\n' + leaks.join('\n'));
 });

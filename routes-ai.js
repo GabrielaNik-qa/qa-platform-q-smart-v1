@@ -337,7 +337,8 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     const agents = [...new Set(Array.isArray(b.agents) ? b.agents : [])].filter(a => { const u = db.users.find(x => x.username === a && x.role === 'agent'); return u && see(u.team); }).slice(0, 200);
     const words = cat.toLowerCase().split(/[^a-z\u00c0-\u024f\u0400-\u04ff]+/).filter(w => w.length > 4);
     const arts = (db.kbArticles || []).filter(a => { const h = (a.title + ' ' + (a.topics || []).join(' ')).toLowerCase(); return h.includes(cat.toLowerCase()) || words.some(w => h.includes(w)); }).slice(0, 6);
-    const missed = db.evaluations.filter(e => evAge(e) < 30 && (!agents.length || agents.includes(e.agent))).flatMap(e => (e.cs || []).filter(c => c.n === cat).flatMap(c => (c.it || []).filter(i => i.a === 'n').map(i => i.t + (i.cm ? ' (reviewer: ' + i.cm + ')' : '')))).slice(0, 30);
+    const seeA = a => see((db.users.find(u => u.username === a) || {}).team);   // only the reviews of the agents this person sees
+    const missed = db.evaluations.filter(e => evAge(e) < 30 && seeA(e.agent) && (!agents.length || agents.includes(e.agent))).flatMap(e => (e.cs || []).filter(c => c.n === cat).flatMap(c => (c.it || []).filter(i => i.a === 'n').map(i => i.t + (i.cm ? ' (reviewer: ' + i.cm + ')' : '')))).slice(0, 30);
     const text = 'Quality category: ' + cat + '\n\nWhat the scorecard checks:\n' + [...new Set(items)].map(t => '- ' + t).join('\n')
       + (missed.length ? '\n\nWhat agents missed most in recent reviews:\n' + [...new Set(missed)].map(t => '- ' + t).join('\n') : '')
       + arts.map(a => '\n\n# ' + a.title + '\n' + String(a.body || '').slice(0, 15000)).join('');

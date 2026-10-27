@@ -20,11 +20,12 @@ async function ask(system, content, max = 8000) {
     body: JSON.stringify({ model: c.model, max_tokens: max, system, messages: [{ role: 'user', content }] }),
     signal: AbortSignal.timeout(180000)                                           // a request that hangs gives up after 3 minutes instead of waiting forever
   }).catch(e => { throw new Error(e.name === 'TimeoutError' ? 'The AI took too long to answer. Try again or use a shorter text.' : 'Could not reach the AI service'); });
-  const j = await r.json().catch(() => ({}));
+  const j = await r.json().catch(() => null);
+  if (r.ok && (!j || !Array.isArray(j.content))) throw new Error('The AI answer could not be read. Try again later.');   // a broken answer is an error, never an empty result
   if (r.status === 401 || r.status === 403) throw new Error('The AI key was not accepted. Check it in Admin › Integrations.');
   if (r.status === 429 || r.status === 529) throw new Error('The AI service is busy right now. Try again in a minute.');
   if (!r.ok) throw new Error('The AI service answered with an error (' + r.status + '). Try again later.');
-  if (j.usage) USE(costOf(c.model, j.usage));                                  // counts towards this month's budget
+  if (j && j.usage) USE(costOf(c.model, j.usage));                                  // counts towards this month's budget
   if (j.stop_reason === 'refusal') throw new Error('The AI declined this request. Try a different text.');
   return (j.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
 }

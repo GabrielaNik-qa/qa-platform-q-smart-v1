@@ -4,7 +4,7 @@
 // Q-Intelligence: knowledge files the AI reads with every answer, AI agents run on one review or one agent, and AI insights
 // (objections, competitors, product feedback) found in what customers and reviewers wrote; topics are counted without the AI.
 const fs = require('fs'), path = require('path'), ai = require('./ai');
-module.exports = ({ app, load, save, need, bad, hex, iso, str, list, setOut, limited, seesUser }) => {
+module.exports = ({ app, load, save, need, bad, hex, iso, str, list, setOut, limited, seesUser, scopeOf }) => {
   const STAFF = ['admin', 'qa', 'lead', 'trainer'];
   const MONTHS = v => Math.min(120, Math.max(0, parseInt(v) || 0));   // 0 = keep for ever
   const KEEP = ['rec', 'notif', 'sim', 'ai', 'audit'];
@@ -92,11 +92,15 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, setOut, lim
   });
 
   // ---------------------------------------------------------------- Q-Intelligence: insights from what customers and reviewers wrote
+  // only the texts about the agents the person sees: reviews, survey answers and AutoQA conversations of other workspaces never reach the AI
   const texts = (db, me, days) => { const since = Date.now() - days * 864e5, out = [];
     db.evaluations.filter(e => new Date(e.d || e.at) >= since && seesUser(db, me, e.agent)).forEach(e => { if (e.cm) out.push(['review', e.cm]); (e.cs || []).forEach(c => (c.it || []).forEach(i => { if (i.cm) out.push(['review', i.cm]); })); if (e.tx) out.push(['transcript', String(e.tx).slice(0, 3000)]); });
-    (db.surveys || []).filter(s => s.comment && new Date(s.date) >= since).forEach(s => out.push(['survey', s.comment]));
-    (db.conversations || []).filter(c => new Date(c.at || c.date || 0) >= since).forEach(c => { if (c.text) out.push(['conversation', String(c.text).slice(0, 3000)]); });
+    (db.surveys || []).filter(s => s.comment && new Date(s.date) >= since && seesUser(db, me, s.agent)).forEach(s => out.push(['survey', s.comment]));
+    (db.conversations || []).filter(c => new Date(c.at || c.date || 0) >= since && seesUser(db, me, c.agent)).forEach(c => { if (c.text) out.push(['conversation', String(c.text).slice(0, 3000)]); });
     return out; };
+  // an insight keeps the teams it was made from (none = every team): it is shown only to people who see all of those teams
+  const teamsOf = (db, me) => { const s = scopeOf(db, me); return s ? [...s.teams].sort() : null; };
+  const seesInsight = (db, me, x) => { const s = scopeOf(db, me); return !s || (Array.isArray(x.teams) && x.teams.every(t => s.teams.has(t))); };
   // topics: the keywords of each topic counted in the texts (no AI needed)
   app.get('/api/qi/topics', need(...STAFF), (req, res) => {
     const db = load(), days = Math.min(365, Math.max(1, parseInt(req.query.days) || 30)), tops = (((db.settings || {}).words || {}).topics) || [], l = texts(db, req.session.user, days).map(x => x[1].toLowerCase());
@@ -113,9 +117,9 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, setOut, lim
       const raw = await ai.ask(`You are Q-Intelligence, the AI of a customer-service quality platform. From the texts below (review comments, transcripts, survey comments), find ${k}. Group them into themes. Reply ONLY with JSON: {"themes":[{"theme":"short name","count":number of texts,"summary":"one sentence","examples":["short quote", "short quote"]}]}, at most 8 themes, the biggest first.` + (context(db) ? '\n\nCompany context:\n' + context(db).slice(0, 6000) : ''), [{ type: 'text', text: body }], 2000);
       const m = String(raw).match(/\{[\s\S]*\}/); let j = null; try { j = m && JSON.parse(m[0]); } catch (e) { j = null; }
       const themes = (j && Array.isArray(j.themes) ? j.themes : []).slice(0, 8).map(t => ({ theme: str(t.theme, 80), count: Math.max(0, parseInt(t.count) || 0), summary: str(t.summary, 300), examples: list(t.examples, 3, 200) })).filter(t => t.theme);
-      const x = { id: 'i' + hex(4), kind: b.kind, days, texts: l.length, themes, text: themes.length ? '' : str(raw, 4000), at: iso(), by: me.username };
+      const x = { id: 'i' + hex(4), kind: b.kind, days, texts: l.length, themes, text: themes.length ? '' : str(raw, 4000), at: iso(), by: me.username, teams: teamsOf(db, me) };
       db.qiInsights = [x, ...(db.qiInsights || []).filter(y => y.kind !== b.kind || y.by !== me.username)].slice(0, 30); save(db); res.json(x);
     } catch (e) { bad(res, e.message); }
   });
-  app.get('/api/qi/insights', need(...STAFF), (req, res) => res.json(load().qiInsights || []));
+  app.get('/api/qi/insights', need(...STAFF), (req, res) => { const db = load(); res.json((db.qiInsights || []).filter(x => seesInsight(db, req.session.user, x))); });
 };
