@@ -58,6 +58,9 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, setOut, lim
   // what the AI reads with every answer: the playbook (Admin › Integrations) and the knowledge files
   const context = db => { const k = kn(db).map(f => `### ${f.name}\n${f.text}`).join('\n\n').slice(0, 24000), p = ((db.settings || {}).ai || {}).playbook || ''; return [p, k && 'Company knowledge:\n' + k].filter(Boolean).join('\n\n'); };
   app.locals.qiContext = context;
+  // custom vocabulary (Business words): every wrong spelling the transcription makes becomes the right one
+  const reEsc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  app.locals.vocab = (db, t) => (((db.settings || {}).words || {}).vocab || []).reduce((s, v) => v.wrong.reduce((x, w) => x.replace(new RegExp('(^|[^\\p{L}\\p{N}])' + reEsc(w) + '(?![\\p{L}\\p{N}])', 'giu'), (m, a) => a + v.term), s), String(t || ''));
 
   // ---------------------------------------------------------------- Q-Intelligence: AI agents on one review or one agent
   const reviewText = e => [`Review of lead ${e.id} · agent ${e.agent} · ${e.ch || 'call'} · ${String(e.d || '').slice(0, 10)} · score ${e.sc}% · scorecard ${e.scn || ''}`, ...(e.cs || []).map(c => `${c.n}: ${c.e}/${c.m}` + (c.it || []).filter(i => i.a === 'n' || i.cm).map(i => `\n  - ${i.t}: ${i.a === 'n' ? 'missed' : i.a}${i.rc ? ' (root cause: ' + i.rc + ')' : ''}${i.cm ? ' — ' + i.cm : ''}`).join('')), e.cm ? 'Reviewer comment: ' + e.cm : '', e.tx ? 'Transcript:\n' + String(e.tx).slice(0, 12000) : ''].filter(Boolean).join('\n');

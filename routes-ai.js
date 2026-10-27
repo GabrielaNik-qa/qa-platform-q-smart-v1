@@ -77,6 +77,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) return bad(res, 'Choose the date');
     const lead = str(b.id, 60) || (conv ? conv.id : ''); if (!lead) return bad(res, 'Enter the lead ID');
     if (String(text || '').trim().length < 40) return bad(res, 'Paste the transcript (at least a few lines)');
+    if (app.locals.vocab) text = app.locals.vocab(db, text);                 // custom vocabulary (Admin › Organization › Business words)
     if (!ai.enabled()) return bad(res, 'Connect the AI (Admin › Integrations) to draft reviews with AI.');
     if (limited('ai-draft:' + req.session.user.username, 40, 36e5)) return res.status(429).json({ error: 'Too many AI drafts in one hour. Try again later.' });
     let r, prev; try { r = await ai.reviewDraft({ text, sc, playbook: play(db) }); prev = build(sc, r.a); } catch (e) { return bad(res, e.message || 'The AI answer did not fit the scorecard. Try again.'); }

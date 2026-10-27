@@ -7,7 +7,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, scopeOf, 
   const convOf = (db, u, id) => visible(db, u).find(c => c.id === id);                 // one conversation this person may change (their own workspace)
   app.get('/api/autoqa', need(), (req, res) => { const db = load(); res.json({ cats: db.autoCats, conversations: visible(db, req.session.user), ai: ai.enabled() }); });
   app.post('/api/autoqa/conversations', need(...EDIT), (req, res) => {
-    const db = load(), b = req.body || {}, text = str(b.text, 30000);
+    const db = load(), b = req.body || {}, text = (app.locals.vocab || ((d, t) => t))(db, str(b.text, 30000));   // custom vocabulary fixes the transcription's spellings
     const ag = userBy(db, str(b.agent, 40)); if (!ag || ag.role !== 'agent' || !seesUser(db, req.session.user, ag.username)) return bad(res, 'Choose the agent');
     if (!text) return bad(res, 'Paste the conversation'); if (!DAY.test(b.date || '')) return bad(res, 'Choose the date');
     const c = { id: 'cv' + hex(4), agent: ag.username, agn: ag.name, date: b.date, text, rid: str(b.rid, 40), auto: scoreConv(text, db.autoCats.filter(x => x.enabled !== false)), by: req.session.user.name, created: iso() };

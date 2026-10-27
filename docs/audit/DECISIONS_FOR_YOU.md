@@ -893,13 +893,17 @@ This branch starts at commit bfb48ed (everything above). I read every page of Mo
   - **How long data is kept**, per kind: call recordings, notifications, practice-call conversations, AI drafts and reports, audit log. Choices run from "Keep for ever" (the default, which deletes nothing) to 5 years.
   - Older data is deleted by itself every 12 hours. "Clean up now" does it at once, and the page shows the last clean-up.
   - Reviews, scores, tasks and one-to-ones are your quality history and are always kept.
-  - **What agents may see:** their own recordings, the reviewer's name, and a privacy note at sign-in. **These three are saved but don't change the app yet.** Making agents' screens follow them is a next step.
+  - **What agents may see** (working since 27 October, evening):
+    - When "Agents can listen to the recordings" is off, agents get no recording and no recording link, and the recording file refuses them.
+    - When "Agents see the name of the person who reviewed them" is off, the reviewer's name is hidden from agents; in disputes the QA answers show as "QA".
+    - Staff always see everything.
+  - **Privacy note:** shown under the sign-in form, with the company name, for everybody before they sign in.
   - **A person's data:** download everything stored about one person in one file (the right of access).
 - **Sign-in:** a minimum password length (8 to 16), and how many wrong passwords lock an account for 15 minutes. Sign-in through Google or Microsoft needs those companies' accounts set up in Integrations, so it isn't built yet.
 - **Business words:**
   - **Call types** are saved but not used anywhere in the app yet.
   - **Topics** (keywords counted in conversations) are used by Q-Intelligence › AI insights.
-  - **Custom vocabulary** (the right spelling and the transcription's mistakes) is saved, ready for the transcripts, but not yet applied to them.
+  - **Custom vocabulary** (the right spelling and the transcription's mistakes) fixes every new transcript: conversations added to AutoQA and transcripts sent to the AI reviewer. Whole words only ("Aruba Bet" becomes "ArubaBet", but "ArubaBetting" stays). Transcripts saved before keep their text.
 
 **Q-Intelligence (a new panel at the bottom of the menu, for staff; opens with the sonar "Q")**
 - **Ask Q:** a chat for questions about your teams' quality (team and period to choose, example questions). It uses the AI analyst with your numbers.

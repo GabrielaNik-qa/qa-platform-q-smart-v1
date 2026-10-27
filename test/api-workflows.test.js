@@ -161,6 +161,21 @@ test('organization: only admins change it; old notifications are deleted after t
   await adm.put('/api/org', { signin: { pwMin: 8, lockAfter: 10 }, privacy: { keep: {} } });
 });
 
+test('data protection works: agents can be kept from recordings and reviewer names, the sign-in page shows the privacy note, transcripts get the custom vocabulary', async () => {
+  const adm = await asU('t.admin'), qa = await asU('t.qa'), ag = await asU(AGENT);
+  const db = readDb(), e = db.evaluations.find(x => x.agent === AGENT); e.rec = 'old-rec.mp3'; e.rl = 'https://example.com/rec'; fs.writeFileSync(FILE, JSON.stringify(db));
+  await adm.put('/api/org', { privacy: { keep: {}, agentsRec: false, agentsReviewer: false, note: 'We keep calls 6 months.' }, words: { types: [], topics: [], vocab: [{ term: 'ArubaBet', wrong: ['Aruba Bet'] }] } });
+  const mine = (await ag.get('/api/evaluations')).json.find(x => x.rid === e.rid);
+  assert.ok(mine && !('rec' in mine) && !('rl' in mine) && !('rv' in mine) && !('by' in mine), 'the agent gets no recording and no reviewer');
+  assert.strictEqual((await ag.get('/api/recordings/old-rec.mp3')).status, 403);
+  const staffView = (await qa.get('/api/evaluations')).json.find(x => x.rid === e.rid); assert.ok('rec' in staffView && 'rv' in staffView, 'staff still see everything');
+  const n = await fetch(BASE + '/api/notice').then(r => r.json()); assert.strictEqual(n.note, 'We keep calls 6 months.');
+  const conv = (await qa.post('/api/autoqa/conversations', { agent: AGENT, date: '2026-10-20', text: 'Agent: Welcome to Aruba Bet, how can I help?' })).json;
+  assert.strictEqual(conv.text, 'Agent: Welcome to ArubaBet, how can I help?');
+  await adm.put('/api/org', { privacy: { keep: {} }, words: { types: [], topics: [], vocab: [] } });
+  assert.ok('rv' in (await ag.get('/api/evaluations')).json.find(x => x.rid === e.rid), 'switched back on: the agent sees the reviewer again');
+});
+
 test('a new review keeps when it was made and how long QA Entry took (at most 4 hours)', async () => {
   const qa = await asU('t.qa');
   const sc = (await qa.get('/api/scorecards')).json[0], t0 = Date.now();

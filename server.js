@@ -509,6 +509,8 @@ app.put('/api/shared-views', need('admin', 'qa'), (req, res) => {
 });
 
 // ------------------------------------------------------------------ system settings (pass rate thresholds)
+// the sign-in page shows the company name and its privacy note before anyone signs in (nothing else)
+app.get('/api/notice', (req, res) => { const s = load().settings || {}; res.json({ company: ((s.org || {}).name) || '', note: ((s.privacy || {}).note) || '' }); });
 app.get('/api/settings', need(), (req, res) => res.json(setOut(load(), req.session.user)));
 app.put('/api/settings', need('admin'), (req, res) => {
   const b = req.body || {}, db = load(), pass = Number(b.pass);
@@ -560,7 +562,12 @@ const evOf = (db, u, rid) => { const ev = findEv(db, rid); return ev && canSee(u
 const agentInScope = (db, u, au) => { const s = scopeOf(db, u); return !s || s.teams.has(au.team); };
 
 // recMissing = the review points to an audio file that is not in the recordings folder (the player would show 0 seconds)
-app.get('/api/evaluations', need(), (req, res) => { const db = load(), u = req.session.user; res.json(db.evaluations.filter(e => canSee(u, e) && inScope(db, u, e)).map(e => e.rec && !fs.existsSync(path.join(REC, path.basename(e.rec))) ? { ...e, recMissing: true } : e)); });
+// Admin › Organization › Data protection: agents may be kept from their recordings and from the name of who reviewed them
+const forAgent = (db, u, e) => { if (u.role !== 'agent') return e; const p = (db.settings || {}).privacy || {}; let x = e;
+  if (p.agentsRec === false) { const { rec, rl, recMissing, ...r } = x; x = r; }
+  if (p.agentsReviewer === false) { const { rv, by, ...r } = x; x = r; if (x.dp) x = { ...x, dp: { ...x.dp, msgs: (x.dp.msgs || []).map(m => m.u === u.username ? m : { ...m, u: '', n: 'QA' }), res: x.dp.res ? { ...x.dp.res, by: 'QA' } : x.dp.res } }; }
+  return x; };
+app.get('/api/evaluations', need(), (req, res) => { const db = load(), u = req.session.user; res.json(db.evaluations.filter(e => canSee(u, e) && inScope(db, u, e)).map(e => forAgent(db, u, e.rec && !fs.existsSync(path.join(REC, path.basename(e.rec))) ? { ...e, recMissing: true } : e))); });
 
 // a new review (QA Entry, or an AI draft approved by a person): checks everything, scores it and tells the agent; the caller saves
 function newEval(db, user, b) {
@@ -802,6 +809,7 @@ app.delete('/api/evaluations/:rid/recording', need('admin', 'qa'), (req, res) =>
 app.get('/api/recordings/:file', need(), (req, res) => {
   const db = load(), f = path.basename(req.params.file), ev = db.evaluations.find(e => e.rec === f);
   if (!ev || !canSee(req.session.user, ev) || !inScope(db, req.session.user, ev)) return res.status(404).json({ error: 'not found' });
+  if (req.session.user.role === 'agent' && ((db.settings || {}).privacy || {}).agentsRec === false) return res.status(403).json({ error: 'Recordings are not shared with agents' });
   if (!fs.existsSync(path.join(REC, f))) return res.status(404).json({ error: 'The recording file is missing' });
   res.sendFile(path.join(REC, f), { dotfiles: 'allow' });   // the folder path may contain a "." folder (e.g. .claude); the file name itself was checked above
 });
