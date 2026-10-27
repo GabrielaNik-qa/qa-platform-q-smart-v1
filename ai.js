@@ -171,4 +171,4 @@ async function morningBrief(facts, playbook, lang) {
     + (playbook ? '\nCompany rules:\n' + String(playbook).slice(0, 4000) : '');
   return str(await ask(system, [{ type: 'text', text: JSON.stringify(facts).slice(0, 30000) }], 1200), 4000);
 }
-module.exports = { enabled, MODEL, PRICE, setConfig, ping, reviewDraft, teamSummary, coachPlan, roleCustomer, roleScore, talk, analystReport, morningBrief, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };
+module.exports = { ask, enabled, MODEL, PRICE, setConfig, ping, reviewDraft, teamSummary, coachPlan, roleCustomer, roleScore, talk, analystReport, morningBrief, draftArticles, draftQuiz, splitText, cleanQs, scoreConversation };

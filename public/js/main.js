@@ -62,10 +62,10 @@ const gOpen = g => !COL && (g.space ? !SPF.includes(g.id) : OG === null ? groupO
 let SPV = null, LASTMAIN = 'dash';                                    // SPV = a panel opened by hand, until the next page opens
 const spaceOf = r => (GROUPS.find(g => g.items.some(([k]) => k === r)) || {}).space || 'main';
 const curSpace = () => SPV || spaceOf(route);
-const spName = s => ({ learn: 'Learning', ai: 'AI Simulator', wf: 'Workforce', cx: 'Compliance & CX' })[s] || (ME.role === 'admin' ? 'Admin' : 'Set-up');
-const SPIC = { wf: 'g_wf', cx: 'g_comply', learn: 'g_learning', ai: 'g_aisim', admin: 'g_admin' };
+const spName = s => ({ learn: 'Learning', ai: 'AI Simulator', qi: 'Q-Intelligence', wf: 'Workforce', cx: 'Compliance & CX' })[s] || (ME.role === 'admin' ? 'Admin' : 'Set-up');
+const SPIC = { wf: 'g_wf', cx: 'g_comply', learn: 'g_learning', ai: 'g_aisim', qi: 'g_qi', admin: 'g_admin' };
 const spTop = () => { const n = $('#n'); if (n) n.scrollTop = 0; };   // a panel always opens at its top (where "Back" is)
-function spGo(s, ev) { ev.stopPropagation(); if (s === 'ai') { qlShow('sonar', 'AI'); qlHide(1300); } else { qlShow('draw', qlLetter(s)); qlHide(1100); } SPV = s; OG = null; FLY = null; UMN = false; render(); spTop(); }
+function spGo(s, ev) { ev.stopPropagation(); if (s === 'ai' || s === 'qi') { qlShow('sonar', s === 'ai' ? 'AI' : 'Q'); qlHide(1300); } else { qlShow('draw', qlLetter(s)); qlHide(1100); } SPV = s; OG = null; FLY = null; UMN = false; render(); spTop(); }
 function spBack(ev) { ev.stopPropagation(); SPV = null; OG = null; FLY = null; UMN = false; if (spaceOf(route) !== 'main') location.hash = LASTMAIN; else { render(); spTop(); } }
 // clicking a group's icon opens its first page; when the sidebar is closed its pop-out menu stays open too
 let PENDFLY = null;
@@ -88,7 +88,7 @@ const NAVH = () => { const sp = curSpace(), all = groupsFor();
   // the icon AND the name open the group's first page; only the small arrow opens or closes the list without leaving the page
   return `<div class="grp ${open ? 'open' : ''} ${act ? 'act' : ''}" onmouseenter="flyHover('${g.id}',this)" onmouseleave="flyLeave()"><button class=gh onclick="gGo('${g.id}',event)" title="Open ${g.items[0][1]}"><i>${IC[g.icon]}</i><span>${g.name}</span><em onclick="event.stopPropagation();tgG('${g.id}',event)" title="Show / hide">›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}${sys}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}${sys}</div>` : ''}</div>`; }).join('');
   const back = sp === 'main' ? '' : `<div class="grp spb"><button class=gh onclick="spBack(event)" title="Back to the main menu"><i>${IC.back}</i><span>Back to the main menu</span></button></div><div class=spt>${spName(sp)}</div>`;
-  const doors = sp !== 'main' ? '' : ['wf', 'cx', 'learn', 'ai', 'admin'].filter(x => all.some(g => g.space === x)).map(x => `<div class="grp spc"><button class=gh onclick="spGo('${x}',event)" title="${spName(x)}"><i>${IC[SPIC[x]]}</i><span>${spName(x)}</span><em>&rsaquo;</em></button></div>`).join('');
+  const doors = sp !== 'main' ? '' : ['wf', 'cx', 'learn', 'ai', 'qi', 'admin'].filter(x => all.some(g => g.space === x)).map(x => `<div class="grp spc"><button class=gh onclick="spGo('${x}',event)" title="${spName(x)}"><i>${IC[SPIC[x]]}</i><span>${spName(x)}</span><em>&rsaquo;</em></button></div>`).join('');
   return back + grp + (doors ? `<div class=spsep></div>${doors}` : '');
 };
 document.addEventListener('click', e => { if ((FLY || UMN) && !e.target.closest('.fly,.gh,.av2')) { FLY = null; UMN = false; render(); } });

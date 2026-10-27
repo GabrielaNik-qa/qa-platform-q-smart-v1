@@ -20,6 +20,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   const VOICES = ['browser', 'elevenlabs', 'openai'], KEYS = { anthropic: 'key', elevenlabs: 'elevenKey', openai: 'openaiKey' };
   const month = () => new Date().toISOString().slice(0, 7);
   const conf = db => (db.settings || {}).ai || {};
+  const play = db => app.locals.qiContext ? app.locals.qiContext(db) : conf(db).playbook;   // the playbook and the knowledge files (Q-Intelligence)
   // what the AI cost this month, in its own small file: a request that saves the data after an AI call can never wipe it out
   const UFILE = path.join(path.dirname(path.resolve(FILE)), 'ai-usage.json');
   const usage = () => { try { const u = JSON.parse(fs.readFileSync(UFILE, 'utf8')); if (u.month === month()) return u; } catch (e) { /* nothing spent yet */ } return { month: month(), usd: 0, calls: 0 }; };
@@ -78,7 +79,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     if (String(text || '').trim().length < 40) return bad(res, 'Paste the transcript (at least a few lines)');
     if (!ai.enabled()) return bad(res, 'Connect the AI (Admin › Integrations) to draft reviews with AI.');
     if (limited('ai-draft:' + req.session.user.username, 40, 36e5)) return res.status(429).json({ error: 'Too many AI drafts in one hour. Try again later.' });
-    let r, prev; try { r = await ai.reviewDraft({ text, sc, playbook: conf(db).playbook }); prev = build(sc, r.a); } catch (e) { return bad(res, e.message || 'The AI answer did not fit the scorecard. Try again.'); }
+    let r, prev; try { r = await ai.reviewDraft({ text, sc, playbook: play(db) }); prev = build(sc, r.a); } catch (e) { return bad(res, e.message || 'The AI answer did not fit the scorecard. Try again.'); }
     db = load();                                                                 // a fresh copy: the AI took a while to answer
     const d = { id: 'd' + hex(5), agent: au.username, agn: au.name, lead, ch: ['call', 'chat', 'email', 'other'].includes(b.ch) ? b.ch : 'call', dt: date, scid: sc.id, scn: sc.name, tx: text, conv: conv ? conv.id : '',
       a: r.a, cm: r.comment, conf: r.confidence, sc: prev.sc, model: ai.MODEL(), at: iso(), by: req.session.user.username, status: 'draft' };
@@ -129,7 +130,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
       agentsAtRisk: riskOf(db, x => !team || x === team).slice(0, 6).map(x => ({ name: x.name, average: x.avg, why: x.why })), openDisputes: l.filter(e => e.dp && e.dp.status === 'open').length };
   }
   async function writeSummary(team, by, auto) {
-    const db0 = load(), stats = weekStats(db0, team), text = await ai.teamSummary(stats, conf(db0).playbook), db = load();
+    const db0 = load(), stats = weekStats(db0, team), text = await ai.teamSummary(stats, play(db0)), db = load();
     const x = { id: 'w' + hex(5), team: team || '', week: monday(), text, stats, at: iso(), by, auto: !!auto };
     db.aiSummaries = [x, ...(db.aiSummaries || [])].slice(0, 300);
     const lead = (db.teams.find(t => t.id === team) || {}).lead;
@@ -156,7 +157,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     const data = { agent: au.name, target: passOf(db, au.team), reviews: mine.length, average: avgOf(mine.map(e => e.sc)), why: risk ? risk.why : [], categories: catAvgs(mine),
       missedItems: mine.flatMap(e => (e.cs || []).flatMap(c => c.it.filter(i => i.a === 'n').map(i => ({ category: c.n, item: i.t, comment: i.cm || '' })))).slice(0, 25), reviewerComments: mine.map(e => e.cm).filter(Boolean).slice(0, 10) };
     if (!mine.length) return bad(res, 'This agent has no reviews in the last 30 days');
-    let plan; try { plan = await ai.coachPlan(data, conf(db).playbook); } catch (e) { return bad(res, e.message); }
+    let plan; try { plan = await ai.coachPlan(data, play(db)); } catch (e) { return bad(res, e.message); }
     const db2 = load(), p = { id: 'p' + hex(5), agent: au.username, agn: au.name, status: 'draft', plan, at: iso(), by: req.session.user.username, model: ai.MODEL() };
     db2.aiPlans = [p, ...(db2.aiPlans || [])].slice(0, 300); save(db2); res.json(p);
   });
@@ -218,7 +219,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   const seesAll = (db, u) => !scopeOf(db, u);
   async function writeReport(db0, see, q, period, team, by, byU, auto) {
     const pack = packOf(db0, see, period, team); if (!pack.thisPeriod.reviews) throw new Error('There are no reviews in this period');
-    const text = await ai.analystReport(pack, q, conf(db0).playbook), db = load();
+    const text = await ai.analystReport(pack, q, play(db0)), db = load();
     const x = { id: 'a' + hex(5), q, period, team: team || '', text, pack, at: iso(), by, byU, auto: !!auto };
     db.aiReports = [x, ...(db.aiReports || [])].slice(0, 200); save(db); return x;
   }
@@ -300,14 +301,14 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     if (!sc || !msgs.length || msgs[msgs.length - 1].r !== 'a') return bad(res, 'Write your reply first');
     if (msgs.filter(m => m.r === 'a').length > 25) return bad(res, 'This practice call is long enough: finish it to get your score.');
     if (limited('ai-rp:' + req.session.user.username, 150, 36e5)) return res.status(429).json({ error: 'Too many practice messages in one hour. Try again later.' });
-    try { res.json(await ai.roleCustomer(sc, msgs, conf(db).playbook)); } catch (e) { bad(res, e.message); }
+    try { res.json(await ai.roleCustomer(sc, msgs, play(db))); } catch (e) { bad(res, e.message); }
   });
   app.post('/api/ai/roleplay/finish', need(), async (req, res) => {
     const db0 = load(), b = req.body || {}, sc = scOf(db0, b.sc), msgs = msgsOf(b.msgs), me = req.session.user;
     if (!rpOn(db0)) return bad(res, 'Practice with the AI customer is switched off (Admin › Integrations).');
     if (!sc || !msgs.some(m => m.r === 'a')) return bad(res, 'Write at least one reply first');
     if (limited('ai-rpf:' + me.username, 30, 36e5)) return res.status(429).json({ error: 'Too many practice calls in one hour. Try again later.' });
-    let r; try { r = await ai.roleScore(sc, msgs, conf(db0).playbook); } catch (e) { return bad(res, e.message); }
+    let r; try { r = await ai.roleScore(sc, msgs, play(db0)); } catch (e) { return bad(res, e.message); }
     const db = load(), x = { id: 'm' + hex(5), agent: me.username, scenario: sc.name, persona: sc.who, score: r.score, minutes: Math.max(1, Math.min(240, Math.round(Number(b.minutes) || 1))),
       result: r.score >= 85 ? 'winner' : 'keep practising', tips: r.tips, good: r.good, ai: true, tx: ai.talk(msgs).slice(0, 8000), date: iso() };
     db.simulations = [x, ...(db.simulations || [])]; save(db); res.json(x);

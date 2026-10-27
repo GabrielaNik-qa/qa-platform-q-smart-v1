@@ -147,6 +147,20 @@ test('calibration is blind: a participant sees the others\' scores only after gi
   assert.strictEqual(r.dp.res.outcome, 'partly');
 });
 
+test('organization: only admins change it; old notifications are deleted after the chosen months; a person\'s data downloads in one file', async () => {
+  const adm = await asU('t.admin'), qa = await asU('t.qa');
+  assert.strictEqual((await qa.put('/api/org', { org: { name: 'X' } })).status, 403);
+  const s = (await adm.put('/api/org', { org: { name: 'Acme', vat: 'BG123', logo: 'javascript:alert(1)' }, signin: { pwMin: 3, lockAfter: 99 }, privacy: { keep: { notif: 1, rec: 'x' } } })).json;
+  assert.deepEqual([s.org.name, s.org.logo, s.signin.pwMin, s.signin.lockAfter, s.privacy.keep.notif, s.privacy.keep.rec], ['Acme', '', 8, 20, 1, 0]);
+  const db = readDb(); db.notifications.push({ id: 'old1', u: AGENT, t: 'x', text: 'old', at: '2020-01-01T00:00:00.000Z' }, { id: 'new1', u: AGENT, t: 'x', text: 'new', at: new Date().toISOString() }); fs.writeFileSync(FILE, JSON.stringify(db));
+  const out = (await adm.post('/api/org/purge')).json;
+  assert.ok(out.notif >= 1); const ids = readDb().notifications.map(n => n.id); assert.ok(!ids.includes('old1') && ids.includes('new1'));
+  const p = await adm.get('/api/org/person/' + AGENT); assert.strictEqual(p.status, 200);
+  assert.strictEqual(p.json.person.username, AGENT); assert.ok(!('hash' in p.json.person)); assert.ok(Array.isArray(p.json.reviews));
+  assert.strictEqual((await qa.get('/api/org/person/' + AGENT)).status, 403);
+  await adm.put('/api/org', { signin: { pwMin: 8, lockAfter: 10 }, privacy: { keep: {} } });
+});
+
 test('a new review keeps when it was made and how long QA Entry took (at most 4 hours)', async () => {
   const qa = await asU('t.qa');
   const sc = (await qa.get('/api/scorecards')).json[0], t0 = Date.now();

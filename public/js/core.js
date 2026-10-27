@@ -96,6 +96,7 @@ const IC = {
   g_home: svg('<path d="M3 11l9-8 9 8v9a2 2 0 01-2 2h-4v-7H9v7H5a2 2 0 01-2-2z"/>', 22), g_quality: svg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>', 22),
   g_sc: svg('<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1M9 13l2 2 4-4"/>', 22), g_analytics: svg('<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>', 22),
   g_coaching: svg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', 22), g_learning: svg('<path d="M12 6c-2-1.5-5-2-9-2v14c4 0 7 .5 9 2 2-1.5 5-2 9-2V4c-4 0-7 .5-9 2zM12 6v14"/>', 22),
+  g_org: svg('<path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M10 21v-4h4v4"/>', 22), g_qi: svg('<path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5l-1.9-4.6L5.5 9l4.6-1.4z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>', 22),
   g_aisim: svg('<path d="M3 13v-1a9 9 0 0118 0v1"/><rect x="2" y="13" width="5" height="7" rx="2"/><rect x="17" y="13" width="5" height="7" rx="2"/><path d="M19 20a4 4 0 01-4 3h-2"/><path d="M10 9.5l1.5 2 1-3 1.5 2"/>', 22),
   g_tools: svg('<path d="M21 7l-5 5-3-3 5-5a5 5 0 00-6 7L3 19l2 2 8-8a5 5 0 008-6z"/>', 22), g_admin: svg('<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>', 22),
   g_people: svg('<path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>', 22),
@@ -263,7 +264,9 @@ async function load() {
   if (dashy && ME && ME.role === 'agent') want.push(['kb', '/api/kb'], ['qz', '/api/quizzes']);
   if (['quiz', 'acad'].includes(route)) want.push(['qz', '/api/quizzes']);
   if (['kb', 'acad', 'coach', 'dash', 'pers'].includes(route) && ed) want.push(['pg', '/api/kb/progress']);
-  if (['kb', 'quiz'].includes(route)) want.push(['ai', '/api/ai/status']);
+  if (['kb', 'quiz', 'qask', 'qagents', 'qins', 'qknow'].includes(route)) want.push(['ai', '/api/ai/status']);
+  if (route === 'qknow') want.push(['qk', '/api/qi/knowledge']);
+  if (route === 'qins') want.push(['qn', '/api/qi/insights'], ['qt', '/api/qi/topics?days=' + QI.days]);
   want.push(['sk', '/api/skills'], ['rc', '/api/root-causes'], ['qf', '/api/qflags']);
   if (['users', 'teams', 'wsp', 'sco', 'skills', 'dash', 'pers'].includes(route)) want.push(['ws', '/api/workspaces']);
   if (['sco', 'scat'].includes(route)) want.push(['cl', '/api/categories']);
@@ -286,6 +289,9 @@ async function load() {
   if (R.tp) TPLS = JSON.parse(R.tp);
   if (R.sq) TSEQ = JSON.parse(R.sq);
   if (R.ot) O2TPL = JSON.parse(R.ot);
+  if (R.qk) QI.know = JSON.parse(R.qk);
+  if (R.qn) QI.ins = JSON.parse(R.qn).filter(x => x.by === ME.username);
+  if (R.qt) QI.top = JSON.parse(R.qt);
   if (R.se) SESS = JSON.parse(R.se);
   if (R.sm) SIMS = JSON.parse(R.sm);
   if (R.ss) SCNS = JSON.parse(R.ss);
@@ -384,7 +390,7 @@ async function fmSave() {
   if (typeof err === 'string') { render(); return toast(err, true); }
   if (FM === f) FM = null; render();
 }
-const FMM = () => OVL(`<div class=mh><h2>${esc(FM.title)}</h2>${X('FM=null;render()')}</div><div class=mb><div class=form style="max-width:none">${(FM.fields || []).map(fmField).join('')}</div>${FM.extra ? FM.extra(FM.d) : ''}<div class=acts><button class=ib onclick="FM=null;render()">Cancel</button><button class=btn onclick="fmSave()" ${FM.busy ? 'disabled' : ''}>${FM.busy ? 'Saving…' : esc(FM.yes)}</button></div></div>`, 'FM=null;render()', FM.w, 70);
+const FMM = () => OVL(`<div class=mh><h2>${esc(FM.title)}</h2>${X('FM=null;render()')}</div><div class=mb><div class=form style="max-width:none">${(FM.fields || []).map(fmField).join('')}</div>${FM.extra ? FM.extra(FM.d) : ''}<div class=acts><button class=ib onclick="FM=null;render()">Cancel</button><button class=btn onclick="fmSave()" ${FM.busy ? 'disabled' : ''}>${FM.busy ? 'Saving…' : esc(FM.yes)}</button></div></div>`, 'FM=null;render()', FM.w, 70, FM.drawer ? 'drw' : '');   // drawer: the form slides in from the right (users, teams)
 // ---- a click that saves runs only once at a time: once('key', async () => ...) ignores further clicks until the first one has finished
 async function once(key, fn) { if (BUSY[key]) return; BUSY[key] = true; try { return await fn(); } finally { delete BUSY[key]; } }
 

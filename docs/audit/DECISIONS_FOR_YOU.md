@@ -871,3 +871,43 @@ I read Zendesk's help pages for their Assignments, Coaching, Surveys, Disputes, 
   - Root-cause **tiers** (groups and sub-groups) would need a new setting in Admin › Root causes; tell me if you want it.
 
 All 166 automatic tests pass (one new for blind calibration and "partly changed"). I also made the newer tests reuse their sign-ins, because together they had reached the app's sign-in limit. Translated into Bulgarian and French.
+
+## Y. Branch q-smart-v1: users and teams, Organization, Q-Intelligence (27 October, ideas from Modjo)
+
+This branch starts at commit bfb48ed (everything above). I read every page of Modjo's settings and its AI pages, and saved nothing in Modjo.
+
+**Users and teams (Admin › People)**
+- **Users list:**
+  - Columns: name with the team and job title underneath, role, team lead, employment, status, and **last sign-in** (recorded from now on).
+  - Resting the mouse on a role shows what that role may see.
+- **Side drawer:** adding or editing a user opens on the right. It shows a **role guide** with all five roles and what each may do.
+- **Import:** paste one person per line (first name, last name, email, role, team), for example from Excel. Everybody gets the temporary password "password".
+- **Teams:**
+  - A search box, and the number of people on each team card.
+  - Editing a team opens in the drawer, with **team members**: tick agents from a searchable list to move them into the team on Save. Their old reviews stay on record.
+  - To take someone out, move them to their new team: every agent must belong to a team.
+
+**Organization (a new group in the Admin panel, admins only)**
+- **Company:** name, legal name, address, city, country, VAT, website, logo; billing and support emails; the **data protection officer (DPO)** and their email; time zone.
+- **Data protection (GDPR):**
+  - **How long data is kept**, per kind: call recordings, notifications, practice-call conversations, AI drafts and reports, audit log. Choices run from "Keep for ever" (the default, which deletes nothing) to 5 years.
+  - Older data is deleted by itself every 12 hours. "Clean up now" does it at once, and the page shows the last clean-up.
+  - Reviews, scores, tasks and one-to-ones are your quality history and are always kept.
+  - **What agents may see:** their own recordings, the reviewer's name, and a privacy note at sign-in. **These three are saved but don't change the app yet.** Making agents' screens follow them is a next step.
+  - **A person's data:** download everything stored about one person in one file (the right of access).
+- **Sign-in:** a minimum password length (8 to 16), and how many wrong passwords lock an account for 15 minutes. Sign-in through Google or Microsoft needs those companies' accounts set up in Integrations, so it isn't built yet.
+- **Business words:**
+  - **Call types** are saved but not used anywhere in the app yet.
+  - **Topics** (keywords counted in conversations) are used by Q-Intelligence › AI insights.
+  - **Custom vocabulary** (the right spelling and the transcription's mistakes) is saved, ready for the transcripts, but not yet applied to them.
+
+**Q-Intelligence (a new panel at the bottom of the menu, for staff; opens with the sonar "Q")**
+- **Ask Q:** a chat for questions about your teams' quality (team and period to choose, example questions). It uses the AI analyst with your numbers.
+- **AI agents:** call summary, next steps, follow-up email or coaching brief on one review, and one-to-one prep for one agent. There's a copy button, and a link to the AI reviewer, lead, trainer and analyst in AutoQA.
+- **AI insights:**
+  - The AI finds **objections**, **competitors** and **product feedback** in review comments, transcripts and survey comments, grouped in themes with examples (7, 30 or 90 days).
+  - **Topics** are counted without AI.
+- **Knowledge:** upload .md and .txt playbooks (up to 300 KB each). From now on every AI answer reads them: Ask Q, agents, insights, and also the AI reviewer, lead, trainer, analyst and simulator.
+- Everything AI needs your API key in Admin › Integrations. I tested it only with my local test AI (nothing was sent anywhere).
+
+All 167 automatic tests pass (one new: organization settings, automatic deletion, a person's data). Translated into Bulgarian and French.

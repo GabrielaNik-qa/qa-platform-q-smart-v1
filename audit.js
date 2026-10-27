@@ -45,4 +45,6 @@ function middleware(req, res, next) {
 function routes(app, need) {
   app.get('/api/audit', need('admin'), (req, res) => res.json(LOG.slice(-1000).reverse()));
 }
-module.exports = { middleware, routes };
+// data protection (Admin › Organization): entries older than the chosen months are removed; returns how many
+const prune = months => { const cut = Date.now() - months * 30.44 * 864e5, n = LOG.length; LOG = LOG.filter(x => !x.t || new Date(x.t).getTime() >= cut); if (LOG.length !== n) flush(); return n - LOG.length; };
+module.exports = { middleware, routes, prune };

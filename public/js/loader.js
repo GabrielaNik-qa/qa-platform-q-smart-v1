@@ -4,7 +4,7 @@
 //     W Workforce, C Compliance & CX, A Admin (S Set-up for non-admins).
 // 3 · Sonar (anything slower than expected, and opening the AI Simulator panel with "AI" inside): the brackets travel outward.
 // Each shows at least a short moment so it never flickers; with "reduce motion" switched on in the system, the logo stays still.
-const QLSP = { learn: 'L', wf: 'W', cx: 'C', ai: 'AI' };
+const QLSP = { learn: 'L', wf: 'W', cx: 'C', ai: 'AI', qi: 'Q' };
 const qlLetter = s => QLSP[s] || (s === 'admin' ? (ME && ME.role === 'admin' ? 'A' : 'S') : 'Q');
 const QLBR = (cls, l, r) => `<g class="${cls}" fill="none" stroke-linecap="round" stroke-width="6"><path ${l ? `style="--dx:-30px"` : ''} d="M182,42 Q172,62 182,82" stroke="#FFD447"/><path ${l ? `style="--dx:-30px;animation-delay:.25s"` : ''} d="M166,32 Q152,62 166,92" stroke="#FF9A1F"/><path ${l ? `style="--dx:-30px;animation-delay:.5s"` : ''} d="M150,24 Q132,62 150,100" stroke="#FF5C8A"/></g>`
   + `<g class="${cls}" fill="none" stroke-linecap="round" stroke-width="6"><path ${r ? `style="--dx:30px"` : ''} d="M298,42 Q308,62 298,82" stroke="#FFD447"/><path ${r ? `style="--dx:30px;animation-delay:.25s"` : ''} d="M314,32 Q328,62 314,92" stroke="#FF9A1F"/><path ${r ? `style="--dx:30px;animation-delay:.5s"` : ''} d="M330,24 Q348,62 330,100" stroke="#FF6B00"/></g>`;
@@ -32,8 +32,8 @@ function qlHide(min = 0) {
 // 1.5 s = sonar with the letter of where you are going
 async function qlRun(work, to, from) {
   const sp = spaceOf(to), panel = sp !== 'main' && sp !== spaceOf(from);
-  const ai = sp === 'ai' && panel;
-  if (ai) qlShow('sonar', 'AI'); else if (panel) qlShow('draw', qlLetter(sp));
+  const ai = (sp === 'ai' || sp === 'qi') && panel;            // the AI panels open with the sonar
+  if (ai) qlShow('sonar', qlLetter(sp)); else if (panel) qlShow('draw', qlLetter(sp));
   const slow = QL ? null : setTimeout(() => qlShow('sonar', qlLetter(sp)), 1500);
   try { await work(); } finally { clearTimeout(slow); qlHide(ai ? 1300 : panel ? 1100 : 300); }
 }

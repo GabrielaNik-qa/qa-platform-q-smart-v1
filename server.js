@@ -101,7 +101,8 @@ const recent = (key, ms) => (hits[key] || []).filter(t => Date.now() - t < ms).l
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 const pwBad = p => {
   p = String(p || '');
-  if (p.length < 6) return 'The password must be at least 6 characters';
+  const min = Math.max(6, ((load().settings || {}).signin || {}).pwMin || 6);   // Admin › Organization › Sign-in can ask for longer passwords
+  if (p.length < min) return 'The password must be at least ' + min + ' characters';
   if (!/[a-z]/.test(p) || !/[A-Z]/.test(p)) return 'Use both uppercase and lowercase letters';
   if (!/\d/.test(p)) return 'Include at least one number';
   if (!/[^A-Za-z0-9]/.test(p)) return 'Include at least one special character';
@@ -213,9 +214,9 @@ app.post('/api/login', (req, res) => {
   const id = String(username || '').trim().toLowerCase(), db = load();
   const u = db.users.find(x => x.username === id || (x.email || '').toLowerCase() === id);   // username OR email
   const fail = 'fail:' + (u ? u.username : id);                                               // wrong passwords are also counted per account, whatever the address
-  if (recent(fail, 9e5) >= 10) return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });
+  if (recent(fail, 9e5) >= (((db.settings || {}).signin || {}).lockAfter || 10)) return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });
   if (u && u.active !== false && bcrypt.compareSync(String(password || ''), u.hash)) {   // a fresh session id at every sign-in (an id planted before the sign-in is useless)
-    delete hits[fail];
+    delete hits[fail]; u.lastIn = iso(); save(db);                                         // last sign-in, shown in Admin › Users
     return req.session.regenerate(err => { if (err) return res.status(500).json({ error: 'Could not sign in, try again' }); req.session.user = pub(u); req.session.pwv = u.pwv || 0; res.json(req.session.user); });
   }
   if (!u) bcrypt.compareSync(String(password || ''), DUMMY);
@@ -807,6 +808,8 @@ app.get('/api/recordings/:file', need(), (req, res) => {
 
 // ------------------------------------------------------------------ the other modules
 require('./routes-work')(ctx);
+app.locals.audit = AUDIT;
+require('./routes-org')(ctx);                                    // Admin › Organization and Q-Intelligence
 require('./routes-more')(ctx);        // reports, planning, performance, compliance & CX, backups, admin settings        // tasks, coaching sessions, calibrations
 require('./routes-learning')(ctx);    // knowledge base, quizzes, newsletter, import, ZIP export
 require('./routes-setup')(ctx);       // skills, workspaces, categories, root causes, Auto QA categories
