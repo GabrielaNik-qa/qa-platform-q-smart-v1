@@ -231,7 +231,7 @@ async function onHash() {
   if (n !== 'entry') { ENT = null; EDITID = ''; }
   if (n !== 'kb') KBE = null;
   SPV = null; if (spaceOf(n) === 'main') LASTMAIN = n;
-  OG = OGKEEP ? '' : null; OGKEEP = false; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; PDSP = false; PARR = false; SIMV = null; TXF = null; TXC = null; CSP = null; AINEW = false; AIDV = null; AIPV = null; voxStop(); RCE = null; WCE = null; PTE = null; LRQ = null; ARD = null; AQV = ''; PKN = null;   // OGKEEP: the jump to the Dashboard after signing in keeps the menu closed
+  OG = OGKEEP ? '' : null; OGKEEP = false; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; PDSP = false; PARR = false; SIMV = null; OO.view = 'list'; OO.E = null; OO.T = null; TXF = null; TXC = null; CSP = null; AINEW = false; AIDV = null; AIPV = null; voxStop(); RCE = null; WCE = null; PTE = null; LRQ = null; ARD = null; AQV = ''; PKN = null;   // OGKEEP: the jump to the Dashboard after signing in keeps the menu closed
   if (n === 'calls' && !KQ) { Q = ''; FSC = null; PN = 1; }   // opening Call Reviews from the menu starts with an empty search
   KQ = false; MD = null; NO = false; AC = null; SYS = false; RSV = null; PLY = null; SE = n === 'sco' ? SE : null;
   const from = route; route = n; await qlRun(async () => { await load(); render(); }, n, from); window.scrollTo(0, 0); maybeWelcome();

@@ -34,22 +34,7 @@ PG.coach = function () {
   } else body = SESSLIST(['coaching', 'group', 'training']);
   return head('Coaching', 'See what each agent needs to work on, and document coaching sessions and trainings', `<div style="display:flex;gap:8px">${bellBtn()}<button class=btn onclick="planCoaching([],[])">+ New session</button></div>`) + head2 + body;
 };
-PG.o2o = function () {
-  const ag = AGENTS().filter(a => !CT.team || a.team === CT.team), os = SESS.filter(s => s.kind === 'o2o');
-  const due = ag.map(a => ({ a, last: os.filter(s => s.agents.includes(a.username)).map(s => s.date).sort().pop() || '' })).sort((x, y) => (x.last || '').localeCompare(y.last || ''));
-  return head('One-to-One', ME.role === 'agent' ? 'Your one-to-one conversations with your team lead' : 'Document your one-to-ones. Agents without a recent one come first.', `<div style="display:flex;gap:8px">${bellBtn()}${['admin', 'lead', 'qa'].includes(ME.role) ? `<button class=btn onclick="openSession({kind:'o2o',date:todayS(),title:'',agents:[],focus:[],topics:[],notes:'',goals:'',actions:[],follow:'',status:'done'})">+ New one-to-one</button>` : ''}</div>`)
-    + (ME.role === 'agent' ? '' : o2oMonth(ag, os))
-    + SESSLIST(['o2o']);
-};
-// this month: who has no one-to-one yet (click a name to write it) and how far every team lead is
-const newO2o = u => openSession({ kind: 'o2o', date: todayS(), title: '', agents: u ? [u] : [], focus: [], topics: [], notes: '', goals: '', actions: [], follow: '', status: 'done' });
-function o2oMonth(ag, os) {
-  const m = todayS().slice(0, 7), done = new Set(os.filter(s => s.date.slice(0, 7) === m && s.status !== 'planned').flatMap(s => s.agents)), miss = ag.filter(a => !done.has(a.username));
-  const leads = ROSTER.filter(r => r.active && r.role === 'lead').map(l => { const tm = TEAMS.filter(t => t.lead === l.username), mine = AGENTS().filter(a => tm.some(t => t.id === a.team) && (!CT.team || a.team === CT.team)); return { l, tm, n: mine.length, d: mine.filter(a => done.has(a.username)).length }; }).filter(x => x.n);
-  return `<div class=row style="justify-content:flex-start;margin-bottom:14px"><select onchange="CT.team=this.value;render()"><option value="">All teams</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${t.id}" ${CT.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select></div>`
-    + (miss.length ? `<section class="card o2om"><h3>${IC.flag} Missing one-to-one this month <span class=bg>${miss.length}</span></h3><div class=tkchips>${miss.map(a => `<button class=tkcp onclick="newO2o('${esc(a.username)}')" title="Write a one-to-one for ${esc(a.name)}">${esc(a.name)} <small>(${esc(tn(a.team))})</small></button>`).join('')}</div></section>` : card('', '<p style="margin:0;color:var(--ok)">✓ Every agent had a one-to-one this month.</p>'))
-    + (leads.length ? card(`Team lead completion rate — ${m}`, `<div class=tktg style="margin:0">${leads.map(x => { const p = x.d / x.n * 100; return `<div class=tkk><div class=row><b>${esc(x.l.name)}</b><small>${esc(x.tm.map(t => t.name).join(', '))}</small></div><b style="color:${tkSCol(p)}">${Math.round(p)}%</b>${bar(p, tkSCol(p))}<small>${x.d}/${x.n} agents</small></div>`; }).join('')}</div>`) : '');
-}
+// PG.o2o (the One-to-One page) is in o2o.js
 // signature status of a session: every agent signs it after reading
 const sigOf = s => { const sg = s.signed || {}, n = s.agents.filter(a => sg[a]).length; return s.status === 'planned' ? pill('Planned', 'wn') : n === s.agents.length ? pill('✍ Signed', 'ok') : pill(n ? `Signed ${n}/${s.agents.length}` : 'Awaiting agent signature', 'wn'); };
 async function signSess(id) { const r = await api('/api/sessions/' + id + '/sign', { cm: ($('#sgc') || {}).value || '' }); if (!r.ok) return toast(await errOf(r, 'Could not sign'), true); await load(); render(); toast('Signed — thank you'); }

@@ -44,7 +44,7 @@ const TM = cap.monthDays(today.slice(0, 7)), PAST = TM.filter(d => d < today && 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qsmart-cap-')), DATA = path.join(DIR, 'data.json'), H = bcrypt.hashSync('password', 4);
 const person = (username, role, team, extra) => ({ username, name: username, firstName: username, lastName: 'Test', email: username + '@test.com', role, team, title: '', desc: '', languages: [], skills: [], phone: '', start: '', active: true, hash: H, mustChange: false, ...extra });
 const S0 = wf.settingsOf(null, today), at = (d, hm) => new Date(wf.atLocal(d, hm)).toISOString(), ATT = {};
-PAST.forEach(d => { ATT[d] = { 'x.one': { in: at(d, '09:00'), out: at(d, '18:00'), brk: [] } }; });   // this month: x.one comes every day, x.two never
+[...PAST, today].forEach(d => { ATT[d] = { 'x.one': { in: at(d, '09:00'), out: at(d, '18:00'), brk: [] } }; });   // this month: x.one comes every day (today too: late in the evening today counts as well), x.two never
 const hours = TM.map(d => [1, 2, 3, 4, 5].includes(wf.dow(d)) ? 800 : 0), twoEach = hours.filter(Boolean).length * 2;
 fs.writeFileSync(DATA, JSON.stringify({ boot: 5,
   users: [person('d.admin', 'admin', 't-admin'), person('d.lead', 'lead', 't-admin'), person('d.lead2', 'lead', 't-admin'), person('d.qa', 'qa', 't-admin'),

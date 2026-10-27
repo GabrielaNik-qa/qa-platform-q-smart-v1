@@ -930,3 +930,18 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 @media (prefers-reduced-motion:reduce){#qload *{animation:none!important;opacity:1!important;stroke-dashoffset:0!important}#qload{transition:none}}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .simtx{white-space:pre-wrap;font:13px/1.5 var(--font);background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;max-height:280px;overflow:auto;margin:6px 0 0}   /* the conversation of a practice call */
+/* One-to-One (o2o.js): the list rows, the form (sections, performance, signatures) and the template editor */
+.o2r{display:flex;align-items:center;gap:12px;padding:12px 6px;border-bottom:1px solid var(--bd)}.o2r:last-child{border-bottom:0}.o2r:hover{background:var(--pn2)}
+.o2bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;margin-bottom:14px;position:sticky;top:8px;z-index:5}
+.o2w{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}.o2w>div:last-child{position:sticky;top:80px}@media(max-width:1100px){.o2w{grid-template-columns:1fr}.o2w>div:last-child{position:static}}
+.o2g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}@media(max-width:900px){.o2g{grid-template-columns:1fr 1fr}}
+.o2sec,.o2d{margin-bottom:14px}.o2sec h3,.o2d h3{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:16px}
+.o2n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;background:color-mix(in srgb,var(--ac) 15%,transparent);color:var(--ac);font:700 12px var(--font);flex:none}
+.o2i{padding:7px 0;border-bottom:1px dashed var(--bd);display:grid;gap:6px}.o2i:last-child{border-bottom:0}.o2i.row{display:flex;justify-content:space-between;gap:10px}
+.o2s{background:none;border:0;font-size:22px;line-height:1;color:var(--bd);cursor:pointer;padding:0 2px}.o2s.on{color:#f5a524}.o2s:disabled{cursor:default}
+.o2k{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px}.o2k>div{background:var(--pn2);border-radius:10px;padding:8px 10px;display:grid;gap:2px}.o2k small{color:var(--mu);font-size:12px}.o2k b{font-size:18px}
+.o2sig{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px}.o2sig>div{border:1px dashed var(--bd);border-radius:10px;padding:10px 12px;display:grid;gap:4px}
+.o2tw{display:grid;grid-template-columns:280px minmax(0,1fr);gap:16px;align-items:start}@media(max-width:900px){.o2tw{grid-template-columns:1fr}}
+.o2tl{display:grid;gap:8px}.o2tc{display:grid;gap:2px;text-align:left;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;font:inherit;color:var(--tx);cursor:pointer}.o2tc.on{border-color:var(--ac);background:color-mix(in srgb,var(--ac) 8%,var(--bg))}.o2new{color:var(--ac)}
+.o2sr{border:1px solid var(--bd);border-radius:10px;padding:8px 10px;margin-bottom:8px;display:grid;gap:4px}
+.o2ty{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}.o2ty button{display:grid;gap:2px;text-align:left;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:10px;font:inherit;color:var(--tx);cursor:pointer}.o2ty button:hover{border-color:var(--ac)}

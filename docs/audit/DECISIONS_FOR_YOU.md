@@ -809,3 +809,42 @@ Nobody is planned before their start date or after their last working day.
 - Only the names changed. The questions inside each category, their points and every score stay exactly as they were, and the past written reviews are shown under the new names.
 - The change runs by itself once, the first time the server starts with this version (also after a restore from seed.js). Your running app needs a restart to pick it up. The AutoQA category called "Closing" is a separate list and keeps its name.
 - A category's "8/9" points on the Agents page is an average over both scorecards, which give a category different points, as before.
+
+## W. One-to-One, rebuilt from the Kainami module (27 October)
+
+I looked at Kainami's One-to-One page, its "New One-to-One" form and its Form Templates. I only read them, and saved nothing in Kainami. Then I rebuilt ours in our style.
+
+**The list (Coaching › One-to-One)**
+- **Target per person per month**, shown at the top. An admin changes it with the ⚙: one number for everybody, and a different number for chosen teams (for example 2 for a VIP team).
+- **Missing one-to-ones this month:** everybody below their target. With a target above 1 it shows "1/2". Click a name to write theirs.
+- **Team lead completion rate:** one-to-ones done against the target of their agents.
+- The list has Week / Month / Year / All time, team and agent filters, and search. Each row shows the agent, team, team lead, date, period, template, and the state: Draft, Waiting for the agent, or Signed.
+
+**The form**
+- Team, template (the team's own template is picked by itself), agent, date, and the period (week, month, year or your own dates).
+- **Performance in this period** on the right: reviews, average score, pass rate, open tasks, the 3 weakest categories, and the **objectives from the last one-to-one** with what was done. This part is ours; Kainami doesn't have it.
+- The sections of the template, then the signatures:
+  - **Save draft:** not counted toward the target.
+  - **Send to the agent:** you sign as team lead, and the agent gets a notification, reads it and signs from their own account.
+  - **Complete and save:** the agent is with you and signs on your screen.
+- "Also give each objective to the agent as a task" turns every objective into a task with its deadline.
+
+**Form templates** (admins, team leads, QA)
+- A name, the teams that use it, and sections you add, rename, move up and down and remove.
+- **8 section types:**
+  - Free text
+  - Checklist: ticks, each with a note
+  - Yes / No / N.A.
+  - Objectives: with deadlines
+  - Rating: 1–5 stars, for the whole section or per item
+  - Numbers: with label and unit
+  - Table: your own columns and rows
+  - Agreement: statements the agent agrees to by signing
+- Each one-to-one keeps a copy of its sections, so changing a template later never mixes up old answers.
+- Without a template, a one-to-one uses the standard sections: Strengths, Areas for improvement, Objectives, Action plan, Agent comments, Agreement.
+
+**Good to know**
+- One-to-ones written before today keep their simple view and form.
+- Signatures are a click with the name and the time, not a drawn signature as in Kainami.
+- While testing I fixed an older test about capacity planning that failed only in the evening; the app itself was right.
+- All 165 automatic tests pass (one new for templates, sending, signing and the target). Everything is translated into Bulgarian and French.

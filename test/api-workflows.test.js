@@ -111,6 +111,21 @@ test('practice scenarios: trainers and admins add their own and switch built-in 
   assert.ok((await ag.get('/api/ai/roleplay')).json.scenarios.some(x => x.name === 'Price objection'));
 });
 
+test('one-to-ones: a template per team, sent to the agent to sign, and a monthly target only admins set', async () => {
+  const qa = client(), ag = client(), adm = client(); await qa.login('t.qa'); await ag.login(AGENT); await adm.login('t.admin');
+  assert.strictEqual((await qa.post('/api/o2o-templates', { name: 'Monthly', sections: [] })).status, 400, 'a template needs a section');
+  const tpl = (await qa.post('/api/o2o-templates', { name: 'Monthly', teams: ['t-b2c'], sections: [{ id: 's1', t: 'yesno', title: 'Strengths', items: ['Communication'] }, { id: 's2', t: 'bogus', title: 'Notes' }] })).json;
+  assert.deepEqual(tpl.sections.map(x => x.t), ['yesno', 'text'], 'an unknown section type becomes free text');
+  const draft = (await qa.post('/api/sessions', { kind: 'o2o', date: '2026-10-20', agents: [AGENT], tpl: tpl.id, status: 'planned', state: 'draft', ans: { s1: { 0: 'y' } } })).json;
+  assert.strictEqual(draft.state, 'draft'); assert.ok(!draft.tl, 'a draft is not signed');
+  const sent = (await qa.put('/api/sessions/' + draft.id, { status: 'done', state: 'sent' })).json;
+  assert.strictEqual(sent.state, 'sent'); assert.ok(sent.tl && sent.sentAt); assert.deepEqual(sent.ans, { s1: { 0: 'y' } });
+  assert.strictEqual((await ag.post('/api/sessions/' + draft.id + '/sign', { cm: 'ok' })).json.state, 'signed');
+  assert.strictEqual((await qa.put('/api/o2o-target', { target: 2 })).status, 403);
+  const set = (await adm.put('/api/o2o-target', { target: 0, teams: { 't-b2c': 3, 'no-such-team': 5 } })).json;
+  assert.deepEqual(set.o2o, { target: 1, teams: { 't-b2c': 3 } });
+});
+
 test('a new review keeps when it was made and how long QA Entry took (at most 4 hours)', async () => {
   const qa = client(); await qa.login('t.qa');
   const sc = (await qa.get('/api/scorecards')).json[0], t0 = Date.now();

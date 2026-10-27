@@ -6,7 +6,7 @@
 // steps, each a number of days after the start; given to people or teams with a start date, it creates every task with its dates, and
 // it can start again every month or quarter.
 const wf = require('./wf');
-module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, userBy, seesUser }) => {
+module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, userBy, seesUser, setOut }) => {
   const EDIT = ['admin', 'qa', 'lead', 'trainer'];
   // staff only reach the records of people in their own workspace (admins reach everything); agents only their own, checked below
   const taskSeen = (db, u, t) => seesUser(db, u, t.assignee), sessSeen = (db, u, s) => s.agents.some(a => seesUser(db, u, a)), flagSeen = (db, u, f) => seesUser(db, u, f.agent, f.tid);
@@ -181,12 +181,18 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   // ---------------------------------------------------------------- coaching / training / one-to-one sessions
   const KINDS = ['o2o', 'coaching', 'group', 'training'];
   const writers = kind => kind === 'o2o' ? ['admin', 'lead', 'qa'] : ['admin', 'trainer', 'qa'];
+  // ---- one-to-one forms: the answers of a template's sections, kept as plain values (text, ticks, Yes/No/N.A., stars, numbers, a table)
+  const O2T = ['text', 'check', 'yesno', 'objectives', 'rating', 'metrics', 'table', 'agree'];
+  const cleanAns = (v, d = 0) => d > 4 ? null : typeof v === 'string' ? str(v, 4000) : typeof v === 'number' ? (Number.isFinite(v) ? v : null) : typeof v === 'boolean' ? v
+    : Array.isArray(v) ? v.slice(0, 40).map(x => cleanAns(x, d + 1)) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).slice(0, 60).map(([k, x]) => [str(k, 40), cleanAns(x, d + 1)])) : null;
+  const o2oExtra = b => b.kind !== 'o2o' ? {} : { tpl: str(b.tpl, 20), per: ['week', 'month', 'year', 'custom'].includes(b.per) ? b.per : 'month', pFrom: DAY.test(b.pFrom || '') ? b.pFrom : '', pTo: DAY.test(b.pTo || '') ? b.pTo : '',
+    ans: JSON.stringify(b.ans || {}).length < 60000 ? cleanAns(b.ans || {}) || {} : {}, secs: Array.isArray(b.secs) && JSON.stringify(b.secs).length < 30000 ? cleanAns(b.secs) : undefined, state: ['draft', 'sent', 'signed'].includes(b.state) ? b.state : (b.status === 'planned' ? 'draft' : 'signed') };
   const sessBody = (b, db, me) => {
     const kind = KINDS.includes(b.kind) ? b.kind : null; if (!kind) throw new Error('Choose the type of session');
     if (!DAY.test(b.date || '')) throw new Error('Choose the date');
     const agents = list(b.agents, 60, 40).filter(x => userBy(db, x) && seesUser(db, me, x)); if (!agents.length) throw new Error('Choose at least one agent');
     const actions = (Array.isArray(b.actions) ? b.actions : []).slice(0, 20).map(a => ({ t: str(a.t, 200), owner: userBy(db, a.owner) ? a.owner : '', due: DAY.test(a.due || '') ? a.due : '', done: !!a.done, taskId: str(a.taskId, 20) })).filter(a => a.t);
-    return { kind, date: b.date, title: str(b.title, 150) || ({ o2o: 'One-to-one', coaching: 'Coaching session', group: 'Group coaching', training: 'Training' })[kind], agents, topics: list(b.topics, 12), focus: list(b.focus, 12, 80), notes: str(b.notes, 6000), goals: str(b.goals, 2000), actions, follow: DAY.test(b.follow || '') ? b.follow : '', status: b.status === 'planned' ? 'planned' : 'done' };
+    return { kind, date: b.date, title: str(b.title, 150) || ({ o2o: 'One-to-one', coaching: 'Coaching session', group: 'Group coaching', training: 'Training' })[kind], agents, topics: list(b.topics, 12), focus: list(b.focus, 12, 80), notes: str(b.notes, 6000), goals: str(b.goals, 2000), actions, follow: DAY.test(b.follow || '') ? b.follow : '', status: b.status === 'planned' ? 'planned' : 'done', ...o2oExtra(b) };
   };
   function makeTasks(db, s, me) {
     s.actions.forEach(a => {
@@ -194,6 +200,14 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
       const t = { id: 'k' + hex(5), group: 'g' + hex(4), title: a.t, desc: 'From: ' + s.title, type: 'task', priority: 'med', points: 0, due: a.due, status: a.done ? 'done' : 'todo', assignee: a.owner, labels: ['coaching'], checklist: [], created: iso(), by: me.username, completed: a.done ? iso() : null };
       db.tasks.push(t); a.taskId = t.id; notify(db, a.owner, 'task', `New task from your ${s.kind === 'o2o' ? 'one-to-one' : 'coaching'}: ${a.t}`, { task: t.id });
     });
+  }
+  // a one-to-one that is sent or completed carries the team lead's signature; "in person" adds the agent's on the lead's screen;
+  // "sent" tells the agent to read and sign it from their own account
+  function o2oSign(db, s, me, b) {
+    if (s.kind !== 'o2o' || s.state === 'draft') return;
+    if (!s.tl) s.tl = { at: iso(), by: me.username, name: me.name };
+    if (s.state === 'signed' && b.inPerson) s.agents.forEach(a => { s.signed = { ...(s.signed || {}), [a]: { at: iso(), inPerson: true } }; });
+    if (s.state === 'sent' && !s.sentAt) { s.sentAt = iso(); s.agents.forEach(a => notify(db, a, 'task', `Your one-to-one with ${me.name} is ready: read it and sign`, {})); }
   }
   app.get('/api/sessions', need(), (req, res) => {
     const db = load(), u = req.session.user;
@@ -204,6 +218,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     try {
       const b = sessBody(req.body || {}, db, me); if (!writers(b.kind).includes(me.role)) return res.status(403).json({ error: 'Your role cannot document this type of session' });
       const s = { id: 's' + hex(5), ...b, by: me.username, byName: me.name, created: iso(), updated: iso() };
+      o2oSign(db, s, me, req.body || {});
       if ((req.body || {}).makeTasks) makeTasks(db, s, me);
       db.sessions.unshift(s); save(db); res.json(s);
     } catch (e) { bad(res, e.message); }
@@ -214,6 +229,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     if (!s) return res.status(404).json({ error: 'not found' });
     if (!s.agents.includes(me.username)) return res.status(403).json({ error: 'Only the agents of this session can sign it' });
     s.signed = { ...(s.signed || {}), [me.username]: { at: iso(), cm: str((req.body || {}).cm, 500) } };
+    if (s.kind === 'o2o' && s.agents.every(a => s.signed[a])) s.state = 'signed';
     if (s.by && s.by !== me.username) notify(db, s.by, 'taskdone', `${me.name} signed the ${s.kind === 'o2o' ? 'one-to-one' : 'session'}: ${s.title}`, {});
     save(db); res.json(s);
   });
@@ -222,7 +238,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     if (!s) return res.status(404).json({ error: 'not found' });
     try {
       const b = sessBody({ ...s, ...(req.body || {}) }, db, me); if (!writers(b.kind).includes(me.role) || !writers(s.kind).includes(me.role)) return res.status(403).json({ error: 'not allowed' });
-      Object.assign(s, b, { updated: iso() }); if ((req.body || {}).makeTasks) makeTasks(db, s, me); save(db); res.json(s);
+      Object.assign(s, b, { updated: iso() }); o2oSign(db, s, me, req.body || {}); if ((req.body || {}).makeTasks) makeTasks(db, s, me); save(db); res.json(s);
     } catch (e) { bad(res, e.message); }
   });
   app.delete('/api/sessions/:id', need(...EDIT), (req, res) => {
@@ -230,6 +246,25 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     if (!s) return res.status(404).json({ error: 'not found' });
     if (!writers(s.kind).includes(me.role)) return res.status(403).json({ error: 'not allowed' });
     db.sessions = db.sessions.filter(x => x !== s); save(db); res.json({ ok: 1 });
+  });
+
+  // ---------------------------------------------------------------- one-to-one form templates (per team) and the monthly target
+  const O2W = ['admin', 'lead', 'qa'];
+  const tplO2o = b => {
+    const name = str(b.name, 80); if (!name) throw new Error('Give the template a name');
+    const sections = (Array.isArray(b.sections) ? b.sections : []).slice(0, 30).map(x => ({ id: str(x && x.id, 20) || 'x' + hex(3), t: O2T.includes(x && x.t) ? x.t : 'text', title: str(x && x.title, 80) || 'Section', items: list(x && x.items, 30, 160), cols: list(x && x.cols, 8, 40), units: list(x && x.units, 30, 20) })).filter(x => x.title);
+    if (!sections.length) throw new Error('Add at least one section');
+    return { name, teams: list(b.teams, 30, 40), sections };
+  };
+  app.get('/api/o2o-templates', need(...EDIT), (req, res) => res.json(load().o2oTpl));
+  app.post('/api/o2o-templates', need(...O2W), (req, res) => { const db = load(); try { const t = { id: 'f' + hex(4), ...tplO2o(req.body || {}), by: req.session.user.username, created: iso() }; db.o2oTpl.push(t); save(db); res.json(t); } catch (e) { bad(res, e.message); } });
+  app.put('/api/o2o-templates/:id', need(...O2W), (req, res) => { const db = load(), t = db.o2oTpl.find(x => x.id === req.params.id); if (!t) return res.status(404).json({ error: 'not found' }); try { Object.assign(t, tplO2o(req.body || {}), { updated: iso() }); save(db); res.json(t); } catch (e) { bad(res, e.message); } });
+  app.delete('/api/o2o-templates/:id', need(...O2W), (req, res) => { const db = load(); db.o2oTpl = db.o2oTpl.filter(t => t.id !== req.params.id); save(db); res.json({ ok: 1 }); });
+  // how many one-to-ones each person should have per month: one number for everybody, and a different one for chosen teams
+  app.put('/api/o2o-target', need('admin'), (req, res) => {
+    const db = load(), b = req.body || {}, n = v => Math.min(10, Math.max(0, parseInt(v) || 0)), teams = {};
+    Object.entries(b.teams && typeof b.teams === 'object' ? b.teams : {}).slice(0, 40).forEach(([k, v]) => { if (db.teams.some(t => t.id === k) && v !== '' && v != null) teams[k] = n(v); });
+    db.settings.o2o = { target: Math.max(1, n(b.target) || 1), teams }; save(db); res.json(setOut(db, req.session.user));
   });
 
   // ---------------------------------------------------------------- quick flags: a red / green flag on a call, kept apart from QA reviews (scores never change)

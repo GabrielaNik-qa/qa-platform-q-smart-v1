@@ -26,7 +26,7 @@ function load() {
   const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : { users: [], evaluations: [] };
   let dirty = false;
   if (!Array.isArray(db.scorecards) || !db.scorecards.length) db.scorecards = [DEFAULT_SC];
-  for (const k of ['notifications', 'registrations', 'tasks', 'taskTpl', 'taskSeq', 'taskRuns', 'simScen', 'sessions', 'calibrations', 'kbFolders', 'kbArticles', 'newsletters', 'quizzes', 'attempts', 'simulations', 'qflags'])
+  for (const k of ['notifications', 'registrations', 'tasks', 'taskTpl', 'taskSeq', 'taskRuns', 'simScen', 'o2oTpl', 'sessions', 'calibrations', 'kbFolders', 'kbArticles', 'newsletters', 'quizzes', 'attempts', 'simulations', 'qflags'])
     if (!Array.isArray(db[k])) db[k] = [];
   if (!db.kbReads) db.kbReads = {};
   if (!db.settings) db.settings = { pass: 85, teams: {} };

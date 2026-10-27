@@ -246,6 +246,7 @@ async function load() {
   if (route === 'cap' || (dashy && ME && ME.role === 'agent')) want.push(['cap', '/api/cap?month=' + (route === 'cap' ? cpMon() : '') + '&plan=' + encodeURIComponent(CPP) + (route === 'cap' && CPFR ? '&from=' + CPFR : '')]);
   if (route === 'att' && ed && ATAB === 'rep' && ATRQ) want.push(['atrep', '/api/att/report?team=' + encodeURIComponent(ATRTM) + '&from=' + ATRF + '&to=' + ATRT]);
   if (['coach', 'o2o', 'acad'].includes(route) || (dashy && ME && ME.role === 'agent')) want.push(['se', '/api/sessions']);
+  if (route === 'o2o') { want.push(['tk', '/api/tasks']); if (ed) want.push(['ot', '/api/o2o-templates']); }   // the one-to-one form shows open tasks and uses the templates
   if (route === 'audit' && adm) want.push(['au', '/api/audit']);
   if (route === 'tasks' || route === 'coach' || dashy) want.push(['tk', '/api/tasks']);
   if (route === 'cal' || (route === 'calendar' && ed)) want.push(['ca', '/api/calibrations']);
@@ -284,6 +285,7 @@ async function load() {
   if (R.tk) TASKS = JSON.parse(R.tk);
   if (R.tp) TPLS = JSON.parse(R.tp);
   if (R.sq) TSEQ = JSON.parse(R.sq);
+  if (R.ot) O2TPL = JSON.parse(R.ot);
   if (R.se) SESS = JSON.parse(R.se);
   if (R.sm) SIMS = JSON.parse(R.sm);
   if (R.ss) SCNS = JSON.parse(R.ss);
