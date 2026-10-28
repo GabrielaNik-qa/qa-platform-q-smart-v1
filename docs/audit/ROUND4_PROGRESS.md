@@ -71,6 +71,20 @@ If this session stops, the next one continues from this file.
 - The Playwright tests answer the Google Fonts requests locally and add the made-up address only to the app's own requests
   (a custom header on the font requests made Google refuse them).
 
+## Final check (§18), 28 October 2026
+
+| Step | Result |
+|---|---|
+| 1. `npm.cmd test` | **210 tests: 210 passed**, 0 failed, 0 skipped (35.4 s). Before the round: 168 / 168. |
+| 2. `npm.cmd run test:e2e`, three times in a row | **14 passed** each time (59.1 s, 58.9 s, 57.6 s) |
+| 3. `npm.cmd run lint` | 0 problems |
+| 4. `npm.cmd audit` | 2 moderate (`uuid` through `exceljs`, R-19), as before; nothing new |
+| 5. Speed on the large data, against the baseline | PERFORMANCE_AUDIT.md: the same seconds (the JSON file), 40–70 times smaller answers |
+| 6. Every page × role × language in the browser | English: the browser tests (every role, every page). Bulgarian and French: every page of admin (68), QA (49), lead (45), trainer (44) and agent (25), with **0 blank pages and 0 errors** |
+| 7. The real files | **Unchanged** (same size and SHA-256 as at the start): `data.json` 4,557,295 B `67C759EF…`, `seed.js` 2,274,036 B `70AC11D1…`, `audit.json` 8,452 B `28F93FB5…`, `.qsmart-key` 64 B `044ECC8A…` |
+| 8. The whole change against `q-smart-v1` | 2,470 added lines read by a script: no secret, no personal data, no folder path of this computer, no leftover debugging. 85 new development packages, all from registry.npmjs.org with integrity hashes; one install script (`fsevents`, Mac only, never installed on Windows). No design change. |
+| 9. Git | 10 commits on `q-smart-v1-audit`; `q-smart-v1` still at `3440283`; nothing pushed, nothing merged; `.claude/` still untracked |
+
 ## Next steps for a new session
 
 - Read this file, then `docs/audit/DECISIONS_FOR_YOU.md` (section V) for the questions waiting for Gabriela.
