@@ -761,7 +761,7 @@ I18N.add('bg', {
   "Team Review": "Преглед на екипите", "Category Stats": "Статистика по категории", "My Performance": "Моето представяне", "Knowledge Base": "База знания",
   "Knowledge base": "База знания", "Newsletter": "Бюлетин", "My Learning": "Моето обучение", "My Quizzes": "Моите тестове", "Tasks & Missions": "Задачи и мисии",
   "Tasks & missions": "Задачи и мисии", "Users": "Потребители", "Audit log": "Журнал на действията", "AutoQA": "Автоматичен QA", "Auto QA": "Автоматичен QA",
-  "System settings": "Системни настройки", "System Settings": "Системни настройки", "My account": "Моят акаунт", "Log out": "Изход", "Go to Home": "Към началото",
+  "System settings": "Системни настройки", "System Settings": "Системни настройки", "My account": "Моят акаунт", "Go to settings": "Към настройките", "Pass rates and saved data": "Успеваемост и запазени данни", "Log out": "Изход", "Go to Home": "Към началото",
   "Hide / show the menu (double-click the menu works too)": "Скрий / покажи менюто (работи и двойно щракване върху менюто)", "Hide or show the menu": "Скрий или покажи менюто",
   "Leave this page?": "Да напуснете ли страницата?", "Your changes will be lost. Are you sure you want to leave?": "Промените ви ще бъдат загубени. Сигурни ли сте, че искате да напуснете?",
   "Yes, leave": "Да, напусни", "No, stay": "Не, остани", "Table view": "Изглед таблица", "Boxes view": "Изглед карти",

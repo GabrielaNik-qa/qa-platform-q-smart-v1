@@ -35,6 +35,28 @@ for (const [role, who] of Object.entries(PEOPLE)) {
   });
 }
 
+// the menu Gabriela approved on 28 October: the order, the two coloured panels, the settings wheel (Admin / Settings) with
+// My account on top, System settings under Quality set-up for admins only, and the name written as G.Georgieva
+test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wheel with My account, System settings for admins only', async ({ browser }) => {
+  const a = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 800 } });
+  expect(await a.page.locator('#n .gh span').allInnerTexts()).toEqual(['Home', 'Quality', 'Analytics', 'Performance', 'Coaching', 'Planning', 'Reports', 'Q-Intelligence', 'AI Simulator', 'Learning', 'Workforce', 'Compliance & CX']);
+  expect(await a.page.locator('.grp.sp-ai .gh i').evaluate(e => getComputedStyle(e).color)).toBe('rgb(255, 212, 71)');
+  expect(await a.page.locator('.grp.sp-qi .gh i').evaluate(e => getComputedStyle(e).color)).toBe('rgb(255, 111, 145)');
+  await a.page.locator('.usr button[title="Admin"]').click();
+  await expect(a.page.locator('#n .spt')).toHaveText('Admin');
+  expect((await a.page.locator('#n .gh span').allInnerTexts()).slice(1, 3)).toEqual(['My account', 'People']);
+  await go(a.page, 'sysset'); await expect(a.page.locator('#m h1')).toHaveText(/System settings/i);
+  await a.page.evaluate(() => openAcct('password')); await a.page.getByRole('button', { name: /Go to settings/ }).click();
+  await expect.poll(() => a.page.evaluate(() => location.hash)).toBe('#acpw');
+  expect(a.errors).toEqual([]); await a.ctx.close();
+  const g = await personPage(browser, 'f.c1', { viewport: { width: 1366, height: 800 } });
+  await expect(g.page.locator('.un b')).toHaveText('A.C1');                                      // "Agent C1": the initial and the last name
+  await g.page.locator('.usr button[title="Settings"]').click();
+  expect(await g.page.locator('#n .gh span').allInnerTexts()).toEqual(['Back to the main menu', 'My account']);
+  await g.page.evaluate(() => { location.hash = '#sysset'; }); await expect.poll(() => g.page.evaluate(() => route)).not.toBe('sysset');
+  expect(g.errors).toEqual([]); await g.ctx.close();
+});
+
 test('the fonts come from the app itself: titles in Barlow Condensed, text in Barlow, Bulgarian letters in Fira Sans, nothing asked from Google', async ({ browser }) => {
   const { page, ctx, errors } = await personPage(browser, 'f.qa1');
   await go(page, 'dash');

@@ -11,8 +11,8 @@ const GROUPS = [
   { id: 'home', name: 'Home', icon: 'g_home', items: [['dash', 'Dashboard'], ['autoqa', 'AutoQA'], ['tasks', 'Tasks'], ['pers', 'Personalize']] },
   { id: 'quality', name: 'Quality', icon: 'g_quality', items: [['calls', 'Reviews'], ['entry', 'QA Entry'], ['flags', 'Quick Flags'], ['disputes', 'Disputes']] },
   { id: 'analytics', name: 'Analytics', icon: 'g_analytics', items: [['agents', 'Agents'], ['team', 'Team Review'], ['cats', 'Category Stats']] },
-  { id: 'coaching', name: 'Coaching', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration']] },
   { id: 'performance', name: 'Performance', icon: 'g_perf', items: [['goals', 'Goals & KPIs'], ['pips', 'Improvement plans'], ['kudos', 'Recognition']] },
+  { id: 'coaching', name: 'Coaching', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration']] },
   { id: 'planning', name: 'Planning', icon: 'g_plan', items: [['planner', 'Review planner'], ['workload', 'QA workload'], ['calendar', 'Calendar']] },
   { id: 'workforce', name: 'Workforce', icon: 'g_wf', space: 'wf', items: [['today', 'Team today'], ['att', 'Attendance'], ['leave', 'Time off'], ['rota', 'Shifts and rota'], ['cap', 'Capacity planning']] },
   { id: 'comply', name: 'Compliance & CX', icon: 'g_comply', space: 'cx', items: [['compliance', 'Compliance'], ['risks', 'Risk register'], ['complaints', 'Complaints'], ['csat', 'Surveys (CSAT)']] },
@@ -21,14 +21,16 @@ const GROUPS = [
   { id: 'learning', name: 'Learning', icon: 'g_learning', space: 'learn', items: [['acad', 'My Learning'], ['kb', 'Knowledge Base'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },
   { id: 'tools', name: 'Tools', icon: 'g_tools', space: 'learn', items: [['tr', 'Transcripts']] },
   { id: 'aisim', name: 'AI Simulator', icon: 'g_aisim', space: 'ai', items: [['sim', 'Practice a call'], ['simres', 'Results'], ['simsc', 'Scenarios']] },
+  // My account: everybody's own settings, the same as the account pop-up (approved by Gabriela, 28 October); the settings wheel opens this panel
+  { id: 'myacc', name: 'My account', icon: 'g_me', space: 'admin', items: [['acprof', 'Profile'], ['acpw', 'Password'], ['acapp', 'Appearance'], ['aclang', 'Language'], ['acnotif', 'Notifications & Confirmations']] },
   { id: 'people', name: 'People', icon: 'g_people', space: 'admin', items: [['users', 'Users'], ['teams', 'Teams'], ['wsp', 'Workspaces'], ['skills', 'Skills']] },
-  { id: 'scorecards', name: 'Quality set-up', icon: 'g_sc', space: 'admin', items: [['sco', 'Scorecards'], ['scat', 'Categories'], ['roots', 'Root causes'], ['aqcats', 'Auto QA categories']] },
+  { id: 'scorecards', name: 'Quality set-up', icon: 'g_sc', space: 'admin', items: [['sco', 'Scorecards'], ['scat', 'Categories'], ['roots', 'Root causes'], ['aqcats', 'Auto QA categories'], ['sysset', 'System settings']] },
   { id: 'org', name: 'Organization', icon: 'g_org', space: 'admin', items: [['org', 'Company'], ['privacy', 'Data protection'], ['signin', 'Sign-in'], ['words', 'Business words']] },
   { id: 'qintel', name: 'Q-Intelligence', icon: 'g_qi', space: 'qi', items: [['qask', 'Ask Q'], ['qagents', 'AI agents'], ['qins', 'AI insights'], ['qknow', 'Knowledge']] },
   { id: 'admin', name: 'System', icon: 'g_sys', space: 'admin', items: [['perms', 'Roles & permissions'], ['integ', 'Integrations'], ['notifs', 'Notification rules'], ['mailtpl', 'Email templates'], ['backup', 'Backups & data'], ['audit', 'Audit log']] }
 ];
 const RR = { org: ['admin'], privacy: ['admin'], signin: ['admin'], words: ['admin'], qask: STAFFR, qagents: STAFFR, qins: STAFFR, qknow: STAFFR, simsc: ['admin', 'trainer'], entry: ['admin', 'qa'], flags: STAFFR, team: STAFFR, cats: STAFFR, coach: STAFFR, cal: STAFFR, sco: STAFFR, scat: ['admin', 'qa'], roots: ['admin', 'qa'], aqcats: ['admin', 'qa'], users: ['admin'], teams: ['admin'], wsp: ['admin'], skills: ['admin'], audit: ['admin'], wcal: ['admin'], shifts: ['admin'], ltypes: ['admin'], attrules: ['admin'], today: STAFFR };
-Object.assign(RR, { rbuild: STAFFR, rsaved: STAFFR, rexp: STAFFR, planner: ['admin', 'qa', 'lead'], workload: ['admin', 'qa', 'lead'], compliance: STAFFR, risks: STAFFR, complaints: STAFFR, csat: STAFFR, perms: ['admin'], integ: ['admin'], notifs: ['admin'], backup: ['admin'], mailtpl: ['admin'] });
+Object.assign(RR, { sysset: ['admin'], rbuild: STAFFR, rsaved: STAFFR, rexp: STAFFR, planner: ['admin', 'qa', 'lead'], workload: ['admin', 'qa', 'lead'], compliance: STAFFR, risks: STAFFR, complaints: STAFFR, csat: STAFFR, perms: ['admin'], integ: ['admin'], notifs: ['admin'], backup: ['admin'], mailtpl: ['admin'] });
 // an admin can change who sees which page (Admin > Roles & permissions); admins always keep the Admin pages
 const ADMINP = ['users', 'teams', 'wsp', 'skills', 'perms', 'integ', 'notifs', 'backup', 'mailtpl', 'audit', 'wcal', 'shifts', 'ltypes', 'attrules'];
 const own = (o, k) => o && Object.hasOwn(o, k) ? o[k] : undefined;   // only the object's own entries (a link such as #constructor is not a page)

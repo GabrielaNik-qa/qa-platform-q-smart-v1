@@ -476,6 +476,9 @@ mark{background:color-mix(in srgb,var(--yellow) 55%,transparent);color:inherit;b
 .gh span{flex:1;font-size:15px}.gh em{font-style:normal;opacity:.6;transition:transform .15s}.grp.open .gh em{transform:rotate(90deg)}
 .gh:hover{background:rgba(255,255,255,.07);color:#fff}
 .grp.act .gh{color:#fff;background:rgba(255,255,255,.05)}.grp.act .gh i{background:rgba(255,255,255,.09);color:var(--brand)}
+/* AI Simulator and Q-Intelligence keep their own colour in the menu at all times: the brand yellow and the brand pink (Gabriela, 28 October) */
+.grp.sp-ai .gh i,.grp.g-aisim .gh i{color:var(--yellow)}
+.grp.sp-qi .gh i,.grp.g-qintel .gh i{color:var(--coral)}
 .sub{display:grid;gap:2px;margin:2px 0 8px 26px;border-left:1px solid rgba(255,255,255,.13);padding-left:10px}
 .sb .sub a{position:relative;display:block;padding:7px 10px 7px 22px;border-radius:var(--r-s);font-size:14.5px}
 .sb .sub a:hover{background:rgba(255,255,255,.07);color:#fff}
