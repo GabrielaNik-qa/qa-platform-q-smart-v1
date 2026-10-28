@@ -209,6 +209,7 @@ The scoring rules (R-10), the quiz rules (R-11) and the capacity split were not 
 | F-17 | P3 | **Phones only show "screen too narrow"** (by design since 24 October). | Not changed: your decision (V2). | `e2e` › phone and tablet |
 | F-18 | P2 (test gap) | **The every-route test skipped about 30 routes** (guards like `need(...QA)` were read as "public"), so a wrong permission there would not have been noticed. | It now reads them, and fails on a guard it cannot read. | `role-matrix.test.js` |
 | F-19 | P3 | **Saves take about 0.3 s** on this computer: Windows' virus scanner checks the new file. | Information only (V11). | PERFORMANCE_AUDIT.md |
+| F-20 | P2 | **The example texts, tooltips and screen-reader names of the 24 multi-line text boxes stayed English** in Bulgarian and French. The language layer skipped these boxes completely, to keep what people type in them as it is. Found while doing V4. | Only the box's own labels are translated, never its contents. | `e2e` › screen-reader names ("Yes" typed in a box stays "Yes") |
 
 ### Defect introduced during round 4 (fixed before committing)
 

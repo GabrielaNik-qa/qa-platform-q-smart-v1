@@ -7,17 +7,20 @@ let N = 0;
 // every person gets their own browser context and made-up network address (the sign-in limits count per address)
 async function personPage(browser, username, { viewport, lang } = {}) {
   const ctx = await browser.newContext({ viewport: viewport || { width: 1366, height: 800 }, acceptDownloads: true }), addr = '10.55.' + (++N >> 8 & 255) + '.' + (N & 255);
-  // the made-up address goes only to the app; the Google fonts are answered here with an empty file, so the tests never need the internet
-  await ctx.route(u => u.origin === new URL(process.env.E2E_BASE).origin, r => r.continue({ headers: { ...r.request().headers(), 'x-forwarded-for': addr } }));
-  await ctx.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, r => r.fulfill({ status: 200, contentType: /googleapis/.test(r.request().url()) ? 'text/css' : 'font/woff2', body: '' }));
+  const origin = new URL(process.env.E2E_BASE).origin, errors = [];
+  // the made-up address goes only to the app. Anything asked from another site is refused and is an error: since 28 October the
+  // fonts are served by the app, so no page may contact Google, or anybody else
+  await ctx.route(u => u.origin === origin, r => r.continue({ headers: { ...r.request().headers(), 'x-forwarded-for': addr } }));
+  await ctx.route(u => /^https?:$/.test(u.protocol) && u.origin !== origin, r => { errors.push('asked another site: ' + r.request().url()); return r.abort(); });
   // the page's requests still on their way: a page is "ready" when it has drawn and none is left (no fixed waiting time)
   await ctx.addInitScript(() => { window.__inflight = 0; const f = window.fetch; window.fetch = (...a) => { window.__inflight++; return f(...a).finally(() => { window.__inflight--; }); }; });
-  const page = await ctx.newPage(), errors = [];
+  const page = await ctx.newPage();
   page.on('pageerror', e => errors.push('page error: ' + e.message));
   page.on('console', m => { if (m.type() === 'error' && !/401 \(Unauthorized\)/.test(m.text())) errors.push('console: ' + m.text()); });
   page.on('response', r => { if (r.status() >= 500) errors.push('HTTP ' + r.status() + ' ' + r.url()); });
-  // a request cut off by reloading the page (ERR_ABORTED) is normal browser behaviour, not an error of the app
-  page.on('requestfailed', r => { const why = (r.failure() || {}).errorText || ''; if (!/^https:\/\/fonts\./.test(r.url()) && !/ERR_ABORTED/.test(why)) errors.push('request failed: ' + r.url() + ' ' + why); });
+  // a request of the app cut off by reloading the page (ERR_ABORTED) is normal browser behaviour, not an error; the refused
+  // requests to other sites are already counted above
+  page.on('requestfailed', r => { const why = (r.failure() || {}).errorText || ''; if (new URL(r.url()).origin === origin && !/ERR_ABORTED/.test(why)) errors.push('request failed: ' + r.url() + ' ' + why); });
   await page.goto(process.env.E2E_BASE + '/');
   if (lang) await page.getByRole('button', { name: lang, exact: true }).click();
   if (username) await signIn(page, username);

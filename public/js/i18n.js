@@ -102,12 +102,15 @@
     });
   }
   const skipped = el => el.closest && el.closest(SKIP);
+  // a text box keeps exactly what people typed in it, but its example text, tooltip and screen-reader name are the page's own words
+  const labelsOnly = el => el.tagName === 'TEXTAREA' && !(el.parentElement && skipped(el.parentElement));
   function walk(root) {
     if (!root) return;
     if (root.nodeType === 3) { if (!skipped(root.parentNode || document.body)) doText(root); return; }
-    if (root.nodeType !== 1 || skipped(root)) return;
+    if (root.nodeType !== 1) return;
+    if (skipped(root)) { if (labelsOnly(root)) doEl(root); return; }
     doEl(root);
-    const w = document.createTreeWalker(root, 5, { acceptNode: x => x.nodeType === 1 && x.matches(SKIP) ? 2 : 1 });   // 2 = skip the whole branch
+    const w = document.createTreeWalker(root, 5, { acceptNode: x => { if (x.nodeType === 1 && x.matches(SKIP)) { if (labelsOnly(x)) doEl(x); return 2; } return 1; } });   // 2 = skip the whole branch
     let x; while ((x = w.nextNode())) { if (x.nodeType === 3) doText(x); else doEl(x); }
   }
   let OBS = null;
@@ -117,7 +120,7 @@
       for (const m of list) {
         if (m.type === 'childList') m.addedNodes.forEach(walk);
         else if (m.type === 'characterData') { const r = TXT.get(m.target); if (!r || m.target.nodeValue !== r.w) walk(m.target); }
-        else if (m.type === 'attributes') { const r = (ATT.get(m.target) || {})[m.attributeName]; if (!r || m.target.getAttribute(m.attributeName) !== r.w) { if (!skipped(m.target)) doEl(m.target); } }
+        else if (m.type === 'attributes') { const r = (ATT.get(m.target) || {})[m.attributeName]; if (!r || m.target.getAttribute(m.attributeName) !== r.w) { if (!skipped(m.target) || labelsOnly(m.target)) doEl(m.target); } }
       }
     });
     OBS.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });

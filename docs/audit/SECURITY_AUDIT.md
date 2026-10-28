@@ -321,7 +321,8 @@ Every fix has a regression test that passes after it. The tests of S-29, S-30, S
 | **Server time zone** | Confirmed, P1 for hosting | All workforce dates use the time zone of the server. On a UTC server, a 09:00 Sofia shift starts at 11:00 Sofia time and New Year comes 2 hours late. Not changed, because it is a hosting decision: see DECISIONS_FOR_YOU.md, round 4. |
 | CSP needs `'unsafe-inline'`; `img-src https:` allows image requests to other sites | Residual | A strict CSP after the R-7 refactor. |
 | `uuid` advisory through `exceljs` (R-19), unmaintained `exceljs` (R-22) | Unchanged | `npm audit`: 2 moderate, no fix without a breaking change. |
-| R-1 to R-5, R-8, R-16, R-17, R-23, R-24 | Unchanged | See REMAINING_ISSUES.md and DECISIONS_FOR_YOU.md. |
+| R-1 to R-5, R-8, R-16, R-17, R-23 | Unchanged | See REMAINING_ISSUES.md and DECISIONS_FOR_YOU.md. |
+| R-24 Google Fonts | **Fixed** (V3, 28 October) | The fonts come from `public/fonts`; the CSP is now `style-src 'self' 'unsafe-inline'` and `font-src 'self'`. In a fresh browser the sign-in page and the dashboard asked no other site for anything (English and Bulgarian). |
 
 ### Tests not performed in round 4, and why
 

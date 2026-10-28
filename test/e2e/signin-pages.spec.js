@@ -35,6 +35,23 @@ for (const [role, who] of Object.entries(PEOPLE)) {
   });
 }
 
+test('the fonts come from the app itself: titles in Barlow Condensed, text in Barlow, Bulgarian letters in Fira Sans, nothing asked from Google', async ({ browser }) => {
+  const { page, ctx, errors } = await personPage(browser, 'f.qa1');
+  await go(page, 'dash');
+  await page.evaluate(() => document.fonts.ready);
+  const r = await page.evaluate(() => ({ title: document.fonts.check('700 30px "Barlow Condensed"'), text: document.fonts.check('400 15px Barlow', 'Quality'),
+    files: performance.getEntriesByType('resource').filter(e => /\.woff2/.test(e.name)).map(e => new URL(e.name).origin + new URL(e.name).pathname) }));
+  expect(r.title, 'Barlow Condensed is loaded').toBe(true); expect(r.text, 'Barlow is loaded').toBe(true);
+  expect(r.files.length).toBeGreaterThan(0);
+  for (const f of r.files) expect(f.startsWith(process.env.E2E_BASE + '/fonts/'), f).toBe(true);
+  await page.evaluate(() => setLang('bg')); await go(page, 'calls');
+  await page.evaluate(() => document.fonts.ready);
+  expect(await page.evaluate(() => document.fonts.check('400 15px "Fira Sans"', 'Оценки')), 'the Cyrillic letters of Fira Sans are loaded').toBe(true);
+  await page.evaluate(() => setLang('en'));
+  expect(errors, 'no error, and no request to another site').toEqual([]);
+  await ctx.close();
+});
+
 test('screen-reader names follow the language too (the check boxes of Notification rules in Bulgarian and French)', async ({ browser }) => {
   const { page, ctx, errors } = await personPage(browser, 'f.admin');
   await page.evaluate(() => setLang('bg')); await go(page, 'notifs');
@@ -42,7 +59,16 @@ test('screen-reader names follow the language too (the check boxes of Notificati
   expect(bg).toMatch(/[А-я]/); expect(bg).toContain('Администратор');
   await page.evaluate(() => setLang('fr')); await go(page, 'perms');
   expect(await page.locator('table input[type=checkbox]').first().getAttribute('aria-label')).toContain('Administrateur');
+  // a text box: its name and its example follow the language, what people typed in it never changes ("Yes" stays "Yes")
+  expect((await api(page, '/api/org', { words: { types: ['Yes', 'Reactivation'], topics: [], vocab: [] } }, 'PUT')).status).toBe(200);
+  await page.reload(); await page.waitForFunction(() => typeof ME !== 'undefined' && ME);
+  await page.evaluate(() => setLang('bg')); await go(page, 'words');
+  const box = page.locator('#wd-types');
+  expect(await box.getAttribute('aria-label')).toBe('Видове разговори');
+  expect(await page.locator('#wd-topics').getAttribute('placeholder')).toBe('Конкуренти | марка А, марка Б, друг сайт');
+  expect(await box.inputValue()).toBe('Yes\nReactivation');
   await page.evaluate(() => setLang('en'));
+  expect(await box.getAttribute('aria-label')).toBe('Call types');
   expect(errors).toEqual([]);
   await ctx.close();
 });

@@ -153,8 +153,8 @@ app.set('trust proxy', /^\d+$/.test(TP || '') ? Number(TP) : TP === 'true' ? tru
 app.disable('x-powered-by');
 // the Content-Security-Policy: the pages still use inline onclick="…" handlers (R-7), so scripts must allow 'unsafe-inline' for now,
 // but nothing can be loaded from or sent to another site (connect-src 'self'), no plug-ins, no <base> tricks, no framing by others.
-// Images and audio may come from https links (company logo, recording links); fonts and their CSS from Google Fonts (R-24).
-const CSP = ["default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", "font-src 'self' https://fonts.gstatic.com",
+// Images and audio may come from https links (company logo, recording links); fonts only from the app itself (public/fonts, R-24).
+const CSP = ["default-src 'self'", "script-src 'self' 'unsafe-inline'", "style-src 'self' 'unsafe-inline'", "font-src 'self'",
   "img-src 'self' data: blob: https:", "media-src 'self' blob: https:", "connect-src 'self'", "object-src 'none'", "base-uri 'self'", "form-action 'self'", "frame-ancestors 'self'"].join('; ');
 app.use((req, res, next) => {   // basic browser protections: no framing by other sites (clickjacking), no guessing of file types; data answers are never cached
   res.set({ 'X-Content-Type-Options': 'nosniff', 'X-Frame-Options': 'SAMEORIGIN', 'Referrer-Policy': 'same-origin', 'Content-Security-Policy': CSP,
@@ -892,6 +892,8 @@ const att = require('./routes-att')(ctx);   // Workforce: check-ins, the status 
 require('./routes-today')({ ...ctx, att });   // Workforce: Team today, the morning brief, the Bradford score, attendance reports
 require('./routes-cap')({ ...ctx, att });     // Workforce: Capacity planning, the fair split of the leads of every campaign among the agents
 
+// the font files never change (a new font gets a new file name), so the browser keeps them for a year instead of asking every time
+app.use('/fonts', express.static(path.join(__dirname, 'public', 'fonts'), { maxAge: '365d', immutable: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 // any error that reaches this point: a short message for the browser (the details, with the folder paths of this computer, only go to the terminal)
 app.use((err, req, res, next) => {

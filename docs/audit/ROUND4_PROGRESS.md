@@ -68,8 +68,10 @@ If this session stops, the next one continues from this file.
 - PowerShell 5.1 splits `git commit -m` texts that contain double quotes: use `git commit -F <file>`.
 - A navigation that only changes the `#` part does not reload the page: use `location.reload()` to load changed scripts.
 - Inside `cellName` (main.js), `tr` is the table row: use `window.tr` to translate there.
-- The Playwright tests answer the Google Fonts requests locally and add the made-up address only to the app's own requests
-  (a custom header on the font requests made Google refuse them).
+- The Playwright tests add the made-up address only to the app's own requests (a custom header on outside requests makes other
+  sites refuse them). Since V3 (fonts from the app) every request to another site is refused and counted as an error.
+- The language layer (`i18n.js`) skips the contents of text boxes on purpose; their labels and examples are translated
+  separately (`labelsOnly`).
 
 ## Final check (§18), 28 October 2026
 
@@ -84,6 +86,19 @@ If this session stops, the next one continues from this file.
 | 7. The real files | **Unchanged** (same size and SHA-256 as at the start): `data.json` 4,557,295 B `67C759EF…`, `seed.js` 2,274,036 B `70AC11D1…`, `audit.json` 8,452 B `28F93FB5…`, `.qsmart-key` 64 B `044ECC8A…` |
 | 8. The whole change against `q-smart-v1` | 2,470 added lines read by a script: no secret, no personal data, no folder path of this computer, no leftover debugging. 85 new development packages, all from registry.npmjs.org with integrity hashes; one install script (`fsevents`, Mac only, never installed on Windows). No design change. |
 | 9. Git | 10 commits on `q-smart-v1-audit`; `q-smart-v1` still at `3440283`; nothing pushed, nothing merged; `.claude/` still untracked |
+
+## After the final check: V3 and V4 (Gabriela's yes, 28 October)
+
+| What | Result |
+|---|---|
+| V3: the fonts from the app | 66 font files and 5 licences in `public/fonts`; `index.html` no longer contacts Google; CSP `font-src 'self'`; fonts cached for a year. The look: 39 measured text widths identical to the pixel before and after |
+| V4: neutral examples | Admin › Integrations and Business words, with their translations; the test data and one example sentence of the decisions file. No real-looking brand or company address is left outside `seed.js` |
+| F-20 (found while doing V4) | The labels and examples of the 24 multi-line text boxes are now shown in Bulgarian and French; what people type is never translated |
+| `npm.cmd test` | 214 tests, 214 passed, 0 failed, 0 skipped |
+| `npm.cmd run lint` | 0 problems |
+| `npm.cmd run test:e2e`, three times in a row | **15 passed** each time (1.1 min each) |
+| A fresh browser | English 8 font files (163 KB), Bulgarian 13 (219 KB), 0 requests to other sites |
+| The real files | `data.json`, `seed.js`, `audit.json`, `.qsmart-key`: still unchanged |
 
 ## Next steps for a new session
 

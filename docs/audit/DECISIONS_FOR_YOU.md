@@ -903,7 +903,7 @@ This branch starts at commit bfb48ed (everything above). I read every page of Mo
 - **Business words:**
   - **Call types** are saved but not used anywhere in the app yet.
   - **Topics** (keywords counted in conversations) are used by Q-Intelligence › AI insights.
-  - **Custom vocabulary** (the right spelling and the transcription's mistakes) fixes every new transcript: conversations added to AutoQA and transcripts sent to the AI reviewer. Whole words only ("Aruba Bet" becomes "ArubaBet", but "ArubaBetting" stays). Transcripts saved before keep their text.
+  - **Custom vocabulary** (the right spelling and the transcription's mistakes) fixes every new transcript: conversations added to AutoQA and transcripts sent to the AI reviewer. Whole words only ("Acme Bank" becomes "AcmeBank", but "Acme Banking" stays). Transcripts saved before keep their text.
 
 **Q-Intelligence (a new panel at the bottom of the menu, for staff; opens with the sonar "Q")**
 - **Ask Q:** a chat for questions about your teams' quality (team and period to choose, example questions). It uses the AI analyst with your numbers.
@@ -934,12 +934,26 @@ Everything below is on the branch `q-smart-v1-audit`. Nothing is merged or pushe
 - **(recommended)** Keep it as it is for now, and later make only the agent pages work on phones: Attendance (check in / out), Time off, Reviews and Tasks. That is a design change, so it waits for your yes.
 - Or make every page work on phones (a much bigger change).
 
-### V3. Google Fonts served by the app itself (R-24)
+### V3. Google Fonts served by the app itself (R-24) — ✅ DONE (28 October, your yes)
+**What was done:**
+- The 66 font files (the same families, weights and character sets) and the 5 licences are in `public/fonts`.
+- The pages no longer contact Google, and the security policy now allows fonts from the app only.
+- The look is the same: 39 measured text widths are identical to the pixel before and after.
+- A first visit downloads 163 KB of fonts in English (219 KB in Bulgarian) from the app, kept by the browser for a year.
+
+The question as it was asked:
 Today every visitor's browser asks Google for the fonts, so Google sees each visitor's IP address (a known privacy concern in the EU).
 - **(recommended)** I download the font files once (Barlow, Barlow Condensed, Fira Sans, Fira Sans Extra Condensed, JetBrains Mono; all free to use under the SIL Open Font License) into `public/fonts`. The look stays the same, and the policy then blocks Google Fonts.
 - Or keep Google Fonts.
 
-### V4. Example texts that look like real companies
+### V4. Example texts that look like real companies — ✅ DONE (28 October, your yes)
+**What was done:**
+- **Admin › Integrations:** the CRM example is `https://crm.example.com/leads/{id}`, the recording example `https://recordings.example.com/calls?search={id}`, and the Voiso example `https://yourcompany.voiso.com`.
+- **Business words:** "Competitors | brand A, brand B, another site" and "AcmeBank | Acme Bank, Akme Bank, Acme Bang", with their Bulgarian and French.
+- **Elsewhere:** the test data and the example sentence of section U use Acme Bank too. No real-looking brand or company address is left outside `seed.js`.
+- **Found on the way:** the example texts and screen-reader names of the 24 multi-line text boxes were never shown in Bulgarian or French, although their translations existed. They are now, and what people type in the boxes is never translated.
+
+The question as it was asked:
 Two places show real-looking company examples:
 - the CRM and recording link examples in **Admin › Integrations**
 - the examples in **Admin › Organization › Business words** (real brand names)

@@ -192,7 +192,7 @@ Built after Gabriela's yes (DECISIONS_FOR_YOU.md, A1), with foldable panel secti
 | R-21 CSAT duplicates | **Open** (your decision) | Unchanged. |
 | R-22 exceljs unmaintained | **Open** | Still 4.4.0, the latest. |
 | R-23 Report recipients | **Open** (your decision) | Unchanged. |
-| R-24 Google Fonts | **Open** (your yes needed, V3) | The CSP allows only `fonts.googleapis.com` and `fonts.gstatic.com`. |
+| R-24 Google Fonts | **Fixed** (your yes, V3) | The fonts are served from `public/fonts`; the CSP allows fonts from the app only (`font-src 'self'`). `fonts.test.js` and the browser tests fail if a page asks another site for anything. |
 | R-25 Password in the audit log | **Fixed** (S-32) | `pentest-round4b.test.js` › R-25. |
 | R-26 Developer tools in a SaaS version | **Fixed for production** (S-38) | Off with `NODE_ENV=production` unless `DEV_TOOLS=1`. On this computer unchanged. |
 | R-27, R-28 | Done (round 3) | — |
@@ -210,6 +210,7 @@ Built after Gabriela's yes (DECISIONS_FOR_YOU.md, A1), with foldable panel secti
 | F-17 Phones show "screen too narrow" | Medium (product) | **Open**: by design, your decision (V2) | No (decide before selling to agents on phones) |
 | F-18 The role-matrix test skipped about 30 routes | Medium (test gap) | **Fixed** | – |
 | F-19 Saves take ~0.3 s on this computer because of the virus scanner | Low | **Open**: information (V11) | No |
+| F-20 The example texts and screen-reader names of the 24 multi-line text boxes stayed English in Bulgarian and French | Medium (localization, accessibility) | **Fixed** (found while doing V4) | – |
 
 #### F-16 · Dates follow the time zone of the server
 - **Evidence:** the same code run with three time zones (round 4):

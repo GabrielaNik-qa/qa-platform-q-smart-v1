@@ -13,10 +13,10 @@ PG.perms = function () {
 function permTog(k, r, on) { PERMD = PERMD || JSON.parse(JSON.stringify(SET.perm || {})); const l = new Set(PERMD[k] || RR[k] || ROLES5); on ? l.add(r) : l.delete(r); PERMD[k] = [...l]; render(); }
 
 // ---- integrations: links to the other tools used every day
-const INTF = [['crm', 'CRM lead link', 'https://montecryptos.myphoner.com/work/leads/{id}', 'Lead IDs become clickable everywhere, and QA Entry fills the CRM link by itself. {id} = the lead ID.'],
-  ['rec', 'Recording link', 'https://app.voiso.com/cdr?search={id}', 'Optional. When a review has no recording link, this link is offered instead.'],
+const INTF = [['crm', 'CRM lead link', 'https://crm.example.com/leads/{id}', 'Lead IDs become clickable everywhere, and QA Entry fills the CRM link by itself. {id} = the lead ID.'],
+  ['rec', 'Recording link', 'https://recordings.example.com/calls?search={id}', 'Optional. When a review has no recording link, this link is offered instead.'],
   ['zendesk', 'Zendesk', 'https://yourcompany.zendesk.com', 'Shown as a shortcut on the review pop-up of chats and emails.'],
-  ['voiso', 'Voiso', 'https://cc-ams03.voiso.com', 'Telephony — a shortcut in the Tools of the review pop-up.'],
+  ['voiso', 'Voiso', 'https://yourcompany.voiso.com', 'Telephony — a shortcut in the Tools of the review pop-up.'],
   ['modjo', 'Modjo', 'https://app.modjo.ai', 'Call recording and AI — a shortcut in the review pop-up.']];
 PG.integ = function () {
   const v = SET.integ || {};

@@ -174,3 +174,13 @@ The tests of **S-29, S-30, S-31 and S-37 were seen failing before their fixes** 
 ### Final check (§18)
 
 The results of the final check are added to ROUND4_PROGRESS.md (the end of the round), with the hashes of the real files.
+
+### After V3 and V4 (fonts from the app, neutral examples; 28 October)
+
+| Command / check | Result |
+|---|---|
+| `npm.cmd test` | **214 tests, 214 passed**, 0 failed, 0 skipped (the 4 new: `fonts.test.js`) |
+| `npm.cmd run lint` | 0 problems |
+| `npm.cmd run test:e2e`, three times in a row | see ROUND4_PROGRESS.md (15 tests: the new font test, the labels of text boxes in Bulgarian and French) |
+| The look, before and after | 13 fonts × 3 sample texts (Latin, Cyrillic, French accents): **all 39 widths identical to the pixel**; the sign-in screen the same in the screenshots |
+| A fresh browser, sign-in and dashboard | English: 8 font files, 163 KB; Bulgarian: 13 files, 219 KB; **0 requests to other sites** |

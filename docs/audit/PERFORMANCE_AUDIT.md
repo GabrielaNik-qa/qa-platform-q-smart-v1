@@ -87,7 +87,10 @@ What this shows:
 - **Keeping the data in memory between requests:** every route changes the object it loads and saves it. A shared copy could serve a half-made change after a failed request, so this is only safe with a real database.
 - **Paging the reviews list on the server:** it would change how the Reviews page and the dashboards load their data, which is a design change. It is part of the SQLite plan.
 - **Loading page scripts only when their page opens:** `loader.js` loads them all at start, and the pages share names across files. Splitting them is a refactor with a high risk of breaking pages.
-- **The Google fonts served by the app (R-24):** this needs the font files downloaded from Google into `public/fonts`. That is a download and a change of assets, so it waits for your yes (DECISIONS_FOR_YOU.md).
+- **The fonts served by the app (R-24):** done after your yes (V3, 28 October).
+  - A first visit in a fresh browser downloads **8 font files, 163 KB** in English (13 files, 219 KB in Bulgarian), all from the app. Before, about the same was downloaded from Google.
+  - The font files are kept by the browser for a year (they never change), so later visits ask for none of them.
+  - The 66 files (1.1 MB) cover every character set; the browser picks only those a page needs.
 
 ## Speed budget (proposal)
 

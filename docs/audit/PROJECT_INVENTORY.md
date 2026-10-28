@@ -132,6 +132,7 @@ Details, priorities and next steps are in REMAINING_ISSUES.md.
   - gzip compression, a Content-Security-Policy, a Permissions-Policy and an Origin check
   - `GET /api/health` and a clean stop on Ctrl+C
   - the developer tools are off with `NODE_ENV=production` unless `DEV_TOOLS=1`
+  - the fonts are served by the app itself (`public/fonts`: 66 woff2 files and 5 licences, kept by the browser for a year). Google Fonts is no longer used, and nothing on the pages is loaded from another site (V3).
 - **Development tools (not part of the app):** ESLint 9.39.1 with `globals` 16.5.0, and `@playwright/test` 1.56.1. Run them with `npm.cmd run lint` and `npm.cmd run test:e2e`.
 
 ### Pages per role (counted in the browser, round 4)
@@ -148,7 +149,7 @@ Odd addresses (`#constructor`, `#__proto__`, `#toString`, `#`, `#%00`) show the 
 
 ### Tests (round 4)
 
-**Unit and API tests:** 26 files (`npm.cmd test`), 210 tests, all passing. New in round 4:
+**Unit and API tests:** 27 files (`npm.cmd test`), 214 tests, all passing. New in round 4:
 
 | File | Tests | What it covers |
 |---|---|---|
@@ -162,8 +163,9 @@ Odd addresses (`#constructor`, `#__proto__`, `#toString`, `#`, `#%00`) show the 
 | `i18n-server.test.js` | 2 | The server's messages in both languages |
 | `shared-names.test.js` | 2 | No name declared at the top of two page scripts |
 | `speed.test.js` | 1 | The speed budget |
+| `fonts.test.js` | 4 | The fonts come from the app: nothing loaded from another site, every font file real and used, the licences, the right type and cache, the security policy |
 
-**Browser tests:** `test/e2e/` (`npm.cmd run test:e2e`), 14 tests in 2 files.
+**Browser tests:** `test/e2e/` (`npm.cmd run test:e2e`), 15 tests in 2 files. Any request a page makes to another site counts as an error.
 
 ### Every route and the tests that call it (round 4)
 

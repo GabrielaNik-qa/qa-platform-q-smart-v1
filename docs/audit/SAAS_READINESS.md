@@ -158,7 +158,7 @@ Not implemented: no plans, seat counts, billing or usage limits. No payment prov
 | 5 | `seed.js` with only made-up data; check that the GitHub repository is private (R-5) | Open |
 | 6 | MFA for admins, and longer passwords (R-8) | Open (your decision) |
 | 7 | A strict CSP after moving the 989 inline handlers (R-7) | Partly done |
-| 8 | Fonts served by the app (R-24), and the audit log without full IP addresses (R-9) | Open (your yes, V3) |
+| 8 | Fonts served by the app (R-24), and the audit log without full IP addresses (R-9) | Fonts: **done** (28 October). IP addresses: open |
 | 9 | An independent penetration test on a staging copy (with ZAP), and a malware scan of uploads | Open |
 | 10 | Phone support for agents, if agents are expected to check in from phones (F-17) | Open (your decision, V2) |
 
