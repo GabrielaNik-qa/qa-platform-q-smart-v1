@@ -69,6 +69,7 @@ test('time off: the agent asks for a day, the team lead approves it with the but
 
 test('the Excel export of the reviews holds the same reviews and numbers as the page', async ({ browser }) => {
   const { page, ctx, errors } = await personPage(browser, 'f.qa2');
+  await page.evaluate(() => setLang('bg'));                              // exports are always in English, whatever the screen language
   await go(page, 'calls');
   const shown = await page.evaluate(() => EV.length);
   const [dl] = await Promise.all([page.waitForEvent('download'), page.evaluate(() => xp(EV, 'Call Reviews'))]);
@@ -77,21 +78,27 @@ test('the Excel export of the reviews holds the same reviews and numbers as the 
   expect(rows).toBe(shown + 1);                                            // the header and one row per review
   const strings = await z.file('xl/sharedStrings.xml').async('string');
   for (const id of await page.evaluate(() => EV.slice(0, 3).map(e => String(e.id)))) expect(strings).toContain(id);
+  for (const h of ['Lead ID', 'Agent', 'Total Score (%)', 'Status', 'Completed']) expect(strings, h + ' in English').toContain(h);
+  expect(strings).not.toMatch(/[А-я]{4}/);                               // nothing of the Bulgarian screen
+  await page.evaluate(() => setLang('en'));
   expect(errors).toEqual([]);
   await ctx.close();
 });
 
-// today's design (decided earlier): under 760 px the app shows "Your screen is too narrow" instead of the pages; a tablet
-// (768 px) shows the pages with the compact menu. Phone pages for agents are a decision for Gabriela (DECISIONS_FOR_YOU.md, round 4).
-test('phone width (390 px) shows the "screen too narrow" message; tablet width (768 px) shows the agent pages with no sideways scrolling', async ({ browser }) => {
+// Gabriela's decision (28 October): under 760 px (a phone) the app asks people to use the Q-SMART mobile app (coming later);
+// a tablet (768 px) shows the pages with the compact menu
+test('phone width (390 px) shows the "use the mobile app" screen; tablet width (768 px) shows the agent pages with no sideways scrolling', async ({ browser }) => {
   const ph = await personPage(browser, 'f.c2', { viewport: { width: 390, height: 844 } });
-  await expect(ph.page.getByText('Your screen is too narrow to use Q-SMART')).toBeVisible();
+  await expect(ph.page.getByText('Use the Q-SMART mobile app')).toBeVisible();
+  await ph.page.evaluate(() => setLang('bg'));
+  await expect(ph.page.getByText('Използвайте мобилното приложение Q-SMART')).toBeVisible();
+  await ph.page.evaluate(() => setLang('en'));
   expect(await ph.page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   await ph.ctx.close();
   const { page, ctx, errors } = await personPage(browser, 'f.c2', { viewport: { width: 768, height: 1024 } });
   for (const p of ['dash', 'calls', 'att', 'leave', 'tasks', 'kb', 'cap']) {
     await go(page, p);
-    await expect(page.getByText('Your screen is too narrow to use Q-SMART')).toBeHidden();
+    await expect(page.getByText('Use the Q-SMART mobile app')).toBeHidden();
     const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(over, p + ' is wider than the tablet by ' + over + ' px').toBeLessThanOrEqual(1);
   }

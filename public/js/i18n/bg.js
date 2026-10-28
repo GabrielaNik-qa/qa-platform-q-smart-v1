@@ -1330,7 +1330,7 @@ I18N.add('bg', {
   "Scorecard is": "Оценъчна карта:",
   "by week": "по седмици",
   "reviews planned": "планирани оценки",
-  "Your screen is too narrow to use Q-SMART": "Екранът ви е твърде тесен за Q-SMART",
+  "Your screen is too narrow to use Q-SMART": "Екранът ви е твърде тесен за Q-SMART", "Use the Q-SMART mobile app": "Използвайте мобилното приложение Q-SMART", "On a phone, Q-SMART works through its mobile app. Download it to check in, see your reviews and your time off on the go. The mobile app is coming soon.": "На телефон Q-SMART работи чрез мобилното си приложение. Изтеглете го, за да отбелязвате идване, да виждате оценките и отпуските си навсякъде. Мобилното приложение предстои скоро.", "On a tablet, rotate it to landscape mode or make the browser window wider.": "На таблет го завъртете хоризонтално или разширете прозореца на браузъра.",
   "If you are using a tablet, please rotate it to landscape mode or resize your browser window.": "Ако използвате таблет, завъртете го хоризонтално или увеличете прозореца на браузъра.",
   "DONE": "ГОТОВИ",
   "OVERDUE": "ПРОСРОЧЕНИ",

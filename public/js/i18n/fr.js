@@ -1328,7 +1328,7 @@ I18N.add('fr', {
   "Scorecard is": "Grille :",
   "by week": "par semaine",
   "reviews planned": "évaluations prévues",
-  "Your screen is too narrow to use Q-SMART": "Votre écran est trop étroit pour utiliser Q-SMART",
+  "Your screen is too narrow to use Q-SMART": "Votre écran est trop étroit pour utiliser Q-SMART", "Use the Q-SMART mobile app": "Utilisez l'application mobile Q-SMART", "On a phone, Q-SMART works through its mobile app. Download it to check in, see your reviews and your time off on the go. The mobile app is coming soon.": "Sur un téléphone, Q-SMART fonctionne avec son application mobile. Téléchargez-la pour pointer, voir vos évaluations et vos congés où que vous soyez. L'application mobile arrive bientôt.", "On a tablet, rotate it to landscape mode or make the browser window wider.": "Sur une tablette, tournez-la en mode paysage ou élargissez la fenêtre du navigateur.",
   "If you are using a tablet, please rotate it to landscape mode or resize your browser window.": "Si vous utilisez une tablette, tournez-la en mode paysage ou agrandissez la fenêtre du navigateur.",
   "DONE": "TERMINÉES",
   "OVERDUE": "EN RETARD",

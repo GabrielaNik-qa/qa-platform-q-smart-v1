@@ -929,7 +929,10 @@ Everything below is on the branch `q-smart-v1-audit`. Nothing is merged or pushe
 1. **(recommended now)** When you host the app, start it with the setting `TZ=Europe/Sofia`. One line in the hosting set-up, no code change.
 2. Later, with the move to separate companies: each company's time zone from Admin › Organization › Company is used in the calculations.
 
-### V2. Agents on phones
+### V2. Agents on phones — ✅ DONE (28 October, your answer)
+**Your answer:** keep the pages for computers and tablets; on a phone, show a screen that asks people to use the Q-SMART mobile app, which you will build later. The screen now says "Use the Q-SMART mobile app … The mobile app is coming soon", in all three languages. A tablet in landscape mode still shows the pages.
+
+The question as it was asked:
 **Today:** under 760 pixels wide (any phone) the app shows only "Your screen is too narrow to use Q-SMART". On a tablet (768 px) the pages work.
 - **(recommended)** Keep it as it is for now, and later make only the agent pages work on phones: Attendance (check in / out), Time off, Reviews and Tasks. That is a design change, so it waits for your yes.
 - Or make every page work on phones (a much bigger change).
@@ -968,7 +971,10 @@ E-mails (welcome, password reset, reminders, reports) are always in English, eve
 - **(recommended)** Translate the e-mail templates and send each e-mail in the language of the person who receives it.
 - Or keep English.
 
-### V7. Excel dates
+### V7. Excel dates — ✅ DONE (28 October, your answer: exports always in English)
+Excel exports are now always in English, whatever the screen language: the column titles, the values (Red Flag, Completed, Yes / No) and the US date format. Until now, the Reviews export translated its titles. Note: "Copy for Excel" copies the table as it is on the screen, so in Bulgarian it copies Bulgarian titles.
+
+The question as it was asked:
 Excel exports use the US date format (`10/28/2026`) in every language.
 - **(recommended)** Use the format of the person's language (`28.10.2026` in Bulgarian, `28/10/2026` in French).
 - Or keep the US format.
