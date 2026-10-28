@@ -963,7 +963,19 @@ Two places show real-looking company examples:
 - **(recommended)** Replace them with neutral examples (`https://crm.example.com/leads/{id}`, "Competitors | brand A, brand B"), like the earlier clean-up.
 - Or keep them.
 
-### V5. Translations to check
+### V5. Translations to check — ✅ DONE (28 October, your answers)
+**Now in use:**
+- "Yes, delete it": **Да, изтрий**. It fits both "го" and "я", so one text works everywhere.
+- "all time": **за целия период**, and in French **pour toute la période** (your "pour le péridot entier", with the spelling fixed).
+- "Required reading": **Задължително четене**, and in French Lecture obligatoire.
+- "Quizzes passed": Издържани тестове.
+
+**Kept as they were**, because your words change the meaning (tell me if you still want them):
+- **"Still to do"** is a column title of Capacity planning and a card title of My Learning. It means "how many are left". "Продължи / Continuer" means "go on", a button text. It stays **Остава за изпълнение / Reste à faire**.
+- **French "Yes, delete it"** is the button that confirms. "Êtes-vous sûr ?" is the question above it. It stays **Oui, la supprimer**.
+- **French "Quizzes passed"**: "Quiz passés" means quizzes *taken* (also failed ones). "Quiz réussis" means *passed*, like the Bulgarian "издържани". It stays **Quiz réussis**.
+
+The question as it was asked:
 Five English texts had two different Bulgarian or French translations. The one in use was kept, and the list is in `docs/audit/LOCALIZATION_AUDIT.md`. Please tell me if the other one is better. Also, please read the 107 new Bulgarian and French texts of this round when you have time.
 
 ### V6. E-mails in the person's language
@@ -1001,6 +1013,19 @@ Yesterday's audit session left two test servers running on ports 3199 and 3299 (
 ### V11. The virus scanner and save speed
 Every save takes about 0.3 s on this computer because Windows' virus scanner checks the new `data.json`. Excluding the data folder from scanning would make saves faster, but it is a security setting, and I did not change it.
 - **(recommended)** Leave the scanner on. The SQLite move removes most of this cost anyway.
+
+### Before merging `q-smart-v1-audit` into `q-smart-v1`
+Nothing **blocks** the merge for your own use: all 226 tests, the 15 browser tests and the code checker pass, and your real data was never touched. What to do before you say yes:
+1. **Test it yourself** (the folder is already on `q-smart-v1-audit`): restart your app on port 3100 so the server runs the new code too. Everyone signed in signs in again.
+2. **Look at what you can see changing:**
+   - the fonts (they should look the same)
+   - the phone screen (sign in on your phone)
+   - Admin › Integrations and Business words (the new examples)
+   - an Excel export in Bulgarian (it should be English)
+   - Bulgarian and French screens (the newly translated texts)
+3. **Answer the three translations above** if you want them changed (not needed for the merge).
+
+The merge does not fix the launch blockers for selling (R-1 separate companies, R-2 default password, R-3/R-4 SQLite, V1 time zone). Those are the next projects.
 
 ### Still waiting from earlier rounds
 These need your decision and were not changed in round 4:

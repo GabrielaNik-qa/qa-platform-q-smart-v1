@@ -19,7 +19,7 @@ Each step says how it was checked:
 | 3 | See today's leads and tasks | Own numbers only | API (`capacity.test.js` › what each agent sees); Page only (Tasks) | PASS |
 | 4 | Take a break, come back | One break with a start and an end | Browser (`workflows` › attendance) | PASS |
 | 5 | Read a new review | It is on the Reviews page | Browser (`workflows` › review) | PASS |
-| 6 | Acknowledge it (opening it tells QA) | "Seen" saved | Not run in round 4 | — |
+| 6 | Acknowledge it (opening it tells QA) | "Seen" saved; nobody else can mark it | API (`workflows-round4.test.js` › seen) | PASS |
 | 7 | Open a dispute and write in it | The dispute is open; QA sees it on Disputes | Browser (`workflows` › review); API (`api.test.js` › dispute messages) | PASS |
 | 8 | Do a quiz | The attempt is saved; the answers are hidden from agents before | API (`workflows-more.test.js`) | PASS |
 | 9 | Practise in the AI Simulator | A customer reply, then a score of 77 with the fake AI; the transcript is the agent's only | API (`pentest-round4.test.js` › AI Simulator) | PASS |
@@ -40,7 +40,7 @@ Each step says how it was checked:
 | 6 | Copy the rota to next week | Each weekday as last week; holidays stay holidays | API (`workforce.test.js`) | PASS |
 | 7 | Re-split capacity after somebody is off | A new split is suggested for the leads not worked; approved by the lead | API (`capacity.test.js`) | PASS |
 | 8 | A one-to-one with an agent, signed by the agent | Signed; the agent is told | API (`api-workflows.test.js`) | PASS |
-| 9 | Set a goal | The goal is saved; the agent is told | Page only | — |
+| 9 | Set a goal | The goal is saved; the agent is told; only that agent (and the team, for a team goal) sees it | API (`workflows-round4.test.js` › goals) | PASS |
 | 10 | Recognition (kudos) | Saved as the lead; the person is told | API (`pentest-round4b.test.js`) | PASS |
 
 ## QA specialist – a review day
@@ -64,7 +64,7 @@ Each step says how it was checked:
 | 1 | A knowledge base article (Markdown) | Saved and shown | API (`workflows-more.test.js`) | PASS |
 | 2 | Word import | An article from a `.docx`; a zip bomb refused | API (`pentest-round4b.test.js` › R-14) | PASS |
 | 3 | A quiz by hand, and an AI draft approved | A draft until published | API (`workflows-more.test.js`, `ai-settings.test.js`) | PASS |
-| 4 | A newsletter | Saved and sent to the readers | Not run (only the every-route test calls these routes) | — |
+| 4 | A newsletter | A draft tells nobody; publishing tells everybody but the author | API (`workflows-round4.test.js` › newsletters) | PASS |
 | 5 | A coaching session | Saved for agents of the workspace | API (`api-workflows.test.js`) | PASS |
 | 6 | An AI scenario | Saved; agents can practise it | API (`api-workflows.test.js`) | PASS |
 | 7 | Learning progress | Per workspace | API (`security.test.js`, earlier rounds) | PASS |
@@ -81,7 +81,7 @@ Each step says how it was checked:
 | 6 | Attendance rules | Saved; wrong values refused | API (`workforce.test.js`) | PASS |
 | 7 | Integrations: AI key saved, test, budget | Encrypted; the budget stops calls | API (`ai-settings.test.js`) | PASS |
 | 8 | Integration links | https only | API (`pentest-round4b.test.js` › R-13) | PASS |
-| 9 | Notification rules, e-mail templates | Saved by admins only | API (`security.test.js` for templates); notification rules: Page only | PASS / — |
+| 9 | Notification rules, e-mail templates | Saved by admins only; a switched-off notification no longer reaches that role | API (`security.test.js` for templates, `workflows-round4.test.js` › notification rules) | PASS |
 | 10 | Data protection retention, purge | Old data removed | API (`api-workflows.test.js`) | PASS |
 | 11 | Scheduled report | Sent with the owner's data only | API (`security.test.js` › S-2, "send now") | PASS |
 | 12 | Export centre, backup | Kept copies opened only by their maker; backup restore with a safety copy, download | API (`api-workflows.test.js`) | PASS |
@@ -94,15 +94,13 @@ Each step says how it was checked:
 |---|---|---|---|---|
 | 1 | Month change: capacity plans | A month that is over cannot be split again | API (`capacity.test.js`) | PASS |
 | 2 | Year change (31 Dec → 1 Jan): balances | Each year pays for its own days | API (`calc-round4.test.js`, `attendance.test.js` › carry-over) | PASS |
-| 3 | The scheduled-report e-mailer (every 10 minutes) | Sends due reports once a day | Not run with a fake clock in round 4 ("send now" is tested) | — |
+| 3 | The scheduled-report e-mailer (every 10 minutes) | Sends due reports once a day | Not run with a fake clock ("send now" is tested; the timer is inside the server and cannot be reached by a test without changing the code) | — |
 | 4 | Retention purge on the copy | Deletes what it says | API (`api-workflows.test.js`) | PASS |
 
 ## Next steps
 
+Done since round 4: seen, goals, newsletters and notification rules (`workflows-round4.test.js`). Still to automate:
+
 Automate the "—" steps above in the browser tests:
-- seen
-- goals
-- newsletters
 - the report builder
-- notification rules
 - the scheduler, with a fake clock

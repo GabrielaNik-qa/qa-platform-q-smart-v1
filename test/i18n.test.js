@@ -17,8 +17,10 @@ function texts(src) {
   const keep = s => {
     const attrs = [...s.matchAll(/(?:title|placeholder|aria-label|alt)="([^"$]*)"/g)].map(m => m[1]);
     for (let t of [...s.replace(/<[^>]*>/g, '\u0001').split('\u0001'), ...attrs]) {
-      t = t.replace(/&quot;/g, '"').replace(/&rarr;/g, '→').replace(/\s+/g, ' ').trim();
-      if (t && !t.includes('{}') && !/\($/.test(t) && !/^[A-Za-z]+\.[a-z]/.test(t) && /[a-z]{2,} /i.test(t + ' ') && /^[A-Z+(←•✓○▲▼—↗↘“"]/.test(t) && !/[=;]|=>|\(\)|^[A-Z_]+$|^[A-Z][a-z]+[A-Z]/.test(t)) out.add(t);
+      t = t.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&rarr;/g, '→').replace(/\s+/g, ' ').trim();
+      if (t && !t.includes('{}') && !/\($/.test(t) && !/^[A-Za-z]+\.[a-z]/.test(t) && /[a-z]{2,} /i.test(t + ' ') && /^[A-Z+(←•✓○▲▼—↗↘“"]/.test(t) && !/=|=>|\(\)|^[A-Z_]+$|^[A-Z][a-z]+[A-Z]/.test(t)
+        // a ";" is code, unless the text is a sentence that goes on after it ("Click any card to go deeper; choose …", round 4)
+        && (!t.includes(';') || /^[^;(){}[\]]+; [a-z][^;(){}[\]]*$/.test(t))) out.add(t);
     }
   };
   const str = q => { let s = ''; i++; while (i < n && src[i] !== q) { if (src[i] === '\\') { s += src[i + 1]; i += 2; continue; } s += src[i++]; } i++; return s; };
