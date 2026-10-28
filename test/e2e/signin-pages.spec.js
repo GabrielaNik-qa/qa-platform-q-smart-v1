@@ -35,6 +35,18 @@ for (const [role, who] of Object.entries(PEOPLE)) {
   });
 }
 
+test('screen-reader names follow the language too (the check boxes of Notification rules in Bulgarian and French)', async ({ browser }) => {
+  const { page, ctx, errors } = await personPage(browser, 'f.admin');
+  await page.evaluate(() => setLang('bg')); await go(page, 'notifs');
+  const bg = await page.locator('table input[type=checkbox]').first().getAttribute('aria-label');
+  expect(bg).toMatch(/[А-я]/); expect(bg).toContain('Администратор');
+  await page.evaluate(() => setLang('fr')); await go(page, 'perms');
+  expect(await page.locator('table input[type=checkbox]').first().getAttribute('aria-label')).toContain('Administrateur');
+  await page.evaluate(() => setLang('en'));
+  expect(errors).toEqual([]);
+  await ctx.close();
+});
+
 test('the language: chosen on the sign-in screen, saved with the account, the same after signing out and in again', async ({ browser }) => {
   const { page, ctx, errors } = await personPage(browser, null, { lang: 'Български' });
   await signIn(page, 'f.c1');

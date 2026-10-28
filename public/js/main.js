@@ -158,7 +158,8 @@ const icName = h => {
 const cellName = el => {
   const td = el.closest('td'), tr = el.closest('tr'), tb = el.closest('table'); if (!td || !tr || !tb) return '';
   const h = tb.rows[0] && tb.rows[0].cells[td.cellIndex], first = tr.cells[0] !== td ? tr.cells[0].textContent.trim() : '';
-  return [first, h && h.tagName === 'TH' ? h.textContent.trim() : ''].filter(Boolean).join(' – ').slice(0, 80);
+  // each part in the chosen language (the cells may not be translated yet when this runs, and the joined name never would be)
+  return [first, h && h.tagName === 'TH' ? h.textContent.trim() : ''].filter(Boolean).map(s => window.tr(s)).join(' – ').slice(0, 80);   // window.tr: "tr" is the row here
 };
 const hasName = el => el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') || el.title || (el.closest('label') && el.closest('label').textContent.trim()) || (el.id && document.querySelector(`label[for="${el.id}"]`));
 function a11y(root) {

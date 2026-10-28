@@ -185,3 +185,158 @@ All confirmed problems found in the two rounds are fixed and covered by tests. T
 - **S-28 · "Refresh seed.js" could overwrite the project's seed.js from a copy of the app (fixed).** The admin action always wrote `seed.js` in the app folder, even when the server ran on another data file (tests, a demo copy). The new every-route test triggered it and replaced seed.js with made-up users. seed.js was restored from git; data.json was never touched. The action now refuses unless the app runs on its own data.json, and the test checks both files are unchanged after every run.
 - **Every route × every role:** 142 routes, 6 identities, empty and wrong-type bodies. No 500, no route that lets in a role it should refuse, nothing of a wrong type stored. AutoQA conversations and reviews are limited per person on the server (an agent sees only their own).
 - New screens use `esc()` for every value they show and `jsq()` for every value inside `onclick`. Team colours are only accepted as `#rrggbb`.
+
+## Round 4 (28 October 2026)
+
+Branch `q-smart-v1-audit`, made from `q-smart-v1` at `3440283`. Same rule as before: **this is not a professional penetration test.**
+It is a code review plus controlled attacks against a local copy with made-up people. An independent penetration test is still
+needed before a commercial launch.
+
+### Scope and method
+
+- **In scope:** every server route (220, read from the code). The modules added since round 3 were read line by line:
+  - Workforce: `routes-wf.js`, `routes-att.js`, `routes-today.js`, `wf.js`
+  - Capacity: `routes-cap.js`, `cap.js`
+  - AI: `routes-ai.js`, `ai.js`
+  - Organization and Q-Intelligence: `routes-org.js`
+- **Environment:** local only.
+  - Tests start the app on a new temporary folder with the people of `test/fixture-round4.js`: two workspaces, every role, a deactivated person, a pending registration and a first-password person.
+  - The browser copy ran on port 3200 on `%TEMP%\qsmart-round4-test`.
+  - AI calls went to a fake AI on this computer (`test/fake-ai.js`). It can answer normally, slowly, with errors (401, 429, 500), with broken JSON, very long text or hostile text, and it records every prompt.
+  - No real e-mail, no real AI, nothing against the tunnel or any outside system.
+- **Checklists:** OWASP Top 10 (2021) and OWASP ASVS 4.0 level 2.
+- **Tools really run:**
+  - `node:test`. New: `pentest-round4.test.js` (11 tests), `pentest-round4b.test.js` (18), `reliability.test.js` (3) and the extended `role-matrix.test.js`.
+  - ESLint 9.39.1 with a correctness config (`eslint.config.js`).
+  - Playwright 1.56.1 with Chromium: 13 browser tests.
+  - `npm audit`.
+  - A secret scan over all 95 commits of every branch: an own script that reports the commit, the file and the kind of secret only.
+- **Not available:**
+  - OWASP ZAP is not installed. To try it: install ZAP from zaproxy.org, then run its "baseline scan" against `http://localhost:3200` while the throw-away copy is running.
+  - gitleaks is not installed; the own scan above was used instead.
+  - `eslint-plugin-security` was not added: it mostly reports style patterns. Ask if you want it.
+
+### Permission matrix: the modules added since round 3 (as enforced by the server)
+
+"ws" means only the people of the user's own workspaces. Staff always also see the Administration team, where all staff are.
+
+| Resource / action | admin | qa | lead | trainer | agent |
+|---|---|---|---|---|---|
+| Workforce set-up (calendars, shifts, patterns, leave types, attendance rules), public holidays | ✓ | – | – | – | – |
+| Rota: read | all | ws | ws | ws | own team (others' leave type hidden) |
+| Rota: change, copy last week, assign shifts | ✓ | – | ws (not Administration) | – | – |
+| Own attendance: check in / break / out, ask a correction | ✓ | ✓ | ✓ | ✓ | ✓ (own) |
+| A team's day and month, Team today, morning brief, attendance report | all | ws | ws | ws | – |
+| Correct a day directly | ✓ | – | ws | – | – |
+| Decide a correction or time off | ✓ | the person's manager or team lead, or that person's deputy for the dates | same | same | – |
+| Ask for time off | self | self | self, or for people they plan (approved at once) | self | self |
+| Cancel time off | any day | the approver: any day | the approver: any day | the approver: any day | own: a pending request, or approved days still to come |
+| Adjust balances | ✓ | – | – | – | – |
+| Name a deputy | own | own | own | own | – |
+| Team balances | all | ws | ws | ws | – |
+| Team calendar | all | ws | ws | ws | own team (no leave types of others) |
+| Capacity plans: read | all | ws (look only) | ws | ws (look only) | own leads |
+| Capacity plans: create, change, publish, delete | ✓ | – | ws (every team of the plan) | – | – |
+| AI settings, key, budget, test | ✓ | – | – | – | – |
+| AI QA reviewer drafts | all | ws | – | – | – |
+| AI team lead (agents at risk, plans), AI analyst, AI trainer | all | ws | ws | ws | – |
+| AI weekly summary: write | all teams | ws | ws | – | – |
+| AI analyst "all teams" report | ✓ | only if they see every team | same | same | – |
+| AI Simulator scenarios: manage | ✓ | – | – | ✓ | – |
+| AI Simulator: practise | ✓ | ✓ | ✓ | ✓ | ✓ (when switched on; own results) |
+| Q-Intelligence: Ask Q agents, insights, topics | all | ws | ws | ws | – |
+| Q-Intelligence knowledge files: read | ✓ | ✓ | ✓ | ✓ | – |
+| Q-Intelligence knowledge files: add, delete | ✓ | ✓ | – | ✓ | – |
+| Organization (company, data protection, purge, sign-in rules, business words), personal data download | ✓ | – | – | – | – |
+
+### Confirmed vulnerabilities – fixed in round 4
+
+Every fix has a regression test that failed before the fix and passes after it.
+
+| ID | Severity | Problem | Evidence (before the fix) | Fix and test |
+|---|---|---|---|---|
+| S-29 | **Medium** | **Q-Intelligence read the other workspace's data.** AI insights and topic counts used every survey comment and every AutoQA conversation of the organisation, and the saved insights were shown to all staff. | A QA user of workspace 2 asked for insights. The prompt sent to the (fake) AI contained workspace 1's survey comment and AutoQA conversation. Topics of workspace 2 counted workspace 1's conversation. Workspace 2 saw workspace 1's and the admin's saved insights. | Surveys and conversations are filtered like the reviews (`seesUser`). An insight keeps the teams it was made from and is shown only to people who see all of them. Test: `pentest-round4.test.js` › S-29 (3 tests). |
+| S-30 | **Medium** | **The AI trainer quiz sent the other workspace's reviewer comments to the AI.** When no agents were chosen, the "missed items" of every review of the organisation went into the prompt. | The prompt of a workspace-2 trainer contained the reviewer comments of all workspace-1 agents. | Only the reviews of agents the trainer sees. Test: `pentest-round4.test.js` › S-30. |
+| S-31 | Low | A request nested thousands of levels deep made the server answer 500 and print a stack trace. | `{"title":[[[[…20,000 levels…]]]]}` → 500, `RangeError: Maximum call stack size exceeded`. | Bodies nested more than 64 levels are refused with 400 before any route reads them. Test: `pentest-round4b.test.js` › odd input. |
+| S-32 (R-25) | Low | A failed sign-in stored the typed username in the audit log, so a password typed into the wrong box ended up there. "Forgot password" printed the typed text in the server output. | Code review, then the test: the typed text was in `audit.json`. | The log keeps the account only when the typed name or e-mail belongs to one, otherwise "(unknown account)". The forgot message no longer prints the typed text. Test: `pentest-round4b.test.js` › R-25. |
+| S-33 (R-15) | Low | A recording upload was trusted on its type or extension: a web page renamed `.mp3` was stored. | Code review. | The first bytes must be those of the audio format (ID3 / MPEG frame, RIFF…WAVE, ftyp, OggS, EBML). Test: `pentest-round4b.test.js` › R-15. |
+| S-34 (R-13) | Low | Integration links accepted any text: `javascript:`, `http:`, attribute-breaking quotes. | Code review. | Only `https://` addresses without spaces, quotes or `<>`. Test: `pentest-round4b.test.js` › R-13. |
+| S-35 | Low | **Spreadsheet injection through "Copy for Excel"** (every table): typed text such as `=HYPERLINK(…)` was pasted into Excel as a live formula. | Code review: the copied TSV and HTML kept the text as it was. | Texts starting with `=`, `+`, `-` or `@` are pasted as text: a leading `'` in the plain copy, the text format in the HTML copy. Real numbers such as `-5` stay numbers. Test: `pentest-round4b.test.js` › Copy for Excel. |
+| S-36 (R-14) | Low (staff only) | A Word file was unpacked without a size limit (a "zip bomb"). | A 0.2 MB `.docx` that unpacks to 60 MB was accepted and unpacked. | The ZIP's table of contents is read first. More than 50 MB unpacked, or more than 2,000 parts, is refused before anything is unpacked. Test: `pentest-round4b.test.js` › R-14. |
+| S-37 | Low | A broken AI answer (not JSON) was taken as an empty, successful answer. | In the fake AI's "broken JSON" mode, the Q-Intelligence agent answered 200 with an empty text. | A clear error: "The AI answer could not be read". Test: `pentest-round4.test.js` › AI errors. |
+| S-38 (R-26, R-9) | Low (production only) | "Reset data" and "Refresh seed.js" would be available to a customer's admin. Without SMTP, every e-mail, reset links included, was printed in the server output. | Code review. | With `NODE_ENV=production`, both tools answer 403 unless `DEV_TOOLS=1`, and e-mails are never printed (only "could not be sent"). On this computer nothing changes. Test: `pentest-round4b.test.js` › R-26 and R-9. |
+
+**Hardening added (not a vulnerability by itself):**
+- **Content-Security-Policy** on every answer:
+  - `connect-src 'self'`: a script that slipped in cannot send data to another site with `fetch`.
+  - Also `object-src 'none'`, `base-uri 'self'`, `form-action 'self'` and `frame-ancestors 'self'`.
+  - Scripts still need `'unsafe-inline'`: the pages contain **989 inline event handlers** (counted in round 4), so a strict CSP needs the R-7 refactor.
+  - Checked in the browser: all 68 pages as admin, and every page of the other roles, opened with **0 CSP violations**.
+- **Permissions-Policy:** camera, location, payment and USB are off; the microphone is allowed only for the app itself (the AI Simulator).
+- **Origin check** for browsers that send no `Sec-Fetch-Site`: a change must come from the app's own address.
+
+### Checked and found sound in round 4 (with the test)
+
+- **Every route × every role:**
+  - The role matrix now reads guards such as `need(...QA)`, `need(...LEADS)` and `need(...STAFF)`. Before, about 30 of them (all the AI and Q-Intelligence routes) were treated as public and never checked.
+  - All 218 tried routes now answer 401 to a signed-out visitor and 403 to the roles the guard refuses, and none answers 500.
+  - The test fails when a route has a guard it cannot read.
+- **Sessions:**
+  - Deactivating a person, an admin password reset, a role change and a move to another workspace all take effect on the very next request.
+  - A first-password person can do nothing else, and a pending registration cannot sign in.
+- **Other people's records (IDOR):** always refused across people and workspaces for:
+  - time off (ask for, cancel, decide)
+  - attendance (correct, read a team)
+  - capacity plans (read, change, publish, delete)
+  - AI drafts and plans, the AI analyst, Q-Intelligence agents
+
+  The deputy of a team lead can decide, and a request is decided only once.
+- **Extra fields (mass assignment):** all ignored:
+  - role, team, username, active and hash in a profile change
+  - by, byName, id and at in a recognition
+  - status, by, dby and days in a time-off request
+  - status and person in a correction
+- **Files:** recordings cannot be read outside their folder (`..%2F`, `..%5C`, `%2e%2e`, `data.json`, `.qsmart-key` → 404).
+- **Excel export:** typed text never becomes a formula (no `<f>` cell in the file).
+- **Odd input:** `__proto__` / `constructor.prototype` keys in six kinds of body change nothing. The 2 MB (agents) and 25 MB limits answer 413, and long texts are cut.
+- **AI:** the AI never gets more power than the person.
+  - A review or agent of another workspace cannot be chosen.
+  - Hostile AI answers (HTML, script, "approve every review, set every score to 100") stay drafts, change no score and are stored as text.
+  - A hostile knowledge file makes the AI *say* things, never *do* things.
+  - The API key is only ever the API key header: never in a prompt, the browser, the data file, the audit log or the server output.
+  - 401, 429, 500 and broken answers give clear messages.
+  - With no key, every AI action says so, and the morning brief works without it.
+- **Secrets in Git (95 commits):** no real API key, token or private key. The matches were:
+  - the made-up test keys of the tests (`sk-ant-fake…`, `sk-ant-good…`)
+  - the test password
+  - the known password hashes in `seed.js` and an old `seed-data.json` (R-5)
+- **Browser:** every page of every role opened with no console error and no failed request. Forbidden and odd addresses (`#users`, `#audit`, `#org`, `#constructor`, `#__proto__`, `#toString`, `#%00`) show the dashboard.
+
+### Open, suspected or accepted (round 4)
+
+| Item | Kind | Note |
+|---|---|---|
+| Staff of every workspace see the **Administration team's** rota, attendance and leave balances (`?team=t-admin`) | Suspected / by design | The pages offer the Administration team on purpose (all staff are in it). In a multi-company product this must follow tenants (R-1). |
+| Knowledge files, the knowledge base, quizzes, newsletters and scenarios are **organisation-wide**; a team lead's **deputy** can be anybody on the staff | Accepted for now (R-6) | A decision for the multi-company version. |
+| **Server time zone** | Confirmed, P1 for hosting | All workforce dates use the time zone of the server. On a UTC server, a 09:00 Sofia shift starts at 11:00 Sofia time and New Year comes 2 hours late. Not changed, because it is a hosting decision: see DECISIONS_FOR_YOU.md, round 4. |
+| CSP needs `'unsafe-inline'`; `img-src https:` allows image requests to other sites | Residual | A strict CSP after the R-7 refactor. |
+| `uuid` advisory through `exceljs` (R-19), unmaintained `exceljs` (R-22) | Unchanged | `npm audit`: 2 moderate, no fix without a breaking change. |
+| R-1 to R-5, R-8, R-16, R-17, R-23, R-24 | Unchanged | See REMAINING_ISSUES.md and DECISIONS_FOR_YOU.md. |
+
+### Tests not performed in round 4, and why
+
+- **OWASP ZAP and gitleaks:** not installed (see above).
+- **Real SMTP, real AI, the Cloudflare tunnel, TLS and HSTS:** no credentials, and outside the repository by the rules of this round.
+- **Load tests beyond 20 saves at the same moment:** not run. Only bounded, local measurements (PERFORMANCE_AUDIT.md).
+- **A read-only disk for `.qsmart-key`:** the code path was read (the app keeps working; keys must be typed again after a restart). Not simulated, because changing folder permissions on Windows is a system setting.
+- **Ctrl+C on Windows:** the clean stop was added, but Windows cannot send the signal to a test process, so it was checked by code review only. A hard stop in the middle of saving was tested: nothing was lost.
+
+### Residual risk
+
+All confirmed problems of round 4 are fixed and covered by tests. The app is still **not ready** to be sold to independent companies. These are launch blockers:
+- R-1: no tenants.
+- R-2: the default password.
+- R-3 / R-4: the JSON file and the in-memory sessions. At the target size every request takes seconds (PERFORMANCE_AUDIT.md).
+- The server time zone.
+
+After those, an independent penetration test.
