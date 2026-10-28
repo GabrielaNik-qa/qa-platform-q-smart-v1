@@ -42,6 +42,12 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   expect(await a.page.locator('#n .gh span').allInnerTexts()).toEqual(['Home', 'Quality', 'Analytics', 'Performance', 'Coaching', 'Planning', 'Reports', 'Q-Intelligence', 'AI Simulator', 'Learning', 'Workforce', 'Compliance & CX']);
   expect(await a.page.locator('.grp.sp-ai .gh i').evaluate(e => getComputedStyle(e).color)).toBe('rgb(255, 212, 71)');
   expect(await a.page.locator('.grp.sp-qi .gh i').evaluate(e => getComputedStyle(e).color)).toBe('rgb(255, 111, 145)');
+  // the icons-only menu: the logo, every icon, the theme button and the photo on one centre line
+  await a.page.evaluate(() => { if (!COL) toggleSb(); });
+  const centres = await a.page.evaluate(() => { const m = e => { const r = e.getBoundingClientRect(); return Math.round(r.left + r.width / 2); };
+    return [...new Set([m(document.querySelector('#br svg')), ...[...document.querySelectorAll('#n .gh i')].map(m), m(document.querySelector('.thc1')), m(document.querySelector('.av2'))])]; });
+  expect(centres.length, 'one centre line: ' + centres).toBe(1);
+  await a.page.evaluate(() => toggleSb());
   await a.page.locator('.usr button[title="Admin"]').click();
   await expect(a.page.locator('#n .spt')).toHaveText('Admin');
   expect((await a.page.locator('#n .gh span').allInnerTexts()).slice(1, 3)).toEqual(['My account', 'People']);

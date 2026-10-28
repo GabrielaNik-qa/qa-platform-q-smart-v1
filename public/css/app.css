@@ -759,6 +759,8 @@ label:not(.rad):not([style*="display:flex"])>small{display:block;margin-top:4px}
 .sb.co .umn .thm{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:0 0 6px}
 .fly.umn a{display:flex;gap:10px;align-items:center}.fly.umn a svg{stroke:currentColor;width:16px;height:16px}
 .sb.co .thc1 .ti{display:flex!important}
+/* icons-only menu: the scrollbar of the list takes the same room on both sides, so the icons sit on one line with the logo, the theme button and the photo */
+.sb.co #n{scrollbar-gutter:stable both-edges}
 .sb.co .fly a{justify-content:flex-start;padding:8px 12px}
 /* ===== sidebar on laptop screens: the profile row is always visible at the bottom; only the menu scrolls when space is short ===== */
 @media(min-width:761px){
