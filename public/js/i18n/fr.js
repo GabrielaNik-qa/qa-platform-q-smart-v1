@@ -761,7 +761,7 @@ I18N.add('fr', {
   "Team Review": "Bilan des équipes", "Category Stats": "Statistiques par catégorie", "My Performance": "Ma performance", "Knowledge Base": "Base de connaissances",
   "Knowledge base": "Base de connaissances", "Newsletter": "Newsletter", "My Learning": "Mon apprentissage", "My Quizzes": "Mes quiz", "Tasks & Missions": "Tâches et missions",
   "Tasks & missions": "Tâches et missions", "Users": "Utilisateurs", "Audit log": "Journal d'audit", "AutoQA": "QA automatique", "Auto QA": "QA automatique",
-  "System settings": "Paramètres système", "System Settings": "Paramètres système", "My account": "Mon compte", "Go to settings": "Aller aux réglages", "Pass rates and saved data": "Taux de réussite et données enregistrées", "Log out": "Se déconnecter", "Go to Home": "Aller à l'accueil",
+  "System settings": "Paramètres système", "System Settings": "Paramètres système", "My account": "Mon compte", "Apps": "Applications", "Go to settings": "Aller aux réglages", "Pass rates and saved data": "Taux de réussite et données enregistrées", "Log out": "Se déconnecter", "Go to Home": "Aller à l'accueil",
   "Hide / show the menu (double-click the menu works too)": "Masquer / afficher le menu (un double-clic sur le menu fonctionne aussi)", "Hide or show the menu": "Masquer ou afficher le menu",
   "Leave this page?": "Quitter cette page ?", "Your changes will be lost. Are you sure you want to leave?": "Vos modifications seront perdues. Voulez-vous vraiment quitter ?",
   "Yes, leave": "Oui, quitter", "No, stay": "Non, rester", "Table view": "Vue tableau", "Boxes view": "Vue cartes",

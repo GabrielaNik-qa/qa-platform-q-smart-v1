@@ -1,7 +1,7 @@
 // Sign-in for every role through the real form, the language switch, and every page of every role opened in the browser
 // with no error. Forbidden and odd addresses never show a page the role may not have.
 const { test, expect } = require('@playwright/test');
-const { personPage, signIn, go, api } = require('./helpers');
+const { personPage, signIn, go, api, closeWelcome } = require('./helpers');
 
 const PEOPLE = { admin: 'f.admin', qa: 'f.qa1', lead: 'f.lead1', trainer: 'f.tr1', agent: 'f.b1' };
 
@@ -40,8 +40,18 @@ for (const [role, who] of Object.entries(PEOPLE)) {
 test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wheel with My account, System settings for admins only', async ({ browser }) => {
   const a = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 800 } });
   expect(await a.page.locator('#n .gh span').allInnerTexts()).toEqual(['Home', 'Quality', 'Analytics', 'Performance', 'Coaching', 'Planning', 'Reports', 'Q-Intelligence', 'AI Simulator', 'Learning', 'Workforce', 'Compliance & CX']);
-  expect(await a.page.locator('.grp.sp-ai .gh i').evaluate(e => getComputedStyle(e).color)).toBe('rgb(255, 212, 71)');
-  expect(await a.page.locator('.grp.sp-qi .gh i').evaluate(e => getComputedStyle(e).color)).toBe('rgb(255, 111, 145)');
+  await expect(a.page.locator('.grp.sp-ai .gh i')).toHaveCSS('color', 'rgb(255, 212, 71)');
+  await expect(a.page.locator('.grp.sp-qi .gh i')).toHaveCSS('color', 'rgb(255, 111, 145)');
+  // APPS: the panels end with ↗; the heading folds them into one row of icons (remembered); the icons-only menu keeps the line
+  expect(await a.page.locator('.spc .gh em').first().innerText()).toBe('↗');
+  await a.page.locator('.apph').click();
+  expect(await a.page.locator('.appsr .appi').evaluateAll(l => l.map(b => b.title))).toEqual(['Q-Intelligence', 'AI Simulator', 'Learning', 'Workforce', 'Compliance & CX']);
+  expect(await a.page.locator('.spc').count()).toBe(0);
+  await a.page.reload(); await a.page.waitForFunction(() => typeof ME !== 'undefined' && ME); await closeWelcome(a.page);
+  await expect(a.page.locator('.appsr .appi'), 'folded is remembered').toHaveCount(5);
+  await a.page.evaluate(() => { if (!COL) toggleSb(); });
+  expect([await a.page.locator('.apph').count(), await a.page.locator('#n .spsep').count(), await a.page.locator('.spc').count()]).toEqual([0, 1, 5]);
+  await a.page.evaluate(() => { toggleSb(); appsTog({ stopPropagation() {} }); });
   // the icons-only menu: the logo, every icon, the theme button and the photo on one centre line
   await a.page.evaluate(() => { if (!COL) toggleSb(); });
   const centres = await a.page.evaluate(() => { const m = e => { const r = e.getBoundingClientRect(); return Math.round(r.left + r.width / 2); };

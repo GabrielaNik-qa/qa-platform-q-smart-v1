@@ -63,6 +63,9 @@ let SPV = null, LASTMAIN = 'dash';                                    // SPV = a
 const spaceOf = r => (GROUPS.find(g => g.items.some(([k]) => k === r)) || {}).space || 'main';
 const curSpace = () => SPV || spaceOf(route);
 const spName = s => ({ learn: 'Learning', ai: 'AI Simulator', qi: 'Q-Intelligence', wf: 'Workforce', cx: 'Compliance & CX' })[s] || (ME.role === 'admin' ? 'Admin' : 'Settings');
+// APPS folded (one row of icons) or open (one row per panel), remembered on this computer
+let APPSF = LS.get('qa_apps', false);
+function appsTog(ev) { ev.stopPropagation(); APPSF = !APPSF; LS.set('qa_apps', APPSF); render(); }
 // the name under the photo: G.Georgieva (the initial of the first name and the last name), the whole name when one is missing
 const shortName = u => u.firstName && u.lastName ? u.firstName.trim()[0] + '.' + u.lastName.trim() : u.name;
 const SPIC = { wf: 'g_wf', cx: 'g_comply', learn: 'g_learning', ai: 'g_aisim', qi: 'g_qi', admin: 'g_admin' };
@@ -90,8 +93,14 @@ const NAVH = () => { const sp = curSpace(), all = groupsFor();
   // the icon AND the name open the group's first page; only the small arrow opens or closes the list without leaving the page
   return `<div class="grp g-${g.id} ${open ? 'open' : ''} ${act ? 'act' : ''}" onmouseenter="flyHover('${g.id}',this)" onmouseleave="flyLeave()"><button class=gh onclick="gGo('${g.id}',event)" title="Open ${g.items[0][1]}"><i>${IC[g.icon]}</i><span>${g.name}</span><em onclick="event.stopPropagation();tgG('${g.id}',event)" title="Show / hide">›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}${sys}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}${sys}</div>` : ''}</div>`; }).join('');
   const back = sp === 'main' ? '' : `<div class="grp spb"><button class=gh onclick="spBack(event)" title="Back to the main menu"><i>${IC.back}</i><span>Back to the main menu</span></button></div><div class=spt>${spName(sp)}</div>`;
-  const doors = sp !== 'main' ? '' : ['qi', 'ai', 'learn', 'wf', 'cx'].filter(x => all.some(g => g.space === x)).map(x => `<div class="grp spc sp-${x}"><button class=gh onclick="spGo('${x}',event)" title="${spName(x)}"><i>${IC[SPIC[x]]}</i><span>${spName(x)}</span><em>&rsaquo;</em></button></div>`).join('');
-  return back + grp + (doors ? `<div class=spsep></div>${doors}` : '');
+  // the panels under the line ("APPS"): each row ends with ↗ (it opens its own panel). In the full menu the heading folds them
+  // into one row of icons (remembered); the icons-only menu always shows the line and the icons (Gabriela, 28 October)
+  const apps = sp !== 'main' ? [] : ['qi', 'ai', 'learn', 'wf', 'cx'].filter(x => all.some(g => g.space === x));
+  if (!apps.length) return back + grp;
+  const rows = apps.map(x => `<div class="grp spc sp-${x}"><button class=gh onclick="spGo('${x}',event)" title="${spName(x)}"><i>${IC[SPIC[x]]}</i><span>${spName(x)}</span><em>↗</em></button></div>`).join('');
+  if (COL) return back + grp + `<div class=spsep></div>${rows}`;
+  const head = `<button class=apph onclick="appsTog(event)" aria-expanded="${!APPSF}" title="Show / hide"><span>Apps</span><em>${APPSF ? '›' : '⌄'}</em></button>`;
+  return back + grp + head + (APPSF ? `<div class=appsr>${apps.map(x => `<button class="appi sp-${x}" onclick="spGo('${x}',event)" title="${spName(x)}" aria-label="${spName(x)}">${IC[SPIC[x]]}</button>`).join('')}</div>` : rows);
 };
 document.addEventListener('click', e => { if ((FLY || UMN) && !e.target.closest('.fly,.gh,.av2')) { FLY = null; UMN = false; render(); } });
 let UMN = false;                                           // the small "me" menu of the compact sidebar

@@ -933,6 +933,12 @@ button.fchip { border: 0; font: inherit; font-size: 13px; padding: 7px 12px } bu
 /* ---- menu panels: Learning and Admin open from the bottom of the main menu, with "Back to the main menu" on top (October 2026) */
 .spsep { height: 1px; margin: 10px 12px; background: rgba(255,255,255,.12) }
 .spt { padding: 2px 14px 8px; font: 700 12px var(--font); letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.5) }
+/* APPS: the line above the panels, with its name; it folds the panels into one row of icons (the icons-only menu keeps the plain line) */
+.apph { display: flex; align-items: center; gap: 8px; width: calc(100% - 12px); margin: 10px 6px 4px; padding: 10px 8px 4px; border: 0; border-top: 1px solid rgba(255,255,255,.12); background: none; color: rgba(255,255,255,.5); font: 700 11.5px var(--font); letter-spacing: .12em; text-transform: uppercase; cursor: pointer; text-align: left }
+.apph:hover { color: rgba(255,255,255,.8) } .apph span { flex: 1 } .apph em { font-style: normal; font-size: 14px }
+.appsr { display: flex; justify-content: space-between; gap: 4px; padding: 4px 10px 6px }
+.appi { width: 38px; height: 38px; border-radius: 10px; border: 0; background: none; color: rgba(255,255,255,.75); display: grid; place-items: center; cursor: pointer } .appi:hover { background: rgba(255,255,255,.08) }
+.appi.sp-ai { color: var(--yellow) } .appi.sp-qi { color: var(--coral) }
 .grp.spb .gh { color: rgba(255,255,255,.78) } .grp.spb .gh i { background: rgba(255,255,255,.07) }
 
 .sb.co .spt { display: none } .sb.co .spsep { margin: 8px 10px }
