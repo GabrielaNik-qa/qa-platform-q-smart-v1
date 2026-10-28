@@ -122,3 +122,55 @@ New features checked by hand in the browser:
 - top scrollbar only while the bottom one is off screen
 
 `npm audit --omit=dev`: unchanged since round 2 (the moderate `uuid` advisory through `exceljs`, R-19).
+
+## Round 4 (28 October 2026)
+
+Branch `q-smart-v1-audit`. Every run used made-up data on temporary copies, never the real `data.json`.
+
+### Commands run, and their results
+
+| Command | Result |
+|---|---|
+| `npm.cmd test` on `q-smart-v1` (before) | **168 tests, 168 passed**, 0 failed, 46.4 s |
+| `npm.cmd test` on `q-smart-v1-audit` (after) | **210 tests, 210 passed**, 0 failed, 0 skipped, 34.8 s |
+| `npm.cmd run lint` (ESLint 9.39.1) | **0 problems**. Before the fixes: 15 duplicate keys in the language files, plus names the first config could not see (config fixed, not the code) |
+| `npm.cmd run test:e2e` (Playwright 1.56.1, Chromium) | **13 passed in 3 runs in a row** (56.3 s, 56.2 s, 57.5 s). After the last fixes (the tablet test, the screen-reader test): **14 passed in 3 runs in a row** (see the final check below) |
+| `npm.cmd audit` | 2 moderate (`uuid` through `exceljs`, R-19); no fix without a breaking change. Not run: `npm audit fix --force` |
+| `npm.cmd outdated` | Not needed for a change: nothing was upgraded in round 4; only development tools were added |
+| `node test/measure.js` (normal and large data) | PERFORMANCE_AUDIT.md |
+| Secret scan over all 95 commits (own script) | No real key or token; only test values and the known hashes of `seed.js` (R-5) |
+| OWASP ZAP baseline | **Not run**: ZAP is not installed (SECURITY_AUDIT.md says how to install it) |
+| gitleaks | **Not run**: not installed; the own scan was used instead |
+
+### New tests and what they prove
+
+| File | Tests | What it proves |
+|---|---|---|
+| `role-matrix.test.js` (extended) | 1 | Reads guards such as `need(...QA)`: 218 routes, not about 140 any more. Fails on a guard it cannot read. Also checks that `audit.json` and `.qsmart-key` stay untouched. |
+| `pentest-round4.test.js` | 11 | S-29, S-30: AI and Q-Intelligence see only the person's workspace. Hostile AI, AI errors, the API key, the simulator, knowledge files, no key. |
+| `pentest-round4b.test.js` | 19 | R-25, sessions, creating people, headers, CSRF, R-15, Excel export, Copy for Excel, R-14 zip bomb, odd input, mass assignment, IDOR (time off, attendance, capacity), F-14, R-13, R-26 / R-9 |
+| `reliability.test.js` | 3 | Health check, a hard stop while saving (nothing lost), records of deleted people, teams and scorecards |
+| `calc-round4.test.js` | 4 | Hand-checked dates: New Year, 29 February, clock changes, Easter 2027 |
+| `i18n-server.test.js` | 2 | Every server message in Bulgarian and French |
+| `shared-names.test.js` | 2 | F-12: no name declared at the top of two page scripts |
+| `speed.test.js` | 1 | The speed budget on 50 agents |
+| `test/e2e/signin-pages.spec.js` | 8 | A wrong password and a deactivated person; every role signs in and opens every page allowed with no error and is kept out of the others; screen-reader names in Bulgarian and French; the language saved with the account |
+| `test/e2e/workflows.spec.js` | 6 | A review, its dispute and its resolution; check in / break / out; time off approved with the button; the Excel export opened and counted; phone and tablet; dark and light mode |
+
+The tests of **S-29, S-30, S-31 and S-37 were seen failing before their fixes** (4 + 1 failures, then 0). For the other fixes (R-13, R-14, R-15, R-25, R-26 / R-9, S-35, F-14), the defect was confirmed by reading the code, the fix was written, and then the test was added; those tests check the fixed behaviour.
+
+### Browser checks by hand (the app's browser pane, port 3200, the seed copy)
+
+| Check | Result |
+|---|---|
+| Every page of every role (admin 68, QA 49, lead 45, trainer 44, agent 25) | 0 console errors, 0 failed requests, no blank page |
+| The forbidden and odd addresses | The dashboard is shown |
+| The new Content-Security-Policy on every page | 0 violations |
+| The Bulgarian walk with `?i18n=debug` | 932 entries before the fixes (307 that look like the interface, 258 of them screen-reader names); after the fixes, 46, all of them data people typed |
+| Accessibility scan (controls without a name) | 2 pages; one real gap fixed (the Business words boxes) |
+| Colour contrast | Buttons: dark text on orange 6.3–6.6:1 ✓. Body text 16.7–17.4:1 ✓. Orange and yellow text appear on dark backgrounds only ✓ |
+| Phone width (375 px) | "Your screen is too narrow" (by design) |
+
+### Final check (§18)
+
+The results of the final check are added to ROUND4_PROGRESS.md (the end of the round), with the hashes of the real files.

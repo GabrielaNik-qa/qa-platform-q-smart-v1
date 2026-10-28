@@ -124,3 +124,42 @@ Not implemented: no plans, seat counts, billing or usage limits. No payment prov
 - The questions that need a decision before the SQLite step (one database per company or one shared database, the sign-up of a new company, AI models, voices and budgets) are explained in plain words in **DECISIONS_FOR_YOU.md**.
 - Developer tools that must be switched off for customers: R-26.
 - Access control was tested route by route for every role (TEST_RESULTS, round 3). It is a good base for adding the company boundary (tenant) on every route in the SQLite step.
+
+## Round 4 (28 October 2026)
+
+### What changed for a commercial launch
+
+- **Isolation:** the AI and Q-Intelligence features now follow the workspace rules (S-29, S-30). The role matrix covers every route, including the AI ones it skipped before.
+- **Production switches:**
+  - With `NODE_ENV=production`, "Reset data" and "Refresh seed.js" are off unless `DEV_TOOLS=1`, and e-mails are never printed (R-26, R-9).
+  - `GET /api/health` answers a monitor.
+  - Ctrl+C or a stop writes the last audit entries.
+- **Browser protections:** a Content-Security-Policy (still with `'unsafe-inline'`), a Permissions-Policy and an Origin check.
+- **Uploads:** recordings must be real audio; Word files are checked for "zip bombs".
+- **Privacy:** the personal data download is complete (F-14); failed sign-ins never keep typed text (R-25).
+- **Tests a buyer can run:**
+  - `npm.cmd test`: 210 tests, including a speed budget.
+  - `npm.cmd run test:e2e`: 14 browser tests.
+  - `npm.cmd run lint`.
+- **Measured at the target size** (PERFORMANCE_AUDIT.md), one year of 500 agents (449 MB):
+  - 2–5 s per request
+  - 6–9 s per save
+  - up to 2.5 min when 20 people save at once
+  - the file is close to the largest text Node.js can build
+
+### Launch blockers (updated checklist)
+
+| # | Blocker | Status |
+|---|---|---|
+| 1 | Separate companies (tenants) on every route and in the data (R-1) | Open |
+| 2 | No default password: an invitation link and e-mail verification (R-2) | Open (your decision) |
+| 3 | SQLite instead of `data.json`, with sessions in the database (R-3, R-4) | Open (planned next, CLAUDE.md) |
+| 4 | **The server's time zone** (F-16): `TZ=Europe/Sofia` in the hosting set-up, later per company | **New**, open (your decision, V1) |
+| 5 | `seed.js` with only made-up data; check that the GitHub repository is private (R-5) | Open |
+| 6 | MFA for admins, and longer passwords (R-8) | Open (your decision) |
+| 7 | A strict CSP after moving the 989 inline handlers (R-7) | Partly done |
+| 8 | Fonts served by the app (R-24), and the audit log without full IP addresses (R-9) | Open (your yes, V3) |
+| 9 | An independent penetration test on a staging copy (with ZAP), and a malware scan of uploads | Open |
+| 10 | Phone support for agents, if agents are expected to check in from phones (F-17) | Open (your decision, V2) |
+
+Not blockers for today's personal use: everything above is about selling the app to other companies.

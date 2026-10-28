@@ -161,3 +161,63 @@ The kit is ready (`public/js/tablekit.js`); only the Reviews table uses it so fa
 
 ### R-28 · Sidebar panels (Admin, Learning, Back) — done
 Built after Gabriela's yes (DECISIONS_FOR_YOU.md, A1), with foldable panel sections and hover-to-open in the icons-only menu.
+
+## Round 4 (28 October 2026)
+
+### Every known issue, checked again
+
+"Evidence" names the test or the check of round 4.
+
+| ID | Status after round 4 | Evidence |
+|---|---|---|
+| R-1 No tenants | **Open** (launch blocker) | Unchanged in the code. |
+| R-2 Default password `password` | **Open** (launch blocker, your decision) | `DEFAULT_PASSWORD` unchanged. |
+| R-3 JSON file database | **Open** (launch blocker), measured again | PERFORMANCE_AUDIT.md. At one year of 500 agents (449 MB): every request takes 2–5 s and a save 6–9 s. The file is close to Node's limit of 536,870,888 characters, so a slightly bigger organisation could not save at all. |
+| R-4 Sessions in memory | **Open** (with R-3) | Unchanged. |
+| R-5 Real data in `seed.js` | **Open** | The password hashes are still there (secret scan, 6 commits of `seed.js`). One registration still has a real-looking personal e-mail address. |
+| R-6 Workspace rules | **Partly fixed** | Q-Intelligence and the AI trainer now follow workspaces (S-29, S-30). Still organisation-wide: knowledge files and knowledge base, quizzes, newsletters, scenarios, goals, improvement plans, recognition, risks, complaints, surveys, calibrations, task templates, and the Administration team's rota and attendance. |
+| R-7 No CSP / HSTS | **Partly fixed** | A CSP and a Permissions-Policy on every answer, 0 violations on every page. Still needs `'unsafe-inline'` (989 inline handlers). HSTS belongs to the tunnel. |
+| R-8 Password rules, no MFA | **Open** (your decision) | The sign-in rules of Admin › Organization allow 8–32 characters. |
+| R-9 Retention, deletion, personal data | **Mostly fixed** | Retention and purge (27 October). The personal data download is now complete (F-14), and e-mails are never printed on a production server (S-38). Still open: the audit log keeps IP addresses; recordings and backups are not encrypted. |
+| R-10 Scoring rules | **Open** (business rule, kept as is) | `scorecard-rules.test.js`: CURRENT BEHAVIOUR tests. |
+| R-11 Quiz answers and retakes | **Open** (business rule) | Unchanged. |
+| R-13 Integration links | **Fixed** (S-34) | `pentest-round4b.test.js` › R-13. |
+| R-14 Word / PDF import limits | **Fixed for Word** (S-36) | `pentest-round4b.test.js` › R-14. PDFs still go to the AI as they are (25 MB request limit, staff only). |
+| R-15 Recording content | **Fixed** (S-33) | `pentest-round4b.test.js` › R-15. A malware scan is still needed for a hosted product. |
+| R-16 Open registration | **Open** (your decision) | Unchanged. |
+| R-17 Lock-out by a stranger | **Open** (accepted trade-off) | The lock-after number can be set in Admin › Organization › Sign-in. |
+| R-18 No browser tests or linter | **Fixed** | `npm.cmd run lint` (ESLint 9.39.1, 0 problems) and `npm.cmd run test:e2e` (Playwright, 14 tests, 3 runs in a row without a failure). |
+| R-19 `uuid` advisory | **Open** | `npm audit`: 2 moderate (uuid through exceljs). |
+| R-20 Not tested | **Partly** | Still not tested: real SMTP and AI, the tunnel, TLS, ZAP and real phones. Load: 20 saves at the same moment measured. |
+| R-21 CSAT duplicates | **Open** (your decision) | Unchanged. |
+| R-22 exceljs unmaintained | **Open** | Still 4.4.0, the latest. |
+| R-23 Report recipients | **Open** (your decision) | Unchanged. |
+| R-24 Google Fonts | **Open** (your yes needed, V3) | The CSP allows only `fonts.googleapis.com` and `fonts.gstatic.com`. |
+| R-25 Password in the audit log | **Fixed** (S-32) | `pentest-round4b.test.js` › R-25. |
+| R-26 Developer tools in a SaaS version | **Fixed for production** (S-38) | Off with `NODE_ENV=production` unless `DEV_TOOLS=1`. On this computer unchanged. |
+| R-27, R-28 | Done (round 3) | — |
+| S-1 to S-28 (rounds 1–3) | **Still fixed** | Their tests in `security.test.js`, `workflows-more.test.js` and `role-matrix.test.js` all pass (209 tests). S-28: the role matrix now also checks that `audit.json` and `.qsmart-key` stay untouched. |
+| F-1 to F-13 (rounds 1–3) | **Still fixed** | Their tests pass. F-12 (two page scripts with the same top-level name) now has its own test, `shared-names.test.js`, and ESLint. |
+
+### New in round 4
+
+| ID | Severity | Status | Blocks launch? |
+|---|---|---|---|
+| S-29 to S-38 | Medium / Low | **Fixed** (SECURITY_AUDIT.md, round 4) | – |
+| F-14 Personal data download incomplete | Medium (privacy) | **Fixed** | – |
+| F-15 Server messages and screen-reader names not translated (96 + 258) | Medium (localization) | **Fixed** | – |
+| F-16 Workforce dates follow the server's time zone | **High for hosting** | **Open**: your decision (V1) | **Yes**, if the server is not set to Sofia time |
+| F-17 Phones show "screen too narrow" | Medium (product) | **Open**: by design, your decision (V2) | No (decide before selling to agents on phones) |
+| F-18 The role-matrix test skipped about 30 routes | Medium (test gap) | **Fixed** | – |
+| F-19 Saves take ~0.3 s on this computer because of the virus scanner | Low | **Open**: information (V11) | No |
+
+#### F-16 · Dates follow the time zone of the server
+- **Evidence:** the same code run with three time zones (round 4):
+  - `Europe/Sofia`: a 09:00 shift = 07:00 UTC, and 23:30 UTC on 31 December is already 1 January.
+  - `UTC`: 09:00 = 09:00 UTC (11:00 in Sofia), and the year changes 2 hours later.
+  - `America/New_York`: 09:00 = 13:00 UTC.
+- **Impact on a hosted server in UTC:** lateness, absences, "today", the morning brief time and the leave year are all shifted by 2–3 hours.
+- **Next step:** `TZ=Europe/Sofia` in the hosting set-up now; the company's time zone in the calculations with tenants.
+
+#### F-17 · Phones
+Under 760 px the app shows only "Your screen is too narrow to use Q-SMART" (`test/e2e/workflows.spec.js` checks today's behaviour). Agent pages on phones are a design decision.

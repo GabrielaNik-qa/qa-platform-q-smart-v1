@@ -36,27 +36,43 @@ If this session stops, the next one continues from this file.
 
 | Phase | Status |
 |---|---|
-| 1 Map | Done for the server: 219 routes read from the code (role matrix); new modules read line by line (att, today, cap, wf, ai, org). Inventory written in PROJECT_INVENTORY.md (Round 4). |
-| 2 Baseline | Done: 168 tests pass on q-smart-v1; Node 24.11.0, npm 11.6.1, Windows 11; ESLint added (`npm.cmd run lint`, 0 problems after fixing 15 duplicate translation entries). |
-| 3 Multi-role | Server: role matrix now covers all 218 routes (guards like `need(...QA)` were skipped before). Browser: every page of every role opened on the copy (admin 68, QA 49, lead 45, trainer 44, agent 25 pages), 0 console errors, 0 failed requests; forbidden and odd addresses (`#users`, `#constructor`, `#%00`…) show the dashboard. IDOR tests for time off, attendance, capacity, AI, Q-Intelligence (pentest-round4*.test.js). |
-| 4 BAU | Partly: the routines are written in BAU_SCENARIOS.md; the steps covered by API tests are marked; full click-through in the browser not done for every routine. |
-| 5 Functional | Partly: existing calculation tests kept (scores, attendance, leave, Bradford, capacity); no new calculation defects found in the code read. |
-| 6 Security | Done for the planned checks: S-29, S-30 (cross-workspace AI data), deep JSON 500, R-13, R-15, R-25, R-26, R-9, CSP, Origin check, personal data download. ZAP not installed (not run). |
-| 7 Speed | Measured before/after on normal (4.5 MB) and large (449 MB) data; gzip for API answers and page files; one disk read per reviews list instead of one per review; speed check test added. |
-| 8 Localization | New server messages translated; duplicates removed; server messages without a translation listed in LOCALIZATION_AUDIT.md. |
-| 9 Regression | Full suite after every change; R-/S-/F- checklist in REMAINING_ISSUES.md (Round 4). |
-| 10 E2E | Playwright: see TEST_RESULTS.md (Round 4). |
-| 11 A11y | Quick checks only (see FUNCTIONAL_AUDIT.md, Round 4). |
-| 12 Reliability | Write-then-rename kept; 20 parallel saves all kept; health route and clean shutdown added. |
+| 1 Map | **Done.** 220 routes read from the code; the new modules read line by line (att, today, cap, wf, ai, org). The inventory, the route × test table and the pages per role are in PROJECT_INVENTORY.md (Round 4). |
+| 2 Baseline | **Done.** 168 tests pass on q-smart-v1. Node 24.11.0, npm 11.6.1, Windows 11. ESLint added (`npm.cmd run lint`: 0 problems after removing 15 duplicate translation entries). |
+| 3 Multi-role | **Done.** The role matrix covers all 218 tried routes (guards like `need(...QA)` were skipped before, F-18). Browser: every page of every role (admin 68, QA 49, lead 45, trainer 44, agent 25), with 0 console errors and 0 failed requests; forbidden and odd addresses show the dashboard. IDOR, mass-assignment and session tests in `pentest-round4*.test.js`. |
+| 4 BAU | **Partly.** BAU_SCENARIOS.md: every step marked Browser / API / Page only / Not run. Not run: the review "seen" step, goals, newsletters, the report builder, notification rules, the scheduler with a fake clock. |
+| 5 Functional | **Mostly.** The calculation tests kept; new hand-checked dates (`calc-round4.test.js`); F-14 (personal data download) fixed; F-16 (time zone) found. |
+| 6 Security | **Done for the planned checks.** S-29 to S-38 fixed, CSP, Permissions-Policy, Origin check, a secret scan of all 95 commits. ZAP and gitleaks are not installed (not run). |
+| 7 Speed | **Done.** Before / after on normal (4.5 MB) and large (449 MB) data; gzip; one disk read per reviews list; the speed budget test. PERFORMANCE_AUDIT.md. |
+| 8 Localization | **Done for the found gaps.** 96 server messages, 258 screen-reader names and 4 page texts translated; 15 duplicates removed; the new `i18n-server.test.js`. LOCALIZATION_AUDIT.md. |
+| 9 Regression | **Done.** Full suite after every change; the R- / S- / F- checklist in REMAINING_ISSUES.md (Round 4). |
+| 10 E2E | **Done.** 14 Playwright tests, 3 runs in a row without a failure (final check below). |
+| 11 A11y | **Quick checks.** Controls without a name (1 fixed), contrast, focus, Esc. Screen-reader names translated. |
+| 12 Reliability | **Done.** A hard stop while saving loses nothing; orphan records break no page; 20 saves at the same moment all kept; health route; clean stop. |
 
 ## Commits on q-smart-v1-audit
 
 1. `0f72aae` AI insights, topics and the AI trainer quiz no longer read the other workspace's data (S-29, S-30).
 2. `7c37fcf` Safer sign-in log, uploads, links, copies for Excel and browser protections.
 3. `325c1ee` Code checker and the shared-names check.
-4. (next) Speed: compression, the recordings check, the speed test, the large data generator.
+4. `139a16c` Smaller downloads, a speed check, a health check and a clean stop.
+5. `0c35118` The server's messages in Bulgarian and French.
+6. `24464d9` Browser tests and a size limit for Word imports.
+7. `917d402` The Business words boxes get a name for screen readers.
+8. `726cb8a` Tests for New Year, 29 February, clock changes and Bulgarian Easter 2027.
+9. `f9b6217` Screen-reader names in the chosen language; the security, speed and language reports.
+10. (last) The other reports, the README, the create-a-person test.
+
+## Things learned along the way (for the next session)
+
+- The Bash tool loses backslashes in heredocs and inline scripts: write scripts to the scratchpad with the Write tool, then run them.
+- PowerShell 5.1 splits `git commit -m` texts that contain double quotes: use `git commit -F <file>`.
+- A navigation that only changes the `#` part does not reload the page: use `location.reload()` to load changed scripts.
+- Inside `cellName` (main.js), `tr` is the table row: use `window.tr` to translate there.
+- The Playwright tests answer the Google Fonts requests locally and add the made-up address only to the app's own requests
+  (a custom header on the font requests made Google refuse them).
 
 ## Next steps for a new session
 
-- Read this file, then `docs/audit/DECISIONS_FOR_YOU.md` (Round 4) for the questions waiting for Gabriela.
+- Read this file, then `docs/audit/DECISIONS_FOR_YOU.md` (section V) for the questions waiting for Gabriela.
 - Start the copy with the launch entries `fake-ai` and `q-smart-round4` (ports 3298 and 3200).
+- Automate the BAU steps marked "—" in BAU_SCENARIOS.md.

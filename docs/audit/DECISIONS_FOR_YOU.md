@@ -915,3 +915,84 @@ This branch starts at commit bfb48ed (everything above). I read every page of Mo
 - Everything AI needs your API key in Admin › Integrations. I tested it only with my local test AI (nothing was sent anywhere).
 
 All 167 automatic tests pass (one new: organization settings, automatic deletion, a person's data). Translated into Bulgarian and French.
+
+## V. Round 4 audit (28 October) — decisions waiting for you
+
+Everything below is on the branch `q-smart-v1-audit`. Nothing is merged or pushed. Recommended choice first.
+
+### V1. The server's time zone (important before hosting)
+**What I found:** all attendance and time-off dates use the time zone of the computer the server runs on.
+- On your PC (Sofia) everything is right.
+- On a cloud server set to UTC (the usual default), a 09:00 shift would start at 11:00 Sofia time. People would be marked late or on time wrongly, and New Year would come 2 hours late for leave balances.
+
+**Options:**
+1. **(recommended now)** When you host the app, start it with the setting `TZ=Europe/Sofia`. One line in the hosting set-up, no code change.
+2. Later, with the move to separate companies: each company's time zone from Admin › Organization › Company is used in the calculations.
+
+### V2. Agents on phones
+**Today:** under 760 pixels wide (any phone) the app shows only "Your screen is too narrow to use Q-SMART". On a tablet (768 px) the pages work.
+- **(recommended)** Keep it as it is for now, and later make only the agent pages work on phones: Attendance (check in / out), Time off, Reviews and Tasks. That is a design change, so it waits for your yes.
+- Or make every page work on phones (a much bigger change).
+
+### V3. Google Fonts served by the app itself (R-24)
+Today every visitor's browser asks Google for the fonts, so Google sees each visitor's IP address (a known privacy concern in the EU).
+- **(recommended)** I download the font files once (Barlow, Barlow Condensed, Fira Sans, Fira Sans Extra Condensed, JetBrains Mono; all free to use under the SIL Open Font License) into `public/fonts`. The look stays the same, and the policy then blocks Google Fonts.
+- Or keep Google Fonts.
+
+### V4. Example texts that look like real companies
+Two places show real-looking company examples:
+- the CRM and recording link examples in **Admin › Integrations**
+- the examples in **Admin › Organization › Business words** (real brand names)
+- **(recommended)** Replace them with neutral examples (`https://crm.example.com/leads/{id}`, "Competitors | brand A, brand B"), like the earlier clean-up.
+- Or keep them.
+
+### V5. Translations to check
+Five English texts had two different Bulgarian or French translations. The one in use was kept, and the list is in `docs/audit/LOCALIZATION_AUDIT.md`. Please tell me if the other one is better. Also, please read the 107 new Bulgarian and French texts of this round when you have time.
+
+### V6. E-mails in the person's language
+E-mails (welcome, password reset, reminders, reports) are always in English, even when the person uses Bulgarian or French. That is a known limit.
+- **(recommended)** Translate the e-mail templates and send each e-mail in the language of the person who receives it.
+- Or keep English.
+
+### V7. Excel dates
+Excel exports use the US date format (`10/28/2026`) in every language.
+- **(recommended)** Use the format of the person's language (`28.10.2026` in Bulgarian, `28/10/2026` in French).
+- Or keep the US format.
+
+### V8. What other workspaces may see (R-6)
+These are shared by the whole organisation today:
+- the knowledge files, the knowledge base, quizzes, newsletters and AI Simulator scenarios
+- the Administration team's rota, attendance and balances: every staff member can see them
+- a team lead can name any staff member as their deputy, even one from another workspace
+
+With one workspace this changes nothing. For several companies on one server it must follow the companies (R-1).
+- **(recommended)** Decide it together with the move to separate companies.
+- Or limit it to workspaces now.
+
+### V9. A strict Content-Security-Policy
+Round 4 added a security policy, but it must still allow inline scripts: the pages have 989 `onclick="…"` handlers. Moving them all to separate code is a big change, but it is the strongest protection against injected scripts.
+- **(recommended)** Do it step by step, one page file at a time, after the SQLite move.
+
+### V10. Two old test servers still running
+Yesterday's audit session left two test servers running on ports 3199 and 3299 (test data only, not your real data). I did not stop them because they belong to that session.
+- **(recommended)** Let me stop them.
+- Or stop them yourself, or restart the computer.
+
+### V11. The virus scanner and save speed
+Every save takes about 0.3 s on this computer because Windows' virus scanner checks the new `data.json`. Excluding the data folder from scanning would make saves faster, but it is a security setting, and I did not change it.
+- **(recommended)** Leave the scanner on. The SQLite move removes most of this cost anyway.
+
+### Still waiting from earlier rounds
+These need your decision and were not changed in round 4:
+- R-1: separate companies
+- R-2: every new account starts with the password "password"
+- R-3 / R-4: the move to SQLite
+- R-5: `seed.js` (in Git) still holds the password hashes of all accounts (round 1 found 2 that protect real passwords; not re-checked, because that would mean trying passwords) and one real-looking personal e-mail address in a registration
+- R-8: password rules and two-factor sign-in
+- R-10: scoring rules (missing answers count as Yes; all-N/A = 0%)
+- R-11: quiz answers shown and unlimited retakes
+- R-16: open registration
+- R-21: CSAT duplicates on a second import
+- R-23: who scheduled reports may go to
+
+Details in `REMAINING_ISSUES.md`.

@@ -251,7 +251,7 @@ needed before a commercial launch.
 
 ### Confirmed vulnerabilities – fixed in round 4
 
-Every fix has a regression test that failed before the fix and passes after it.
+Every fix has a regression test that passes after it. The tests of S-29, S-30, S-31 and S-37 were seen failing before their fixes. The other defects were confirmed by reading the code, and their tests were written with the fix.
 
 | ID | Severity | Problem | Evidence (before the fix) | Fix and test |
 |---|---|---|---|---|

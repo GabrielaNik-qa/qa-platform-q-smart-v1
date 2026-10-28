@@ -20,6 +20,18 @@ This runs the automatic tests in the `test` folder: the scoring rules, the pop-u
 reviews, disputes, and the safe saving of the data file. The tests start their own copy of the server with made-up users in a
 temporary folder: your `data.json` is never touched.
 
+Three more checks (they are tools for testing only, the app itself does not use them):
+```
+npm.cmd run lint
+npm.cmd run test:e2e
+node test/measure.js <a folder with a data.json>
+```
+- `lint` looks through the code for real mistakes (a name that is never defined, code that can never run, the same text twice).
+- `test:e2e` opens the real pages in Chrome (Chromium) and clicks through them as every role, on its own throw-away copy with
+  made-up people. The first time, download the browser once with `npx.cmd playwright install chromium`.
+- `measure.js` copies the data of that folder into a temp folder and times the main pages and a save. To try a big company,
+  first make made-up data with `node test/gen-large.js $env:TEMP\qsmart-large` (500 agents, a year of reviews, about 450 MB).
+
 ## Test users (password for all: `password`)
 Agents, team leads and trainers are created automatically. The email is `first-initial.lastname@test.com`,
 e.g. `d.petrov@test.com` (agent), `l.hart@test.com` (team lead), `i.marinova@test.com` (trainer).
@@ -33,6 +45,9 @@ Make your own admin: `node adduser.js yourname "Your#Pass1" admin --email=you@ex
 | `$env:ANTHROPIC_API_KEY="sk-ant-..."` | AI: analyse imported documents into articles, write quiz questions |
 | `$env:DATA_FILE`, `AUDIT_FILE`, `REC_DIR` | use another copy of the data, audit log or recordings folder (for testing; normally leave them out) |
 | `$env:TRUST_PROXY` | which proxy may tell the app the visitor's address. Default `loopback` = only the Cloudflare tunnel running on this computer. Use `1` behind one hosted proxy |
+| `$env:NODE_ENV="production"` | on a server for customers: "Reset data" and "Refresh seed.js" are switched off, and e-mails are never printed in the terminal. `$env:DEV_TOOLS="1"` switches the two tools back on |
+| `$env:TZ="Europe/Sofia"` | the time zone of attendance and time off. On your PC it is already Sofia; set it on any hosted server |
+| `$env:BACKUPS_DIR`, `$env:NO_SCHEDULE="1"` | another backups folder; switch off the jobs that run by themselves (used by the tests) |
 
 Sign-ins end after 12 hours without use, and when the password is changed or reset (changing your own password keeps you signed in where you are). The security audit of October 2026 is in `docs/audit/`.
 

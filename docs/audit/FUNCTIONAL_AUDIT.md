@@ -148,3 +148,72 @@ Security fixes S-1 to S-27 are in SECURITY_AUDIT.md.
 - **F-12 · A page could silently stop loading (prevented).** Two page scripts declaring the same top-level name (it happened with `catList` while building the new Categories page) stop the second script, and its whole page shows the dashboard instead. Fixed before committing; a test now fails on any such clash.
 - **F-13 · Saved columns could jump back on quick clicks (fixed before committing).** Only the answer to the newest save is used now.
 - Every page opens for every role without a script error (see TEST_RESULTS, round 3).
+
+## Round 4 (28 October 2026)
+
+### How the features were tested
+
+- **Server, with made-up people** (`test/fixture-round4.js`): two workspaces, every role, a deactivated person, a pending registration and a first-password person. Tests: `pentest-round4.test.js`, `pentest-round4b.test.js`, `reliability.test.js`, `calc-round4.test.js`, `i18n-server.test.js`, `speed.test.js`.
+- **Browser (Playwright, `npm.cmd run test:e2e`):** 14 tests on a throw-away copy, run 3 times in a row. They check results on the page and in the saved data, not only that a page opened.
+- **Browser by hand** (the app's browser pane, a copy of the seed data on port 3200):
+  - every page of every role: admin 68, QA 49, team lead 45, trainer 44, agent 25
+  - the forbidden and odd addresses
+  - the Bulgarian walk with `?i18n=debug`
+  - the screen-reader names and the colour contrast
+
+### Results per module (round 4)
+
+| Module | What was checked | Result |
+|---|---|---|
+| Sign-in, sessions | Every role through the real form. Wrong password, deactivated, pending registration, first password. Deactivation, admin reset, role change and workspace move take effect on the next request. | Pass |
+| Attendance | Check in → break → back → check out with the buttons (browser), with the 4 steps in the day's history. A correction asked and decided. A lead corrects their own workspace only. | Pass |
+| Time off | A request by the agent, approved by the team lead with the button in the Requests tab (browser). The balance changes. The deputy decides. Decided only once. Cancel by others refused. | Pass |
+| Rota, Team today, morning brief, reports | Read by staff of the right workspace only. The brief works without the AI. | Pass |
+| Capacity planning | The other workspace cannot see, change, publish or delete a plan. The fair split and publishing are in `capacity.test.js`. | Pass |
+| Reviews, disputes | QA saves → the agent sees it on the Reviews page → disputes → QA resolves it as "changed" → the agent is told (browser + data). | Pass |
+| Excel export | The file opened in the test: one row per review shown, the lead IDs in it, no formula cells. | Pass |
+| "Copy for Excel" | Texts that look like formulas are pasted as text; numbers stay numbers. | **Fixed** (S-35) |
+| AI (drafts, team lead, analyst, trainer, simulator) | With the fake AI: normal, errors, broken and hostile answers; the right workspace only; the budget (`ai-settings.test.js`). | **Fixed** S-30, S-37 |
+| Q-Intelligence | Ask Q agents, insights, topics and knowledge files per workspace; a hostile knowledge file. | **Fixed** S-29 |
+| Organization › Data protection | The personal data download. | **Fixed** F-14 |
+| Word import | A zip bomb is refused; a normal `.docx` becomes an article. | **Fixed** S-36 |
+| Recordings | Real audio only; no file outside the folder. | **Fixed** S-33 |
+| Integrations | https links only. | **Fixed** S-34 |
+| Languages | Server messages, screen-reader names, the AutoQA subtitle and the theme tooltip. | **Fixed** F-15 |
+| Dark and light mode | Switch, remembered after a reload, different colours (browser). | Pass |
+| Phone and tablet | Phone: "screen too narrow" (by design). Tablet 768 px: the agent pages fit with no sideways scrolling. | By design, F-17 |
+| Reliability | A hard stop in the middle of saving: data.json stays readable and every answered save is kept after the restart. A review of a deleted person, leave of a deactivated one and a capacity plan of a deleted team break no page. Health check. | Pass |
+
+### Numbers worked out by hand (round 4)
+
+| Case | Expected (by hand) | Result |
+|---|---|---|
+| Time off 30 Dec 2026 (Wed) – 4 Jan 2027 (Mon): 30 and 31 Dec working, 1 Jan New Year, 2–3 Jan weekend, 4 Jan working | 3 days: 2 in 2026, 1 in 2027 | 3 (2 + 1) ✓ |
+| A half day on 31 December | 0.5 | 0.5 ✓ |
+| February 2028 / 2027 / 2100 | 29 / 28 / 28 days | ✓ |
+| The nights the clocks change (25 Oct and 29 Mar 2026) | no day skipped or repeated | ✓ |
+| Orthodox Easter 2027 | Sunday 2 May (Good Friday 30 Apr, Easter Monday 3 May) | ✓ |
+| Labour Day 2027 on a Saturday | the next free working day off: Tuesday 4 May (Monday 3 May is Easter Monday) | ✓ |
+| A night shift across the October clock change, 22:00 → 06:00 | 9 real hours (the clock goes back) | 9 ✓ |
+| 20 saves at the same moment | all 20 kept | 20 of 20 (normal and large data) ✓ |
+
+The scoring rules (R-10), the quiz rules (R-11) and the capacity split were not changed. The "CURRENT BEHAVIOUR" tests of earlier rounds still pass.
+
+### Defects found in round 4
+
+| ID | Priority | Defect | Fix | Test |
+|---|---|---|---|---|
+| F-14 | P2 | **The personal data download (right of access) was incomplete.** It held reviews, tasks, sessions, quick flags, simulations, surveys, attendance, time off and notifications, but not the registration, calibrations, AutoQA, AI drafts and plans, goals, improvement plans, recognition, complaints, risks, quiz attempts, articles read, attendance corrections, leave adjustments or the person's audit log entries. A session without an agents list would also have stopped it with an error. | All added; every list is read safely. | `pentest-round4b.test.js` › personal data download |
+| F-15 | P2 | **96 server messages and 258 screen-reader names had no Bulgarian or French translation.** Also the AutoQA subtitle (reworded, its translation no longer matched) and the theme tooltip. | Translated (LOCALIZATION_AUDIT.md). | `i18n-server.test.js`, `e2e` › screen-reader names |
+| F-16 | P1 for hosting | **Workforce dates follow the server's time zone** (REMAINING_ISSUES.md). | Not changed: your decision (V1). | Shown by a run with three time zones |
+| F-17 | P3 | **Phones only show "screen too narrow"** (by design since 24 October). | Not changed: your decision (V2). | `e2e` › phone and tablet |
+| F-18 | P2 (test gap) | **The every-route test skipped about 30 routes** (guards like `need(...QA)` were read as "public"), so a wrong permission there would not have been noticed. | It now reads them, and fails on a guard it cannot read. | `role-matrix.test.js` |
+| F-19 | P3 | **Saves take about 0.3 s** on this computer: Windows' virus scanner checks the new file. | Information only (V11). | PERFORMANCE_AUDIT.md |
+
+### Defect introduced during round 4 (fixed before committing)
+
+While translating the screen-reader names, the first version called `tr()` inside a helper where `tr` already meant "the table row". That made every page's accessibility helper stop with "tr is not a function". The browser check (console errors after the change) found it; it was fixed (`window.tr`) before the change was committed. The browser tests now also check those names in Bulgarian and French.
+
+### Business-as-usual routines
+
+See BAU_SCENARIOS.md.
