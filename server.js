@@ -162,6 +162,36 @@ app.use((req, res, next) => {   // basic browser protections: no framing by othe
   if (req.path.startsWith('/api/')) res.set('Cache-Control', 'no-store');
   next();
 });
+// compression (zlib is part of Node, nothing to install): an answer over 8 KB is sent gzipped to browsers that accept it. Through
+// the tunnel this makes the big lists several times smaller (the reviews of a QA user: about 2 MB → a few hundred KB).
+const zlib = require('zlib'), GZ = /\bgzip\b/;
+app.use((req, res, next) => {
+  if (!GZ.test(req.get('accept-encoding') || '')) return next();
+  const send = res.send;
+  res.send = function (body) {
+    const type = String(res.get('Content-Type') || '');
+    if (!res.get('Content-Encoding') && (typeof body === 'string' || Buffer.isBuffer(body)) && /json|javascript|css|html|text/.test(type) && Buffer.byteLength(body) > 8192) {
+      res.set({ 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }); res.removeHeader('Content-Length');
+      return send.call(this, zlib.gzipSync(body, { level: 6 }));
+    }
+    return send.call(this, body);
+  };
+  next();
+});
+// the page's own files (scripts, styles, the page) gzipped once and kept in memory until the file changes; the browser still asks
+// "has it changed?" every time (ETag), so a new version is always picked up at once
+const PUB = path.join(__dirname, 'public'), ZC = new Map();
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  const rel = req.path === '/' ? 'index.html' : req.path.slice(1), m = rel.match(/^(?:js\/(?:i18n\/)?[\w.-]+\.js|css\/[\w.-]+\.css|index\.html)$/);
+  if (!m || !GZ.test(req.get('accept-encoding') || '')) return next();
+  const f = path.join(PUB, rel); let st; try { st = fs.statSync(f); } catch (e) { return next(); }
+  const tag = `W/"gz-${st.size}-${Math.round(st.mtimeMs)}"`;
+  let z = ZC.get(f); if (!z || z.tag !== tag) { z = { tag, buf: zlib.gzipSync(fs.readFileSync(f), { level: 9 }) }; ZC.set(f, z); }
+  res.set({ 'Content-Type': rel.endsWith('.js') ? 'text/javascript; charset=UTF-8' : rel.endsWith('.css') ? 'text/css; charset=UTF-8' : 'text/html; charset=UTF-8', 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding', ETag: tag, 'Cache-Control': 'public, max-age=0' });
+  if (req.get('if-none-match') === tag) return res.status(304).end();
+  res.set('Content-Length', String(z.buf.length)); return req.method === 'HEAD' ? res.end() : res.end(z.buf);
+});
 app.use((req, res, next) => {   // a change sent by another website (CSRF) is refused, also from a neighbouring site of the same domain; the app itself sends "same-origin"
   const from = req.get('sec-fetch-site'), origin = req.get('origin');
   if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
@@ -533,6 +563,8 @@ app.put('/api/shared-views', need('admin', 'qa'), (req, res) => {
 
 // ------------------------------------------------------------------ system settings (pass rate thresholds)
 // the sign-in page shows the company name and its privacy note before anyone signs in (nothing else)
+// a health check for a monitor or the hosting: is the app up and can it read its data? (no details, nothing private)
+app.get('/api/health', (req, res) => { try { fs.accessSync(FILE, fs.constants.R_OK | fs.constants.W_OK); res.json({ ok: true, up: Math.round(process.uptime()) }); } catch (e) { res.status(503).json({ ok: false }); } });
 app.get('/api/notice', (req, res) => { const s = load().settings || {}; res.json({ company: ((s.org || {}).name) || '', note: ((s.privacy || {}).note) || '' }); });
 app.get('/api/settings', need(), (req, res) => res.json(setOut(load(), req.session.user)));
 app.put('/api/settings', need('admin'), (req, res) => {
@@ -590,7 +622,10 @@ const forAgent = (db, u, e) => { if (u.role !== 'agent') return e; const p = (db
   if (p.agentsRec === false) { const { rec, rl, recMissing, ...r } = x; x = r; }
   if (p.agentsReviewer === false) { const { rv, by, ...r } = x; x = r; if (x.dp) x = { ...x, dp: { ...x.dp, msgs: (x.dp.msgs || []).map(m => m.u === u.username ? m : { ...m, u: '', n: 'QA' }), res: x.dp.res ? { ...x.dp.res, by: 'QA' } : x.dp.res } }; }
   return x; };
-app.get('/api/evaluations', need(), (req, res) => { const db = load(), u = req.session.user; res.json(db.evaluations.filter(e => canSee(u, e) && inScope(db, u, e)).map(e => forAgent(db, u, e.rec && !fs.existsSync(path.join(REC, path.basename(e.rec))) ? { ...e, recMissing: true } : e))); });
+// the recordings folder is read once per request (not once per review) to mark the reviews whose file is gone
+const recFiles = () => { try { return new Set(fs.readdirSync(REC)); } catch (e) { return new Set(); } };
+app.get('/api/evaluations', need(), (req, res) => { const db = load(), u = req.session.user, l = db.evaluations.filter(e => canSee(u, e) && inScope(db, u, e)), have = l.some(e => e.rec) ? recFiles() : null;
+  res.json(l.map(e => forAgent(db, u, e.rec && !have.has(path.basename(e.rec)) ? { ...e, recMissing: true } : e))); });
 
 // a new review (QA Entry, or an AI draft approved by a person): checks everything, scores it and tells the agent; the caller saves
 function newEval(db, user, b) {
@@ -867,3 +902,8 @@ app.use((err, req, res, next) => {
 });
 const PORT = process.env.PORT || 3000;
 const srv = app.listen(PORT, () => console.log('Running on http://localhost:' + srv.address().port));   // PORT=0 picks any free port (used by the tests)
+// Ctrl+C (or a stop from Windows): no new requests, the audit log entries of the last moment are written, then the app stops.
+// data.json itself is always complete, because every save writes a copy first and then swaps it in.
+let stopping = false;
+const shutdown = sig => { if (stopping) return; stopping = true; console.log(sig + ': stopping…'); try { AUDIT.flushNow(); } catch (e) { /* not fatal */ } srv.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); };
+process.on('SIGINT', () => shutdown('SIGINT')); process.on('SIGTERM', () => shutdown('SIGTERM'));

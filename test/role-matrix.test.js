@@ -32,7 +32,7 @@ function routes() {
   return out;
 }
 // every route that is not public on purpose: a route with no guard the test can read is listed here, or the test fails
-const PUBLIC = new Set(['POST /api/login', 'POST /api/logout', 'POST /api/register', 'POST /api/forgot', 'POST /api/reset', 'GET /api/notice']);
+const PUBLIC = new Set(['POST /api/login', 'POST /api/logout', 'POST /api/register', 'POST /api/forgot', 'POST /api/reset', 'GET /api/notice', 'GET /api/health']);
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qsmart-roles-')), DATA = path.join(DIR, 'data.json');
 const H = bcrypt.hashSync('password', 4);

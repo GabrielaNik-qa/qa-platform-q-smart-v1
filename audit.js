@@ -6,6 +6,7 @@ let LOG = [];
 try { LOG = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch (e) { LOG = []; }
 let timer = null;
 const flush = () => { clearTimeout(timer); timer = setTimeout(() => { try { fs.writeFileSync(FILE, JSON.stringify(LOG)); } catch (e) { /* not fatal */ } }, 400); };
+const flushNow = () => { if (!timer) return; clearTimeout(timer); timer = null; fs.writeFileSync(FILE, JSON.stringify(LOG)); };   // when the app stops
 
 const SHOW = ['name', 'username', 'role', 'team', 'active', 'pass', 'outcome', 'status', 'title', 'fl', 'lead', 'workspace', 'email'];
 const NAMES = [
@@ -50,4 +51,4 @@ function routes(app, need) {
 const prune = months => { const cut = Date.now() - months * 30.44 * 864e5, n = LOG.length; LOG = LOG.filter(x => !x.t || new Date(x.t).getTime() >= cut); if (LOG.length !== n) flush(); return n - LOG.length; };
 // the entries of one person (Admin › Organization › personal data download)
 const of = username => LOG.filter(x => x.u === username);
-module.exports = { middleware, routes, prune, of };
+module.exports = { middleware, routes, prune, of, flushNow };
