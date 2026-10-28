@@ -26,8 +26,8 @@ module.exports = [
   { ignores: ['node_modules/**', 'seed.js', 'docs/**', 'test/e2e/report/**', 'playwright-report/**', 'test-results/**'] },
   { files: ['*.js', 'test/**/*.js'], languageOptions: { ecmaVersion: 2024, sourceType: 'commonjs', globals: { ...globals.node } }, rules: RULES },
   // the language test loads the page's language files in Node, with a pretend "window"
-  { files: ['test/i18n.test.js', 'test/md-and-syntax.test.js', 'test/escaping.test.js', 'test/prefs.test.js'], languageOptions: { globals: { window: 'writable', I18N: 'writable' } } },
-  // the browser tests run code inside the page
-  { files: ['test/e2e/**/*.js'], languageOptions: { globals: { ...globals.browser } } },
+  { files: ['test/i18n.test.js', 'test/i18n-server.test.js', 'test/md-and-syntax.test.js', 'test/escaping.test.js', 'test/prefs.test.js'], languageOptions: { globals: { window: 'writable', I18N: 'writable' } } },
+  // the browser tests run code inside the page, where the page's own names exist
+  { files: ['test/e2e/**/*.js'], languageOptions: { globals: { ...globals.browser, ...shared } } },
   { files: ['public/js/**/*.js'], languageOptions: { ecmaVersion: 2024, sourceType: 'script', globals: { ...globals.browser, ...shared, module: 'readonly' } }, rules: RULES }
 ];

@@ -206,6 +206,21 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     }
   };
   const htmlText = h => dropBlocks(String(h)).replace(/<\/(p|div|h[1-6]|li|br)>/gi, '\n').replace(/<h([1-3])[^<>]*>/gi, (m, n) => '\n' + '#'.repeat(+n) + ' ').replace(/<[^<>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');   // &amp; last, so "&amp;lt;" stays "&lt;"
+  // a Word file is a ZIP: its table of contents says how big each part becomes once unpacked. A small file that would unpack to
+  // hundreds of MB (a "zip bomb") is refused before anything is unpacked (R-14). At most 50 MB unpacked and 2,000 parts.
+  const docxTooBig = buf => {
+    let e = -1; for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) if (buf.readUInt32LE(i) === 0x06054b50) { e = i; break; }
+    if (e < 0) return 'This Word file is damaged';
+    const n = buf.readUInt16LE(e + 10); let p = buf.readUInt32LE(e + 16), total = 0;
+    if (n > 2000) return 'This Word file is too large to import';
+    for (let k = 0; k < n; k++) {
+      if (p + 46 > buf.length || buf.readUInt32LE(p) !== 0x02014b50) return 'This Word file is damaged';
+      const size = buf.readUInt32LE(p + 24); if (size === 0xffffffff) return 'This Word file is too large to import';
+      total += size; if (total > 50 * 1024 * 1024) return 'This Word file is too large to import';
+      p += 46 + buf.readUInt16LE(p + 28) + buf.readUInt16LE(p + 30) + buf.readUInt16LE(p + 32);
+    }
+    return '';
+  };
   app.get('/api/ai/status', need(), (req, res) => res.json({ enabled: ai.enabled(), model: ai.MODEL() }));
   app.post('/api/kb/import', need(...EDIT), async (req, res) => {
     if (aiBusy(req, res)) return;
@@ -215,7 +230,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
       if (b.fileB64) {
         const buf = Buffer.from(String(b.fileB64), 'base64');
         // Word is read as HTML (not plain text) so its headings survive and the document can be split into articles at them, like an HTML file
-        if (/^docx$/i.test(ext)) { if (!mammoth) throw new Error('Word import needs one more package: run  npm.cmd install mammoth'); text = htmlText((await mammoth.convertToHtml({ buffer: buf })).value); }
+        if (/^docx$/i.test(ext)) { if (!mammoth) throw new Error('Word import needs one more package: run  npm.cmd install mammoth'); const big = docxTooBig(buf); if (big) throw new Error(big); text = htmlText((await mammoth.convertToHtml({ buffer: buf })).value); }
         else if (/^pdf$/i.test(ext)) pdf = buf.toString('base64');
         else if (/^html?$/i.test(ext)) text = htmlText(buf.toString('utf8'));
         else text = buf.toString('utf8');
