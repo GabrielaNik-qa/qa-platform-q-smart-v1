@@ -100,6 +100,25 @@ If this session stops, the next one continues from this file.
 | A fresh browser | English 8 font files (163 KB), Bulgarian 13 (219 KB), 0 requests to other sites |
 | The real files | `data.json`, `seed.js`, `audit.json`, `.qsmart-key`: still unchanged |
 
+## The menu in two sections (29 October, Gabriela's request)
+
+| What | Result |
+|---|---|
+| OPERATIONS | Home, Quality, Analytics, Performance, Coaching. A foldable heading like APPS, remembered; folded it is one row of icons |
+| MANAGE | AI Hub, Help Center, Planning, Reports, Activity Log. The same kind of heading |
+| AI Hub | New place-holder page with links to the AI tools already in the app (filtered by role) and whether the AI is connected. Icon always orange |
+| Help Center | The Knowledge Base page under its new name (same page, same articles, same permissions); it left the Learning panel |
+| Activity Log | The Audit log page under its new name, with the real records from the server; admins only, as before; it left Admin › System |
+| Icons-only menu | A line between OPERATIONS and MANAGE, and the APPS line |
+| Translations | 16 new Bulgarian and French texts |
+| Tests | Unknown command: "test"
+
+
+Did you mean this?
+  npm test # Test a package
+To see a list of supported npm commands, run:
+  npm help 226 passed;  16 passed (the menu test checks the new layout); lint 0 problems |
+
 ## Next steps for a new session
 
 - Read this file, then `docs/audit/DECISIONS_FOR_YOU.md` (section V) for the questions waiting for Gabriela.

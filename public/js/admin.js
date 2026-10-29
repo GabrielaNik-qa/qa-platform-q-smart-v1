@@ -210,12 +210,12 @@ async function firstPw() {
 }
 
 
-// ---------- audit log: who changed what and when (admins only)
+// ---------- Activity Log (was "Audit log"): who changed what and when, from the real audit records (admins only)
 let AUF = { q: '', u: '', ok: '' };
 PG.audit = function () {
   const q = AUF.q.toLowerCase(), l = AUD.filter(x => (!AUF.u || x.u === AUF.u) && (AUF.ok === '' || String(x.ok) === AUF.ok) && (!q || (x.a + ' ' + x.d + ' ' + x.u + ' ' + x.n).toLowerCase().includes(q)));
   const users = [...new Set(AUD.map(x => x.u).filter(Boolean))].sort();
-  return head('Audit log', 'Every change and sign-in, newest first (last 1000 entries). Passwords are never recorded.', `<button class=ib onclick="load().then(render)">Refresh</button>`)
+  return head('Activity Log', 'Every change and sign-in, newest first (last 1000 entries). Passwords are never recorded.', `<button class=ib onclick="load().then(render)">Refresh</button>`)
     + `<div class=row style="justify-content:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:14px"><input id=auq aria-label="Search the audit log" placeholder="Search action or detail" value="${esc(AUF.q)}" oninput="AUF.q=this.value;clearTimeout(window.__a);window.__a=setTimeout(render,250)" style="min-width:240px"><select onchange="AUF.u=this.value;render()"><option value="">All users</option>${users.map(u => `<option value="${esc(u)}" ${AUF.u === u ? 'selected' : ''}>${esc(u)}</option>`).join('')}</select><select onchange="AUF.ok=this.value;render()"><option value="">All results</option><option value="true" ${AUF.ok === 'true' ? 'selected' : ''}>Succeeded</option><option value="false" ${AUF.ok === 'false' ? 'selected' : ''}>Failed sign-ins</option></select></div>`
     + card(`${l.length} entr${l.length === 1 ? 'y' : 'ies'}`, l.length ? tbl(['When', 'Who', 'Role', 'Action', 'Details'], l.slice(0, 300).map(x => [fdt(x.t), `<b>${esc(x.n || x.u || '—')}</b>${x.n ? ` <small class=mu>@${esc(x.u)}</small>` : ''}`, ROLE[x.r] || '—', x.ok ? esc(x.a) : `<span style="color:var(--bad)">${esc(x.a)}</span>`, `<small>${esc(x.d)}</small>`])) : '<p class=mu>Nothing recorded yet.</p>');
 };

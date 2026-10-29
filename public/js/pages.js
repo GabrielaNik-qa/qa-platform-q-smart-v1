@@ -8,17 +8,21 @@ const isStaffR = () => ME && STAFFR.includes(ME.role);
 // The menu has panels (space): the main menu for the everyday quality work, and the Workforce, Compliance & CX, Learning and Admin
 // panels that open from the bottom of it ("Workforce ›" …) and have "← Back to the main menu" at the top (main.js)
 const GROUPS = [
-  { id: 'home', name: 'Home', icon: 'g_home', items: [['dash', 'Dashboard'], ['autoqa', 'AutoQA'], ['tasks', 'Tasks'], ['pers', 'Personalize']] },
-  { id: 'quality', name: 'Quality', icon: 'g_quality', items: [['calls', 'Reviews'], ['entry', 'QA Entry'], ['flags', 'Quick Flags'], ['disputes', 'Disputes']] },
-  { id: 'analytics', name: 'Analytics', icon: 'g_analytics', items: [['agents', 'Agents'], ['team', 'Team Review'], ['cats', 'Category Stats']] },
-  { id: 'performance', name: 'Performance', icon: 'g_perf', items: [['goals', 'Goals & KPIs'], ['pips', 'Improvement plans'], ['kudos', 'Recognition']] },
-  { id: 'coaching', name: 'Coaching', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration']] },
-  { id: 'planning', name: 'Planning', icon: 'g_plan', items: [['planner', 'Review planner'], ['workload', 'QA workload'], ['calendar', 'Calendar']] },
+  // the main menu in two sections, OPERATIONS and MANAGE, that fold like APPS (Gabriela, 29 October)
+  { id: 'home', name: 'Home', sec: 'ops', icon: 'g_home', items: [['dash', 'Dashboard'], ['autoqa', 'AutoQA'], ['tasks', 'Tasks'], ['pers', 'Personalize']] },
+  { id: 'quality', name: 'Quality', sec: 'ops', icon: 'g_quality', items: [['calls', 'Reviews'], ['entry', 'QA Entry'], ['flags', 'Quick Flags'], ['disputes', 'Disputes']] },
+  { id: 'analytics', name: 'Analytics', sec: 'ops', icon: 'g_analytics', items: [['agents', 'Agents'], ['team', 'Team Review'], ['cats', 'Category Stats']] },
+  { id: 'performance', name: 'Performance', sec: 'ops', icon: 'g_perf', items: [['goals', 'Goals & KPIs'], ['pips', 'Improvement plans'], ['kudos', 'Recognition']] },
+  { id: 'coaching', name: 'Coaching', sec: 'ops', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration']] },
+  { id: 'aihub', name: 'AI Hub', sec: 'manage', icon: 'g_aihub', items: [['aihub', 'AI Hub']] },
+  { id: 'help', name: 'Help Center', sec: 'manage', icon: 'g_help', items: [['kb', 'Help Center']] },
+  { id: 'planning', name: 'Planning', sec: 'manage', icon: 'g_plan', items: [['planner', 'Review planner'], ['workload', 'QA workload'], ['calendar', 'Calendar']] },
+  { id: 'reports', name: 'Reports', sec: 'manage', icon: 'g_reports', items: [['rbuild', 'Report builder'], ['rsaved', 'Saved & scheduled'], ['rexp', 'Export centre']] },
+  { id: 'activity', name: 'Activity Log', sec: 'manage', icon: 'g_activity', items: [['audit', 'Activity Log']] },
   { id: 'workforce', name: 'Workforce', icon: 'g_wf', space: 'wf', items: [['today', 'Team today'], ['att', 'Attendance'], ['leave', 'Time off'], ['rota', 'Shifts and rota'], ['cap', 'Capacity planning']] },
   { id: 'comply', name: 'Compliance & CX', icon: 'g_comply', space: 'cx', items: [['compliance', 'Compliance'], ['risks', 'Risk register'], ['complaints', 'Complaints'], ['csat', 'Surveys (CSAT)']] },
-  { id: 'reports', name: 'Reports', icon: 'g_reports', items: [['rbuild', 'Report builder'], ['rsaved', 'Saved & scheduled'], ['rexp', 'Export centre']] },
   { id: 'wfsetup', name: 'Workforce set-up', icon: 'g_sys', space: 'wf', items: [['wcal', 'Work calendars'], ['shifts', 'Shift templates'], ['ltypes', 'Leave types'], ['attrules', 'Attendance rules']] },
-  { id: 'learning', name: 'Learning', icon: 'g_learning', space: 'learn', items: [['acad', 'My Learning'], ['kb', 'Knowledge Base'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },
+  { id: 'learning', name: 'Learning', icon: 'g_learning', space: 'learn', items: [['acad', 'My Learning'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },
   { id: 'tools', name: 'Tools', icon: 'g_tools', space: 'learn', items: [['tr', 'Transcripts']] },
   { id: 'aisim', name: 'AI Simulator', icon: 'g_aisim', space: 'ai', items: [['sim', 'Practice a call'], ['simres', 'Results'], ['simsc', 'Scenarios']] },
   // My account: everybody's own settings, the same as the account pop-up (approved by Gabriela, 28 October); the settings wheel opens this panel
@@ -27,7 +31,7 @@ const GROUPS = [
   { id: 'scorecards', name: 'Quality set-up', icon: 'g_sc', space: 'admin', items: [['sco', 'Scorecards'], ['scat', 'Categories'], ['roots', 'Root causes'], ['aqcats', 'Auto QA categories'], ['sysset', 'System settings']] },
   { id: 'org', name: 'Organization', icon: 'g_org', space: 'admin', items: [['org', 'Company'], ['privacy', 'Data protection'], ['signin', 'Sign-in'], ['words', 'Business words']] },
   { id: 'qintel', name: 'Q-Intelligence', icon: 'g_qi', space: 'qi', items: [['qask', 'Ask Q'], ['qagents', 'AI agents'], ['qins', 'AI insights'], ['qknow', 'Knowledge']] },
-  { id: 'admin', name: 'System', icon: 'g_sys', space: 'admin', items: [['perms', 'Roles & permissions'], ['integ', 'Integrations'], ['notifs', 'Notification rules'], ['mailtpl', 'Email templates'], ['backup', 'Backups & data'], ['audit', 'Audit log']] }
+  { id: 'admin', name: 'System', icon: 'g_sys', space: 'admin', items: [['perms', 'Roles & permissions'], ['integ', 'Integrations'], ['notifs', 'Notification rules'], ['mailtpl', 'Email templates'], ['backup', 'Backups & data']] }
 ];
 const RR = { org: ['admin'], privacy: ['admin'], signin: ['admin'], words: ['admin'], qask: STAFFR, qagents: STAFFR, qins: STAFFR, qknow: STAFFR, simsc: ['admin', 'trainer'], entry: ['admin', 'qa'], flags: STAFFR, team: STAFFR, cats: STAFFR, coach: STAFFR, cal: STAFFR, sco: STAFFR, scat: ['admin', 'qa'], roots: ['admin', 'qa'], aqcats: ['admin', 'qa'], users: ['admin'], teams: ['admin'], wsp: ['admin'], skills: ['admin'], audit: ['admin'], wcal: ['admin'], shifts: ['admin'], ltypes: ['admin'], attrules: ['admin'], today: STAFFR };
 Object.assign(RR, { sysset: ['admin'], rbuild: STAFFR, rsaved: STAFFR, rexp: STAFFR, planner: ['admin', 'qa', 'lead'], workload: ['admin', 'qa', 'lead'], compliance: STAFFR, risks: STAFFR, complaints: STAFFR, csat: STAFFR, perms: ['admin'], integ: ['admin'], notifs: ['admin'], backup: ['admin'], mailtpl: ['admin'] });

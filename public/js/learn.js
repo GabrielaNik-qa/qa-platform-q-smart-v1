@@ -61,7 +61,7 @@ function artView(a) {
 }
 PG.kb = function () {
   const tabs = `<div class=sg style="width:fit-content;margin-bottom:14px"><button class="${KBS.tab === 'browse' ? 'on' : ''}" onclick="KBS.tab='browse';render()">Browse</button>${isEd() ? `<button class="${KBS.tab === 'import' ? 'on' : ''}" onclick="KBS.tab='import';render()">Import</button><button class="${KBS.tab === 'progress' ? 'on' : ''}" onclick="KBS.tab='progress';render()">Progress</button>` : ''}</div>`;
-  const hdr = head('Knowledge Base', 'Articles, folders and lessons for the whole team', `<div style="display:flex;gap:8px;flex-wrap:wrap">${bellBtn()}${isEd() ? `<button class="ib ibx" onclick="newFolder('${KBS.f}')">${IC.plus} Folder</button><button class=btn onclick="newArticle('${KBS.f}')">+ New article</button>` : ''}</div>`);
+  const hdr = head('Help Center', 'Articles, folders and lessons for the whole team', `<div style="display:flex;gap:8px;flex-wrap:wrap">${bellBtn()}${isEd() ? `<button class="ib ibx" onclick="newFolder('${KBS.f}')">${IC.plus} Folder</button><button class=btn onclick="newArticle('${KBS.f}')">+ New article</button>` : ''}</div>`);
   if (KBE) return hdr + KBED();
   if (KBS.tab === 'import') return hdr + tabs + IMPORT();
   if (KBS.tab === 'progress') return hdr + tabs + PROGRESS();

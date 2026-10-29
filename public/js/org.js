@@ -55,6 +55,16 @@ const wordsSave = () => { const lines = id => $('#' + id).value.split('\n').map(
 // the custom vocabulary on a text (used for transcripts): every wrong spelling becomes the right one
 const vocabFix = t => (SET.words && SET.words.vocab || []).reduce((s, v) => v.wrong.reduce((x, w) => x.replace(new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), v.term), s), String(t || ''));
 
+// ---- AI Hub (in MANAGE): for now a place-holder that links to the AI tools already in the app; more comes later (Gabriela, 29 October)
+const AIHUB = [['qask', 'g_qi', 'Ask Q', 'Questions about your teams, answered from your numbers.'], ['qins', 'g_qi', 'AI insights', 'What the AI noticed in your reviews.'],
+  ['qagents', 'g_qi', 'AI agents', 'Helpers that do a task for you.'], ['sim', 'g_aisim', 'Practice a call', 'Talk to an AI customer and get a score.'], ['autoqa', 'g_home', 'AutoQA', 'Reviews the AI scores for you.']];
+PG.aihub = function () {
+  const l = AIHUB.filter(([k]) => canRoute(k));
+  return head('AI Hub', 'All the AI tools of Q-smart in one place. This page is new: more will come here soon.')
+    + `<div class="card tip" style="margin-bottom:14px">${AIS.enabled ? tr('The AI is connected.') : tr('The AI is not connected yet. An admin connects it in Admin › Integrations.')}</div>`
+    + card('Open an AI tool', l.length ? `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">${l.map(([k, i, n, d]) => `<a class="card" href="#${k}" style="margin:0;display:flex;gap:12px;align-items:center;text-decoration:none;color:inherit"><span style="color:var(--orange)">${IC[i]}</span><span><b>${n}</b><br><span class=mu>${d}</span></span></a>`).join('')}</div>` : `<p class=mu style="margin:0">No AI tool is open to your role yet.</p>`);
+};
+
 // ---- Q-Intelligence
 const qiOff = () => AIS.enabled ? '' : `<div class="card tip" style="margin-bottom:14px">${tr('Q-Intelligence needs the AI. An admin connects it in Admin › Integrations with your API key.')}</div>`;
 const qiMd = t => typeof md === 'function' ? `<div class=prose>${md(String(t || ''))}</div>` : `<p style="white-space:pre-wrap;margin:0">${esc(t)}</p>`;   // AI text: Markdown, kept in its own language
