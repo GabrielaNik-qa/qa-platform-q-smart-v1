@@ -936,7 +936,8 @@ button.fchip { border: 0; font: inherit; font-size: 13px; padding: 7px 12px } bu
 /* APPS: the line above the panels, with its name; it folds the panels into one row of icons (the icons-only menu keeps the plain line) */
 .apph { display: flex; align-items: center; gap: 8px; width: calc(100% - 12px); margin: 10px 6px 4px; padding: 10px 8px 4px; border: 0; border-top: 1px solid rgba(255,255,255,.12); background: none; color: rgba(255,255,255,.5); font: 700 11.5px var(--font); letter-spacing: .12em; text-transform: uppercase; cursor: pointer; text-align: left }
 .apph:hover { color: rgba(255,255,255,.8) } .apph span { flex: 1 } .apph em { font-style: normal; font-size: 14px }
-.appsr { display: flex; justify-content: space-between; gap: 4px; padding: 4px 10px 6px }
+/* every row of icons has five places, so the icons sit in the same columns in every section; a shorter row leaves the last places empty (Gabriela, 29 October) */
+.appsr { display: grid; grid-template-columns: repeat(5, 38px); justify-content: space-between; gap: 4px; padding: 4px 10px 6px }
 .appi { width: 38px; height: 38px; border-radius: 10px; border: 0; background: none; color: rgba(255,255,255,.75); display: grid; place-items: center; cursor: pointer } .appi:hover { background: rgba(255,255,255,.08) }
 .appi.sp-ai { color: var(--yellow) } .appi.sp-qi { color: var(--coral) }
 /* OPERATIONS and MANAGE: the main menu's two section headings (the same as APPS); the AI Hub icon is always orange (Gabriela, 29 October) */

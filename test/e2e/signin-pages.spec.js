@@ -86,6 +86,9 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   // the Admin panel (29 October): five one-word sections of at most five icons, folded; the coming-soon groups greyed
   expect(await a.page.locator('#n .sech span').allInnerTexts()).toEqual(['ACCOUNT', 'PEOPLE', 'SETUP', 'GOVERNANCE', 'PLATFORM']);
   expect(await a.page.locator('#n .appsr').evaluateAll(l => l.map(r => r.children.length))).toEqual([4, 4, 4, 5, 4]);
+  // five places in every row: the icons sit in the same columns as GOVERNANCE, a shorter row leaves the last place empty
+  const cols = await a.page.locator('#n .appsr').evaluateAll(l => l.map(r => [...r.children].map(b => Math.round(b.getBoundingClientRect().left))));
+  for (const r of cols) expect(r).toEqual(cols[3].slice(0, r.length));
   expect(await a.page.locator('#n .appi.soon').evaluateAll(l => l.map(b => b.title))).toEqual(['Billing', 'Support', 'AI', 'AI Act', 'Security', 'Accessibility', 'Sandbox', 'Features']);
   await a.page.locator('.sech.sec-account').click();
   expect((await a.page.locator('#n .gh span').allInnerTexts()).slice(1)).toEqual(['My account', 'Company', 'Billing', 'Support']);
