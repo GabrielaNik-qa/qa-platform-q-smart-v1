@@ -19,23 +19,66 @@ const GROUPS = [
   { id: 'planning', name: 'Planning', sec: 'manage', icon: 'g_plan', items: [['planner', 'Review planner'], ['workload', 'QA workload'], ['calendar', 'Calendar']] },
   { id: 'reports', name: 'Reports', sec: 'manage', icon: 'g_reports', items: [['rbuild', 'Report builder'], ['rsaved', 'Saved & scheduled'], ['rexp', 'Export centre']] },
   { id: 'activity', name: 'Activity Log', sec: 'manage', icon: 'g_activity', items: [['audit', 'Activity Log']] },
-  { id: 'workforce', name: 'Workforce', icon: 'g_wf', space: 'wf', items: [['today', 'Team today'], ['att', 'Attendance'], ['leave', 'Time off'], ['rota', 'Shifts and rota'], ['cap', 'Capacity planning']] },
-  { id: 'comply', name: 'Compliance & CX', icon: 'g_comply', space: 'cx', items: [['compliance', 'Compliance'], ['risks', 'Risk register'], ['complaints', 'Complaints'], ['csat', 'Surveys (CSAT)']] },
-  { id: 'wfsetup', name: 'Workforce set-up', icon: 'g_sys', space: 'wf', items: [['wcal', 'Work calendars'], ['shifts', 'Shift templates'], ['ltypes', 'Leave types'], ['attrules', 'Attendance rules']] },
   { id: 'learning', name: 'Learning', icon: 'g_learning', space: 'learn', items: [['acad', 'My Learning'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },
   { id: 'tools', name: 'Tools', icon: 'g_tools', space: 'learn', items: [['tr', 'Transcripts']] },
   { id: 'aisim', name: 'AI Simulator', icon: 'g_aisim', space: 'ai', items: [['sim', 'Practice a call'], ['simres', 'Results'], ['simsc', 'Scenarios']] },
-  // My account: everybody's own settings, the same as the account pop-up (approved by Gabriela, 28 October); the settings wheel opens this panel
-  { id: 'myacc', name: 'My account', icon: 'g_me', space: 'admin', items: [['acprof', 'Profile'], ['acpw', 'Password'], ['acapp', 'Appearance'], ['aclang', 'Language'], ['acnotif', 'Notifications & Confirmations']] },
-  { id: 'people', name: 'People', icon: 'g_people', space: 'admin', items: [['users', 'Users'], ['teams', 'Teams'], ['wsp', 'Workspaces'], ['skills', 'Skills']] },
-  { id: 'scorecards', name: 'Quality set-up', icon: 'g_sc', space: 'admin', items: [['sco', 'Scorecards'], ['scat', 'Categories'], ['roots', 'Root causes'], ['aqcats', 'Auto QA categories'], ['sysset', 'System settings']] },
-  { id: 'org', name: 'Organization', icon: 'g_org', space: 'admin', items: [['org', 'Company'], ['privacy', 'Data protection'], ['signin', 'Sign-in'], ['words', 'Business words']] },
   { id: 'qintel', name: 'Q-Intelligence', icon: 'g_qi', space: 'qi', items: [['qask', 'Ask Q'], ['qagents', 'AI agents'], ['qins', 'AI insights'], ['qknow', 'Knowledge']] },
-  { id: 'admin', name: 'System', icon: 'g_sys', space: 'admin', items: [['perms', 'Roles & permissions'], ['integ', 'Integrations'], ['notifs', 'Notification rules'], ['mailtpl', 'Email templates'], ['backup', 'Backups & data']] }
+  // the Admin panel (Settings for the other roles) in five sections of at most five icons, one-word headings (Gabriela's yes, 29 October).
+  // Workforce and Compliance & CX moved here from APPS; the pages starting with cs_ are "coming soon" (SOON below), shown greyed
+  // ACCOUNT. My account: everybody's own settings, the same as the account pop-up; the settings wheel opens this panel
+  { id: 'myacc', name: 'My account', sec: 'account', icon: 'g_me', space: 'admin', items: [['acprof', 'Profile'], ['acpw', 'Password'], ['acapp', 'Appearance'], ['aclang', 'Language'], ['acnotif', 'Notifications & Confirmations']] },
+  { id: 'org', name: 'Company', sec: 'account', icon: 'g_org', space: 'admin', items: [['org', 'Company'], ['words', 'Business words'], ['cs_brand', 'Branding'], ['cs_region', 'Regional settings']] },
+  { id: 'billing', name: 'Billing', sec: 'account', icon: 'g_bill', space: 'admin', items: [['cs_plan', 'Plan & seats'], ['cs_usage', 'Usage'], ['cs_invoices', 'Invoices'], ['cs_payment', 'Payment method'], ['cs_vat', 'EU VAT']] },
+  { id: 'support', name: 'Support', sec: 'account', icon: 'g_support', space: 'admin', items: [['cs_contact', 'Contact support'], ['cs_ideas', 'Feature requests'], ['cs_status', 'Service status & SLA'], ['cs_release', 'Release notes']] },
+  // PEOPLE
+  { id: 'people', name: 'Users', sec: 'people', icon: 'g_people', space: 'admin', items: [['users', 'Users'], ['teams', 'Teams'], ['wsp', 'Workspaces'], ['skills', 'Skills']] },
+  { id: 'roles', name: 'Roles', sec: 'people', icon: 'g_badge', space: 'admin', items: [['perms', 'Roles & permissions']] },
+  { id: 'signin', name: 'Sign-in', sec: 'people', icon: 'g_key', space: 'admin', items: [['signin', 'Sign-in'], ['cs_sso', 'Single sign-on'], ['cs_scim', 'Automatic users (SCIM)'], ['cs_pwrules', 'Password & two-step rules'], ['cs_ip', 'Allowed IP addresses']] },
+  { id: 'workforce', name: 'Workforce', sec: 'people', icon: 'g_wf', space: 'admin', items: [['today', 'Team today'], ['att', 'Attendance'], ['leave', 'Time off'], ['rota', 'Shifts and rota'], ['cap', 'Capacity planning']] },
+  // SETUP
+  { id: 'scorecards', name: 'Quality set-up', sec: 'setup', icon: 'g_sc', space: 'admin', items: [['sco', 'Scorecards'], ['scat', 'Categories'], ['roots', 'Root causes'], ['aqcats', 'Auto QA categories'], ['sysset', 'System settings']] },
+  { id: 'wfsetup', name: 'Workforce set-up', sec: 'setup', icon: 'g_sys', space: 'admin', items: [['wcal', 'Work calendars'], ['shifts', 'Shift templates'], ['ltypes', 'Leave types'], ['attrules', 'Attendance rules']] },
+  { id: 'messages', name: 'Messages', sec: 'setup', icon: 'g_mail', space: 'admin', items: [['notifs', 'Notification rules'], ['mailtpl', 'Email templates'], ['cs_maildom', 'Sending email domain'], ['cs_announce', 'Announcements']] },
+  { id: 'aiset', name: 'AI', sec: 'setup', icon: 'g_aihub', space: 'admin', items: [['cs_aiprov', 'AI provider'], ['cs_ailimit', 'AI usage limits'], ['cs_aionoff', 'AI on or off'], ['cs_aiinstr', 'AI instructions']] },
+  // GOVERNANCE
+  { id: 'gdpr', name: 'GDPR', sec: 'gov', icon: 'g_shield', space: 'admin', items: [['privacy', 'Data protection'], ['cs_ropa', 'Record of processing'], ['cs_subproc', 'Sub-processors'], ['cs_dpa', 'Data processing agreement'], ['cs_consent', 'Recording consent']] },
+  { id: 'aiact', name: 'AI Act', sec: 'gov', icon: 'g_scale', space: 'admin', items: [['cs_aireg', 'AI register'], ['cs_aihuman', 'Human checks'], ['cs_ainotice', 'AI notices']] },
+  { id: 'security', name: 'Security', sec: 'gov', icon: 'g_lock', space: 'admin', items: [['cs_seclog', 'Security log'], ['cs_breach', 'Data breaches'], ['cs_apikeys', 'API keys']] },
+  { id: 'a11y', name: 'Accessibility', sec: 'gov', icon: 'g_a11y', space: 'admin', items: [['cs_a11y', 'Accessibility statement']] },
+  { id: 'comply', name: 'Compliance & CX', sec: 'gov', icon: 'g_comply', space: 'admin', items: [['compliance', 'Compliance'], ['risks', 'Risk register'], ['complaints', 'Complaints'], ['csat', 'Surveys (CSAT)']] },
+  // PLATFORM
+  { id: 'admin', name: 'Integrations', sec: 'platform', icon: 'g_plug', space: 'admin', items: [['integ', 'Integrations'], ['cs_webhooks', 'Webhooks'], ['cs_api', 'Developer API'], ['cs_mcp', 'MCP connectors']] },
+  { id: 'data', name: 'Data', sec: 'platform', icon: 'g_db', space: 'admin', items: [['backup', 'Backups & data'], ['cs_import', 'Import data'], ['cs_euloc', 'EU data location']] },
+  { id: 'sandbox', name: 'Sandbox', sec: 'platform', icon: 'g_box', space: 'admin', items: [['cs_sandbox', 'Test copy']] },
+  { id: 'features', name: 'Features', sec: 'platform', icon: 'g_flag', space: 'admin', items: [['cs_beta', 'Beta features']] }
 ];
+// the "coming soon" pages of the Admin panel: the name and one sentence on what the page will do (admins only)
+const SOON = {
+  cs_brand: 'Your logo, colours and own web address on Q-smart.', cs_region: 'Time zone, date and number formats and currency for the company.',
+  cs_plan: 'Your plan and the number of seats you pay for.', cs_usage: 'How much AI and storage the company uses this month.',
+  cs_invoices: 'All invoices, to download.', cs_payment: 'The card or bank account that pays the subscription.',
+  cs_vat: 'The company\'s EU VAT number, and reverse charge for business customers in other EU countries.',
+  cs_contact: 'Write to Q-smart support and follow your requests.', cs_ideas: 'Ask for a new feature and vote for the ideas of others.',
+  cs_status: 'Whether Q-smart works normally, and the service levels we promise.', cs_release: 'What is new in each version of Q-smart.',
+  cs_sso: 'Sign in with the company account (Microsoft, Google or SAML).', cs_scim: 'People added or removed in the company directory are added or removed here too.',
+  cs_pwrules: 'Password length, two-step sign-in for everybody, and the time before people are signed out.', cs_ip: 'Only allow sign-ins from the company\'s own networks.',
+  cs_maildom: 'Emails sent from the company\'s own address, with the checks that stop them going to spam.', cs_announce: 'A message shown to everybody when they sign in.',
+  cs_aiprov: 'Which AI company and model Q-smart uses. Today this is set in Integrations.', cs_ailimit: 'How much AI each team may use each month.',
+  cs_aionoff: 'Switch the AI off for a team or a country.', cs_aiinstr: 'Rules and instructions the AI follows in its answers.',
+  cs_ropa: 'The list of what personal data Q-smart uses and why (GDPR article 30).', cs_subproc: 'The other companies that process data for Q-smart.',
+  cs_dpa: 'The signed data processing agreement between your company and Q-smart.', cs_consent: 'The notices that tell customers their call is recorded, per country.',
+  cs_aireg: 'Where the AI is used in Q-smart and for what (EU AI Act).', cs_aihuman: 'Which AI scores a person must check before they count.',
+  cs_ainotice: 'Telling agents and customers when the AI scored or answered them.', cs_seclog: 'Sign-ins, failed attempts and downloads of data.',
+  cs_breach: 'Record a data breach and report it within 72 hours.', cs_apikeys: 'Keys that let other programs use Q-smart.',
+  cs_a11y: 'How Q-smart can be used by everybody (European Accessibility Act).', cs_webhooks: 'Send events from Q-smart to other programs.',
+  cs_api: 'Documentation for developers who connect to Q-smart.', cs_mcp: 'Let AI assistants read Q-smart data safely.',
+  cs_import: 'Bring in users, teams and reviews from a file or another tool.', cs_euloc: 'Keep all the company\'s data in the European Union.',
+  cs_sandbox: 'A test copy of the company\'s data to try changes safely.', cs_beta: 'Switch new features on or off before everybody gets them.'
+};
 const RR = { org: ['admin'], privacy: ['admin'], signin: ['admin'], words: ['admin'], qask: STAFFR, qagents: STAFFR, qins: STAFFR, qknow: STAFFR, simsc: ['admin', 'trainer'], entry: ['admin', 'qa'], flags: STAFFR, team: STAFFR, cats: STAFFR, coach: STAFFR, cal: STAFFR, sco: STAFFR, scat: ['admin', 'qa'], roots: ['admin', 'qa'], aqcats: ['admin', 'qa'], users: ['admin'], teams: ['admin'], wsp: ['admin'], skills: ['admin'], audit: ['admin'], wcal: ['admin'], shifts: ['admin'], ltypes: ['admin'], attrules: ['admin'], today: STAFFR };
 Object.assign(RR, { sysset: ['admin'], rbuild: STAFFR, rsaved: STAFFR, rexp: STAFFR, planner: ['admin', 'qa', 'lead'], workload: ['admin', 'qa', 'lead'], compliance: STAFFR, risks: STAFFR, complaints: STAFFR, csat: STAFFR, perms: ['admin'], integ: ['admin'], notifs: ['admin'], backup: ['admin'], mailtpl: ['admin'] });
 // an admin can change who sees which page (Admin > Roles & permissions); admins always keep the Admin pages
+Object.keys(SOON).forEach(k => { RR[k] = ['admin']; });
 const ADMINP = ['users', 'teams', 'wsp', 'skills', 'perms', 'integ', 'notifs', 'backup', 'mailtpl', 'audit', 'wcal', 'shifts', 'ltypes', 'attrules'];
 const own = (o, k) => o && Object.hasOwn(o, k) ? o[k] : undefined;   // only the object's own entries (a link such as #constructor is not a page)
 const canRoute = k => { if (ME.role === 'admin' && ADMINP.includes(k)) return true; const p = own(SET.perm, k) || own(RR, k); return !Array.isArray(p) || p.includes(ME.role); };

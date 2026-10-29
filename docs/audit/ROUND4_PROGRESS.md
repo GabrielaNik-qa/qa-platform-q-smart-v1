@@ -113,6 +113,16 @@ If this session stops, the next one continues from this file.
 | Translations | 16 new Bulgarian and French texts |
 | Tests | `npm.cmd test` 226 passed; `npm.cmd run test:e2e` 16 passed (the menu test checks the new layout); lint 0 problems |
 
+## The Admin panel in five sections (29 October, Gabriela's yes)
+
+| What | Result |
+|---|---|
+| Sections | ACCOUNT, PEOPLE, SETUP, GOVERNANCE, PLATFORM: one-word headings, at most five icons each, folded at every sign-in (like the main menu) |
+| Moved | Workforce (Team today, Attendance, Time off, Shifts and rota, Capacity planning) to PEOPLE; Workforce set-up to SETUP; Compliance & CX to GOVERNANCE. APPS keeps Q-Intelligence, AI Simulator and Learning |
+| Coming soon | 38 planned pages (billing, support, single sign-on, GDPR registers, EU AI Act, security, accessibility, sandbox…): greyed in the menu, a page that says "Coming soon", admins only, not listed in Roles & permissions |
+| Unchanged | Every existing page keeps its address and its permissions; agents still reach Attendance and Time off (Settings › PEOPLE › Workforce) |
+| Tests | `npm.cmd test` 226 passed; `npm.cmd run test:e2e` 16 passed; lint 0 problems |
+
 ## Next steps for a new session
 
 - Read this file, then `docs/audit/DECISIONS_FOR_YOU.md` (section V) for the questions waiting for Gabriela.

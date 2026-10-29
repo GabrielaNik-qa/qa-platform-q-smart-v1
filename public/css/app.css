@@ -940,8 +940,11 @@ button.fchip { border: 0; font: inherit; font-size: 13px; padding: 7px 12px } bu
 .appi { width: 38px; height: 38px; border-radius: 10px; border: 0; background: none; color: rgba(255,255,255,.75); display: grid; place-items: center; cursor: pointer } .appi:hover { background: rgba(255,255,255,.08) }
 .appi.sp-ai { color: var(--yellow) } .appi.sp-qi { color: var(--coral) }
 /* OPERATIONS and MANAGE: the main menu's two section headings (the same as APPS); the AI Hub icon is always orange (Gabriela, 29 October) */
-.sech.sec-ops { border-top: 0; margin-top: 2px; padding-top: 4px } .appi.on { background: rgba(255,255,255,.12); color: #fff }
+.sech.first { border-top: 0; margin-top: 2px; padding-top: 4px } .appi.on { background: rgba(255,255,255,.12); color: #fff }
 .grp.g-aihub .gh i, .appi.g-aihub, .appi.g-aihub.on { color: var(--orange) }
+/* coming-soon pages of the Admin panel: greyed in the list, and the icon greyed when the whole group is still to come */
+.sub a.soon, .fly a.soon { opacity: .45 } .sub a.soon small, .fly a.soon small { font-size: 10px; margin-left: 6px; text-transform: uppercase; letter-spacing: .06em }
+.grp.soon .gh, .appi.soon { opacity: .4 }
 .grp.spb .gh { color: rgba(255,255,255,.78) } .grp.spb .gh i { background: rgba(255,255,255,.07) }
 
 .sb.co .spt { display: none } .sb.co .spsep { margin: 8px 10px }

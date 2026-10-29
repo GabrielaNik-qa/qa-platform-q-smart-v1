@@ -5,7 +5,8 @@ async function setX(key, value, msg) { const r = await api('/api/settings/x/' + 
 // ---- who can open which page (the server still checks every action, this decides what people see in the menu)
 let PERMD = null;
 PG.perms = function () {
-  const pages = GROUPS.filter(g => g.id !== 'myacc').flatMap(g => g.items.map(([k, n]) => ({ k, n, g: g.name }))), cur = PERMD || JSON.parse(JSON.stringify(SET.perm || {}));
+  // the coming-soon pages (SOON) are not real pages yet: they stay for admins only and are not listed here
+  const pages = GROUPS.filter(g => g.id !== 'myacc').flatMap(g => g.items.filter(([k]) => !Object.hasOwn(SOON, k)).map(([k, n]) => ({ k, n, g: g.name }))), cur = PERMD || JSON.parse(JSON.stringify(SET.perm || {}));
   const has = (k, r) => (cur[k] || RR[k] || ROLES5).includes(r), lock = k => ADMINP.includes(k);
   return head('Roles & permissions', 'Which roles see which pages in the menu. Admins always keep the Admin pages.', `<div style="display:flex;gap:8px">${bellBtn()}${PERMD ? `<button class=ib onclick="PERMD=null;render()">Cancel</button><button class=btn onclick="setX('perm',PERMD,'Permissions saved');PERMD=null">Save</button>` : ''}<button class=ib onclick="ask('Back to the default permissions?','Every page goes back to the roles it had when the app was installed.',()=>setX('perm',{},'Default permissions restored'))">Reset to default</button></div>`)
     + card('', `<div class=sc><table class=ct><tr><th>Page</th><th>Menu group</th>${ROLES5.map(r => `<th style="text-align:center">${ROLE[r]}</th>`).join('')}</tr>${pages.map(p => `<tr><td><b>${esc(p.n)}</b></td><td><small>${esc(p.g)}</small></td>${ROLES5.map(r => `<td style="text-align:center"><input type=checkbox ${has(p.k, r) ? 'checked' : ''} ${lock(p.k) && r === 'admin' ? 'disabled' : ''} onchange="permTog('${p.k}','${r}',this.checked)"></td>`).join('')}</tr>`).join('')}</table></div><p class=mu style="font-size:13px;margin:10px 0 0">Unticking only hides the page. Actions are still protected on the server, so an agent can never change a review even if a page is visible.</p>`);
@@ -100,3 +101,8 @@ PG.mailtpl = function () {
     + Object.entries(MAILT).map(([k, [n, s, b, vars]]) => card(n, `<div class=form style="max-width:none"><label>Subject<input id=mt_s_${k} value="${esc((v[k] || {}).subject || '')}" placeholder="${esc(s)}"></label><label>Text<textarea id=mt_b_${k} rows=6 placeholder="${esc(b)}">${esc((v[k] || {}).body || '')}</textarea><small class=mu>You can use: ${esc(vars)}</small></label></div>`)).join('')
     + `<button class=btn onclick="setX('mailtpl',Object.fromEntries(Object.keys(MAILT).map(k=>[k,{subject:$('#mt_s_'+k).value.trim(),body:$('#mt_b_'+k).value.trim()}])),'Templates saved')">Save templates</button>`;
 };
+
+// ---------- the "coming soon" pages of the Admin panel (SOON in pages.js): the name, what the page will do, and nothing else yet
+const soonName = k => (GROUPS.flatMap(g => g.items).find(([x]) => x === k) || [k, k])[1];
+for (const k of Object.keys(SOON)) PG[k] = () => head(soonName(k), SOON[k])
+  + card('', `<p style="margin:0 0 8px">${pill('Coming soon', 'wn')}</p><p class=mu style="margin:0">${tr('This page is planned but not built yet. Nothing on it changes your data.')}</p>${k === 'cs_aiprov' ? `<p style="margin:10px 0 0"><a href="#integ">${tr('Open Integrations')} ›</a></p>` : ''}`);

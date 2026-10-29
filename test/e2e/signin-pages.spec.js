@@ -40,11 +40,11 @@ for (const [role, who] of Object.entries(PEOPLE)) {
 test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wheel with My account, System settings for admins only', async ({ browser }) => {
   const a = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 800 } });
   // after signing in OPERATIONS, MANAGE and APPS are three rows of icons (29 October); a click on each heading opens it
-  expect(await a.page.locator('.appsr').evaluateAll(l => l.map(r => r.children.length))).toEqual([5, 5, 5]);
+  expect(await a.page.locator('.appsr').evaluateAll(l => l.map(r => r.children.length))).toEqual([5, 5, 3]);   // APPS: Workforce and Compliance & CX moved to the Admin panel
   await expect(a.page.locator('.appsr .appi.g-aihub')).toHaveCSS('color', 'rgb(255, 107, 0)');
   for (const h of ['.sech.sec-ops', '.sech.sec-manage', '.apph:not(.sech)']) await a.page.locator(h).click();
   await expect(a.page.locator('.appsr')).toHaveCount(0);
-  expect(await a.page.locator('#n .gh span').allInnerTexts()).toEqual(['Home', 'Quality', 'Analytics', 'Performance', 'Coaching', 'AI Hub', 'Help Center', 'Planning', 'Reports', 'Activity Log', 'Q-Intelligence', 'AI Simulator', 'Learning', 'Workforce', 'Compliance & CX']);
+  expect(await a.page.locator('#n .gh span').allInnerTexts()).toEqual(['Home', 'Quality', 'Analytics', 'Performance', 'Coaching', 'AI Hub', 'Help Center', 'Planning', 'Reports', 'Activity Log', 'Q-Intelligence', 'AI Simulator', 'Learning']);
   await expect(a.page.locator('.grp.sp-ai .gh i')).toHaveCSS('color', 'rgb(255, 212, 71)');
   await expect(a.page.locator('.grp.sp-qi .gh i')).toHaveCSS('color', 'rgb(255, 111, 145)');
   // after signing in every group is folded; a click anywhere on a row (name or icon) unfolds it, a second click folds it (29 October)
@@ -68,12 +68,12 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   // APPS: the panels end with ↗; the heading folds them into one row of icons (remembered); the icons-only menu keeps the line
   expect(await a.page.locator('.spc .gh em').first().innerText()).toBe('↗');
   await a.page.locator('.apph:not(.sech)').click();
-  expect(await a.page.locator('.appsr .appi').evaluateAll(l => l.map(b => b.title))).toEqual(['Q-Intelligence', 'AI Simulator', 'Learning', 'Workforce', 'Compliance & CX']);
+  expect(await a.page.locator('.appsr .appi').evaluateAll(l => l.map(b => b.title))).toEqual(['Q-Intelligence', 'AI Simulator', 'Learning']);
   expect(await a.page.locator('.spc').count()).toBe(0);
   await a.page.reload(); await a.page.waitForFunction(() => typeof ME !== 'undefined' && ME); await closeWelcome(a.page);
-  await expect(a.page.locator('.appsr .appi'), 'folded is remembered').toHaveCount(5);
+  await expect(a.page.locator('.appsr .appi'), 'folded is remembered').toHaveCount(3);
   await a.page.evaluate(() => { if (!COL) toggleSb(); });
-  expect([await a.page.locator('.apph').count(), await a.page.locator('#n .spsep').count(), await a.page.locator('.spc').count()]).toEqual([0, 2, 5]);   // icons-only: a line between OPERATIONS and MANAGE, and the APPS line
+  expect([await a.page.locator('.apph').count(), await a.page.locator('#n .spsep').count(), await a.page.locator('.spc').count()]).toEqual([0, 2, 3]);   // icons-only: a line between OPERATIONS and MANAGE, and the APPS line
   await a.page.evaluate(() => { toggleSb(); appsTog({ stopPropagation() {} }); });
   // the icons-only menu: the logo, every icon, the theme button and the photo on one centre line
   await a.page.evaluate(() => { if (!COL) toggleSb(); });
@@ -83,8 +83,16 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   await a.page.evaluate(() => toggleSb());
   await a.page.locator('.usr button[title="Admin"]').click();
   await expect(a.page.locator('#n .spt')).toHaveText('Admin');
-  expect((await a.page.locator('#n .gh span').allInnerTexts()).slice(1, 3)).toEqual(['My account', 'People']);
-  await expect(a.page.locator('#n .grp.open'), 'the panel\'s sections start folded too').toHaveCount(0);
+  // the Admin panel (29 October): five one-word sections of at most five icons, folded; the coming-soon groups greyed
+  expect(await a.page.locator('#n .sech span').allInnerTexts()).toEqual(['ACCOUNT', 'PEOPLE', 'SETUP', 'GOVERNANCE', 'PLATFORM']);
+  expect(await a.page.locator('#n .appsr').evaluateAll(l => l.map(r => r.children.length))).toEqual([4, 4, 4, 5, 4]);
+  expect(await a.page.locator('#n .appi.soon').evaluateAll(l => l.map(b => b.title))).toEqual(['Billing', 'Support', 'AI', 'AI Act', 'Security', 'Accessibility', 'Sandbox', 'Features']);
+  await a.page.locator('.sech.sec-account').click();
+  expect((await a.page.locator('#n .gh span').allInnerTexts()).slice(1)).toEqual(['My account', 'Company', 'Billing', 'Support']);
+  await expect(a.page.locator('#n .grp.open'), 'the panel\'s groups start folded too').toHaveCount(0);
+  await a.page.locator('.sech.sec-account').click();
+  await go(a.page, 'cs_vat'); await expect(a.page.locator('#m h1')).toHaveText(/EU VAT/i); await expect(a.page.locator('#m')).toContainText('Coming soon');
+  await go(a.page, 'att'); await expect(a.page.locator('#n .spt'), 'Workforce pages open in the Admin panel').toHaveText('Admin');
   await go(a.page, 'sysset'); await expect(a.page.locator('#m h1')).toHaveText(/System settings/i);
   await a.page.evaluate(() => openAcct('password')); await a.page.getByRole('button', { name: /Go to settings/ }).click();
   await expect.poll(() => a.page.evaluate(() => location.hash)).toBe('#acpw');
@@ -94,7 +102,8 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   await expect(g.page.locator('#n .g-help')).toHaveCount(1); await expect(g.page.locator('#n .g-aihub')).toHaveCount(1); await expect(g.page.locator('#n .g-activity')).toHaveCount(0);
   await expect(g.page.locator('.un b')).toHaveText('A.C1');                                      // "Agent C1": the initial and the last name
   await g.page.locator('.usr button[title="Settings"]').click();
-  expect(await g.page.locator('#n .gh span').allInnerTexts()).toEqual(['Back to the main menu', 'My account']);
+  expect(await g.page.locator('#n .sech span').allInnerTexts(), 'an agent: My account, and Workforce (attendance, time off)').toEqual(['ACCOUNT', 'PEOPLE']);
+  await expect(g.page.locator('#n .appi.soon'), 'no coming-soon page for agents').toHaveCount(0);
   await g.page.evaluate(() => { location.hash = '#sysset'; }); await expect.poll(() => g.page.evaluate(() => route)).not.toBe('sysset');
   expect(g.errors).toEqual([]); await g.ctx.close();
 });
