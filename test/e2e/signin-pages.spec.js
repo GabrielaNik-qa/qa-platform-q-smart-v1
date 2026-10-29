@@ -39,6 +39,11 @@ for (const [role, who] of Object.entries(PEOPLE)) {
 // My account on top, System settings under Quality set-up for admins only, and the name written as G.Georgieva
 test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wheel with My account, System settings for admins only', async ({ browser }) => {
   const a = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 800 } });
+  // after signing in OPERATIONS, MANAGE and APPS are three rows of icons (29 October); a click on each heading opens it
+  expect(await a.page.locator('.appsr').evaluateAll(l => l.map(r => r.children.length))).toEqual([5, 5, 5]);
+  await expect(a.page.locator('.appsr .appi.g-aihub')).toHaveCSS('color', 'rgb(255, 107, 0)');
+  for (const h of ['.sech.sec-ops', '.sech.sec-manage', '.apph:not(.sech)']) await a.page.locator(h).click();
+  await expect(a.page.locator('.appsr')).toHaveCount(0);
   expect(await a.page.locator('#n .gh span').allInnerTexts()).toEqual(['Home', 'Quality', 'Analytics', 'Performance', 'Coaching', 'AI Hub', 'Help Center', 'Planning', 'Reports', 'Activity Log', 'Q-Intelligence', 'AI Simulator', 'Learning', 'Workforce', 'Compliance & CX']);
   await expect(a.page.locator('.grp.sp-ai .gh i')).toHaveCSS('color', 'rgb(255, 212, 71)');
   await expect(a.page.locator('.grp.sp-qi .gh i')).toHaveCSS('color', 'rgb(255, 111, 145)');
@@ -86,7 +91,7 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   expect(a.errors).toEqual([]); await a.ctx.close();
   const g = await personPage(browser, 'f.c1', { viewport: { width: 1366, height: 800 } });
   expect(await g.page.locator('#n .gh span').allInnerTexts()).not.toContain('Activity Log');
-  await expect(g.page.locator('#n .grp.g-help')).toHaveCount(1); await expect(g.page.locator('#n .grp.g-aihub')).toHaveCount(1);
+  await expect(g.page.locator('#n .g-help')).toHaveCount(1); await expect(g.page.locator('#n .g-aihub')).toHaveCount(1); await expect(g.page.locator('#n .g-activity')).toHaveCount(0);
   await expect(g.page.locator('.un b')).toHaveText('A.C1');                                      // "Agent C1": the initial and the last name
   await g.page.locator('.usr button[title="Settings"]').click();
   expect(await g.page.locator('#n .gh span').allInnerTexts()).toEqual(['Back to the main menu', 'My account']);
@@ -136,7 +141,7 @@ test('the language: chosen on the sign-in screen, saved with the account, the sa
   const { page, ctx, errors } = await personPage(browser, null, { lang: 'Български' });
   await signIn(page, 'f.c1');
   await expect(page.locator('body')).toContainText('Табло за качество');          // "Quality Dashboard"
-  await expect(page.locator('body')).toContainText('Начало');                     // "Home" in the menu
+  await expect(page.locator('body')).toContainText('Операции');                   // "Operations" in the menu (folded at sign-in)
   expect(await page.evaluate(() => I18N.lang)).toBe('bg');
   expect((await api(page, '/api/me')).json.prefs.lang).toBe('bg');
   await page.evaluate(() => out()); await expect(page.locator('#lu')).toBeVisible();

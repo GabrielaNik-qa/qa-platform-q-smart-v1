@@ -23,7 +23,7 @@ async function login() {
   qlShow('beat', 'Q');                                          // the heartbeat plays until the first page is ready (boot hides it)
   const r = await api('/api/login', { username: $('#lu').value, password: $('#lp').value });
   if (!r.ok) qlHide();
-  if (r.ok) { MSG = ''; LU = ''; OG = ''; SPO = []; welAgain((await r.json()).username); await boot(); if (ME && location.hash !== '#dash') { OGKEEP = true; location.hash = 'dash'; } } else lerr('#lge', await errOf(r, 'Could not sign in'));   // a new sign-in may show the welcome again
+  if (r.ok) { MSG = ''; LU = ''; OG = ''; SPO = []; foldAll(); welAgain((await r.json()).username); await boot(); if (ME && location.hash !== '#dash') { OGKEEP = true; location.hash = 'dash'; } } else lerr('#lge', await errOf(r, 'Could not sign in'));   // a new sign-in may show the welcome again
 }
 // username = first letter of the first name + "." + last name (the server makes the same one, this is just the preview)
 const plainName = t => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -65,11 +65,13 @@ const spaceOf = r => (GROUPS.find(g => g.items.some(([k]) => k === r)) || {}).sp
 const curSpace = () => SPV || spaceOf(route);
 const spName = s => ({ learn: 'Learning', ai: 'AI Simulator', qi: 'Q-Intelligence', wf: 'Workforce', cx: 'Compliance & CX' })[s] || (ME.role === 'admin' ? 'Admin' : 'Settings');
 // APPS folded (one row of icons) or open (one row per panel), remembered on this computer
-let APPSF = LS.get('qa_apps', false);
+let APPSF = LS.get('qa_apps', true);
 function appsTog(ev) { ev.stopPropagation(); APPSF = !APPSF; LS.set('qa_apps', APPSF); render(); }
 // the main menu's two sections, OPERATIONS and MANAGE: folded or open the same way as APPS, each remembered on this computer
 const SECS = [['ops', 'Operations'], ['manage', 'Manage']];
-const SECF = { ops: LS.get('qa_sec_ops', false), manage: LS.get('qa_sec_manage', false) };
+const SECF = { ops: LS.get('qa_sec_ops', true), manage: LS.get('qa_sec_manage', true) };
+// at every sign-in OPERATIONS, MANAGE and APPS start folded: three rows of icons (Gabriela, 29 October)
+const foldAll = () => { APPSF = true; LS.set('qa_apps', true); for (const k in SECF) { SECF[k] = true; LS.set('qa_sec_' + k, true); } };
 function secTog(k, ev) { ev.stopPropagation(); SECF[k] = !SECF[k]; LS.set('qa_sec_' + k, SECF[k]); render(); }
 // the name under the photo: G.Georgieva (the initial of the first name and the last name), the whole name when one is missing
 const shortName = u => u.firstName && u.lastName ? u.firstName.trim()[0] + '.' + u.lastName.trim() : u.name;
