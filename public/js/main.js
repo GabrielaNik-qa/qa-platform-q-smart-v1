@@ -96,7 +96,10 @@ function gGo(id, ev) {
   const y = (ev.currentTarget.closest('.gh') || ev.currentTarget).getBoundingClientRect().top, first = g.items[0][0];
   if (g.items.length === 1 || ev.currentTarget.classList.contains('appi')) { FLY = null; if (route !== first) location.hash = first; else render(); return; }   // AI Hub, Help Center, Activity Log (one page), and an icon of a folded section: the page opens straight away
   if (COL) { if (route === first) { FLY = id; FLYY = y; render(); } else { PENDFLY = { id, y }; location.hash = first; } return; }
-  tgG(id, ev);   // the full menu: the whole row (icon, name or arrow) folds and unfolds; the pages open from the list (Gabriela, 29 October)
+  // the full menu (Gabriela, 29 October): a click on the row (icon, name or beside them) opens the group and its first page, folded or open;
+  // a second click on the group already shown folds it; the small arrow only folds and unfolds
+  if (gOpen(g) && groupOf(route) === id) return tgG(id, ev);
+  if (route !== first) location.hash = first; else { if (g.space) { if (!SPO.includes(id)) SPO = [...SPO, id]; } else OG = id; render(); }
 }
 function tgG(id, ev) { if (COL) { const first = groupsFor().find(g => g.id === id).items[0][0]; FLY = id; FLYY = ev.currentTarget.getBoundingClientRect().top; if (first !== route) { location.hash = first; return; } } else if ((GROUPS.find(g => g.id === id) || {}).space) { SPO = SPO.includes(id) ? SPO.filter(x => x !== id) : [...SPO, id]; } else OG = (gOpen({ id }) ? '' : id); render(); }
 // a coming-soon page (SOON) is greyed with a small Soon; a group with only such pages has a greyed icon
@@ -122,7 +125,7 @@ function sbKey(e) { const n = sbRes().length;
 const NAVH = () => { const sp = curSpace(), all = groupsFor();
   const row = g => { const act = groupOf(route) === g.id, one = g.items.length === 1, open = !one && gOpen(g), sys = '', soon = isSoonG(g);   // System settings is a page of Quality set-up now
   // the icon AND the name open the group's first page; only the small arrow opens or closes the list without leaving the page
-  return `<div class="grp g-${g.id} ${soon ? 'soon' : ''} ${open ? 'open' : ''} ${act ? 'act' : ''}" onmouseenter="flyHover('${g.id}',this)" onmouseleave="flyLeave()"><button class=gh onclick="gGo('${g.id}',event)" title="${COL || one ? 'Open ' + g.items[0][1] : 'Show / hide'}"><i>${IC[g.icon]}</i><span>${g.name}</span>${one ? '' : `<em onclick="event.stopPropagation();tgG('${g.id}',event)" title="Show / hide">›</em>`}</button>${open ? `<div class=sub>${g.items.map(subA).join('')}${sys}</div>` : ''}${COL && !one && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(subA).join('')}${sys}</div>` : ''}</div>`; };
+  return `<div class="grp g-${g.id} ${soon ? 'soon' : ''} ${open ? 'open' : ''} ${act ? 'act' : ''}" onmouseenter="flyHover('${g.id}',this)" onmouseleave="flyLeave()"><button class=gh onclick="gGo('${g.id}',event)" title="${'Open ' + g.items[0][1]}"><i>${IC[g.icon]}</i><span>${g.name}</span>${one ? '' : `<em onclick="event.stopPropagation();tgG('${g.id}',event)" title="Show / hide">›</em>`}</button>${open ? `<div class=sub>${g.items.map(subA).join('')}${sys}</div>` : ''}${COL && !one && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(subA).join('')}${sys}</div>` : ''}</div>`; };
   const mine = all.filter(g => (g.space || 'main') === sp);
   // the section headings (folded: one row of icons that open the first page); the icons-only menu has a line between the sections
   const secs = (SECS[sp] || []).map(([k, n]) => [k, n, mine.filter(g => g.sec === k)]).filter(x => x[2].length);

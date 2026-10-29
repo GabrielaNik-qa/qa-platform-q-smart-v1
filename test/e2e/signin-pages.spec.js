@@ -47,12 +47,17 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   expect(await a.page.locator('#n .gh span').allInnerTexts()).toEqual(['Home', 'Quality', 'Analytics', 'Performance', 'Coaching', 'AI Hub', 'Help Center', 'Planning', 'Reports', 'Activity Log', 'Q-Intelligence', 'AI Simulator', 'Learning', 'AI agents', 'Transcripts']);
   await expect(a.page.locator('.grp.sp-ai .gh i')).toHaveCSS('color', 'rgb(255, 212, 71)');
   await expect(a.page.locator('.grp.sp-qi .gh i')).toHaveCSS('color', 'rgb(255, 111, 145)');
-  // after signing in every group is folded; a click anywhere on a row (name or icon) unfolds it, a second click folds it (29 October)
+  // after signing in every group is folded; a click anywhere on a row (name or icon) unfolds it and opens its first page, a second click folds it (29 October)
   await expect(a.page.locator('#n .grp.open')).toHaveCount(0);
   const quality = a.page.locator('#n .grp.g-quality .gh');
   await quality.locator('span').click(); await expect(a.page.locator('#n .grp.g-quality')).toHaveClass(/open/);
-  expect(await a.page.evaluate(() => location.hash), 'the page stays where it was').toBe('#dash');
+  await expect.poll(() => a.page.evaluate(() => location.hash), 'the click also opens the first page').toBe('#calls');
   await quality.locator('i').click(); await expect(a.page.locator('#n .grp.open')).toHaveCount(0);
+  await a.page.locator('#n .grp.g-analytics .gh em').click(); await expect(a.page.locator('#n .grp.g-analytics')).toHaveClass(/open/);   // the arrow only unfolds
+  expect(await a.page.evaluate(() => location.hash)).toBe('#calls');
+  await a.page.locator('#n .grp.g-analytics .gh span').click(); await expect.poll(() => a.page.evaluate(() => location.hash), 'an open group opens its first page too').toBe('#agents');
+  await a.page.locator('#n .grp.g-analytics .gh span').click(); await expect(a.page.locator('#n .grp.open')).toHaveCount(0);
+  await go(a.page, 'dash');
   // OPERATIONS and MANAGE (29 October): two headings like APPS; AI Hub always orange; AI Hub, Help Center and Activity Log have sub-menus
   expect(await a.page.locator('.sech span').allInnerTexts()).toEqual(['OPERATIONS', 'MANAGE']);   // written in capitals on screen
   await expect(a.page.locator('.grp.g-aihub .gh i')).toHaveCSS('color', 'rgb(255, 107, 0)');
