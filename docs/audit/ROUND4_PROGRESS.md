@@ -111,13 +111,7 @@ If this session stops, the next one continues from this file.
 | Activity Log | The Audit log page under its new name, with the real records from the server; admins only, as before; it left Admin › System |
 | Icons-only menu | A line between OPERATIONS and MANAGE, and the APPS line |
 | Translations | 16 new Bulgarian and French texts |
-| Tests | Unknown command: "test"
-
-
-Did you mean this?
-  npm test # Test a package
-To see a list of supported npm commands, run:
-  npm help 226 passed;  16 passed (the menu test checks the new layout); lint 0 problems |
+| Tests | `npm.cmd test` 226 passed; `npm.cmd run test:e2e` 16 passed (the menu test checks the new layout); lint 0 problems |
 
 ## Next steps for a new session
 
