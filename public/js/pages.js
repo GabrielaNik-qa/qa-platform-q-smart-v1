@@ -8,21 +8,23 @@ const isStaffR = () => ME && STAFFR.includes(ME.role);
 // The menu has panels (space): the main menu for the everyday quality work, and the Workforce, Compliance & CX, Learning and Admin
 // panels that open from the bottom of it ("Workforce ›" …) and have "← Back to the main menu" at the top (main.js)
 const GROUPS = [
-  // the main menu in two sections, OPERATIONS and MANAGE, that fold like APPS (Gabriela, 29 October)
-  { id: 'home', name: 'Home', sec: 'ops', icon: 'g_home', items: [['dash', 'Dashboard'], ['autoqa', 'AutoQA'], ['tasks', 'Tasks'], ['pers', 'Personalize']] },
-  { id: 'quality', name: 'Quality', sec: 'ops', icon: 'g_quality', items: [['calls', 'Reviews'], ['entry', 'QA Entry'], ['flags', 'Quick Flags'], ['disputes', 'Disputes']] },
-  { id: 'analytics', name: 'Analytics', sec: 'ops', icon: 'g_analytics', items: [['agents', 'Agents'], ['team', 'Team Review'], ['cats', 'Category Stats']] },
+  // the main menu in two sections, OPERATIONS and MANAGE, that fold like APPS; AI Hub, Help Center and Activity Log with sub-menus (Gabriela, 29 October)
+  { id: 'home', name: 'Home', sec: 'ops', icon: 'g_home', items: [['dash', 'Dashboard'], ['autoqa', 'AutoQA'], ['tasks', 'Tasks'], ['pers', 'Personalize'], ['cs_start', 'Getting started']] },
+  { id: 'quality', name: 'Quality', sec: 'ops', icon: 'g_quality', items: [['calls', 'Reviews'], ['entry', 'QA Entry'], ['flags', 'Quick Flags'], ['disputes', 'Disputes'], ['cs_revqa', 'Reviewer QA']] },
+  { id: 'analytics', name: 'Analytics', sec: 'ops', icon: 'g_analytics', items: [['agents', 'Agents'], ['team', 'Team Review'], ['cats', 'Category Stats'], ['cs_dashes', 'Topic dashboards']] },
   { id: 'performance', name: 'Performance', sec: 'ops', icon: 'g_perf', items: [['goals', 'Goals & KPIs'], ['pips', 'Improvement plans'], ['kudos', 'Recognition']] },
-  { id: 'coaching', name: 'Coaching', sec: 'ops', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration']] },
-  { id: 'aihub', name: 'AI Hub', sec: 'manage', icon: 'g_aihub', items: [['aihub', 'AI Hub']] },
-  { id: 'help', name: 'Help Center', sec: 'manage', icon: 'g_help', items: [['kb', 'Help Center']] },
+  { id: 'coaching', name: 'Coaching', sec: 'ops', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration'], ['cs_pins', 'Pins']] },
+  { id: 'aihub', name: 'AI Hub', sec: 'manage', icon: 'g_aihub', items: [['aihub', 'Overview'], ['cs_hubcheck', 'AI scores to check'], ['cs_hubuse', 'AI usage'], ['cs_hubprompts', 'Prompt library'], ['cs_hubfb', 'AI feedback']] },
+  { id: 'help', name: 'Help Center', sec: 'manage', icon: 'g_help', items: [['kb', 'Articles'], ['cs_faq', 'FAQ'], ['cs_videos', 'Video tutorials'], ['cs_tours', 'Guided tours'], ['cs_gloss', 'Glossary']] },
   { id: 'planning', name: 'Planning', sec: 'manage', icon: 'g_plan', items: [['planner', 'Review planner'], ['workload', 'QA workload'], ['calendar', 'Calendar']] },
   { id: 'reports', name: 'Reports', sec: 'manage', icon: 'g_reports', items: [['rbuild', 'Report builder'], ['rsaved', 'Saved & scheduled'], ['rexp', 'Export centre']] },
-  { id: 'activity', name: 'Activity Log', sec: 'manage', icon: 'g_activity', items: [['audit', 'Activity Log']] },
+  { id: 'activity', name: 'Activity Log', sec: 'manage', icon: 'g_activity', items: [['audit', 'All activity'], ['cs_myact', 'My activity'], ['cs_actsign', 'Sign-ins'], ['cs_actexp', 'Exports & downloads']] },
   { id: 'learning', name: 'Learning', icon: 'g_learning', space: 'learn', items: [['acad', 'My Learning'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },
-  { id: 'tools', name: 'Tools', icon: 'g_tools', space: 'learn', items: [['tr', 'Transcripts']] },
   { id: 'aisim', name: 'AI Simulator', icon: 'g_aisim', space: 'ai', items: [['sim', 'Practice a call'], ['simres', 'Results'], ['simsc', 'Scenarios']] },
-  { id: 'qintel', name: 'Q-Intelligence', icon: 'g_qi', space: 'qi', items: [['qask', 'Ask Q'], ['qagents', 'AI agents'], ['qins', 'AI insights'], ['qknow', 'Knowledge']] },
+  { id: 'qintel', name: 'Q-Intelligence', icon: 'g_qi', space: 'qi', items: [['qask', 'Ask Q'], ['qins', 'AI insights'], ['qknow', 'Knowledge']] },
+  // two more apps (Gabriela, 29 October): AI agents (the AI roles that do a job in the app; more comes later) and Transcripts (was Learning > Tools)
+  { id: 'aiagents', name: 'AI agents', icon: 'g_robot', space: 'aiag', items: [['qagents', 'AI agents']] },
+  { id: 'transcripts', name: 'Transcripts', icon: 'g_tr', space: 'tr', items: [['tr', 'Transcripts']] },
   // the Admin panel (Settings for the other roles) in five sections of at most five icons, one-word headings (Gabriela's yes, 29 October).
   // Workforce and Compliance & CX moved here from APPS; the pages starting with cs_ are "coming soon" (SOON below), shown greyed
   // ACCOUNT. My account: everybody's own settings, the same as the account pop-up; the settings wheel opens this panel
@@ -54,6 +56,14 @@ const GROUPS = [
 ];
 // the "coming soon" pages of the Admin panel: the name and one sentence on what the page will do (admins only)
 const SOON = {
+  cs_myact: 'What you received (reviews, comments, reactions, survey feedback), what you gave, and your disputes.', cs_start: 'A check-list to set up Q-smart: scorecard, users, connections and AutoQA.',
+  cs_revqa: 'Review the reviewers: check that reviews are fair and follow the scorecard.', cs_dashes: 'Dashboards for assignments, coaching, disputes, calibration, surveys and reviewer QA.',
+  cs_pins: 'Save a moment of a conversation to talk about it in a coaching session.',
+  cs_hubcheck: 'AI scores that a person should check before they count.', cs_hubuse: 'How much AI each team used, and for what.',
+  cs_hubprompts: 'Ready-made questions and instructions for the AI, shared with the team.', cs_hubfb: 'Thumbs up or down on AI answers, to make them better.',
+  cs_faq: 'Short answers to the questions people ask most.', cs_videos: 'Short videos that show how to use each part of Q-smart.',
+  cs_tours: 'Step-by-step tours inside the app, for new people.', cs_gloss: 'What the quality words used in Q-smart mean.',
+  cs_actsign: 'Who signed in, when and from where, and the failed attempts.', cs_actexp: 'Who downloaded or exported data, and when.',
   cs_brand: 'Your logo, colours and own web address on Q-smart.', cs_region: 'Time zone, date and number formats and currency for the company.',
   cs_plan: 'Your plan and the number of seats you pay for.', cs_usage: 'How much AI and storage the company uses this month.',
   cs_invoices: 'All invoices, to download.', cs_payment: 'The card or bank account that pays the subscription.',

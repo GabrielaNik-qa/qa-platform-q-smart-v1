@@ -40,11 +40,11 @@ for (const [role, who] of Object.entries(PEOPLE)) {
 test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wheel with My account, System settings for admins only', async ({ browser }) => {
   const a = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 800 } });
   // after signing in OPERATIONS, MANAGE and APPS are three rows of icons (29 October); a click on each heading opens it
-  expect(await a.page.locator('.appsr').evaluateAll(l => l.map(r => r.children.length))).toEqual([5, 5, 3]);   // APPS: Workforce and Compliance & CX moved to the Admin panel
+  expect(await a.page.locator('.appsr').evaluateAll(l => l.map(r => r.children.length))).toEqual([5, 5, 5]);   // APPS: Q-Intelligence, AI Simulator, Learning, AI agents, Transcripts
   await expect(a.page.locator('.appsr .appi.g-aihub')).toHaveCSS('color', 'rgb(255, 107, 0)');
   for (const h of ['.sech.sec-ops', '.sech.sec-manage', '.apph:not(.sech)']) await a.page.locator(h).click();
   await expect(a.page.locator('.appsr')).toHaveCount(0);
-  expect(await a.page.locator('#n .gh span').allInnerTexts()).toEqual(['Home', 'Quality', 'Analytics', 'Performance', 'Coaching', 'AI Hub', 'Help Center', 'Planning', 'Reports', 'Activity Log', 'Q-Intelligence', 'AI Simulator', 'Learning']);
+  expect(await a.page.locator('#n .gh span').allInnerTexts()).toEqual(['Home', 'Quality', 'Analytics', 'Performance', 'Coaching', 'AI Hub', 'Help Center', 'Planning', 'Reports', 'Activity Log', 'Q-Intelligence', 'AI Simulator', 'Learning', 'AI agents', 'Transcripts']);
   await expect(a.page.locator('.grp.sp-ai .gh i')).toHaveCSS('color', 'rgb(255, 212, 71)');
   await expect(a.page.locator('.grp.sp-qi .gh i')).toHaveCSS('color', 'rgb(255, 111, 145)');
   // after signing in every group is folded; a click anywhere on a row (name or icon) unfolds it, a second click folds it (29 October)
@@ -53,13 +53,14 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   await quality.locator('span').click(); await expect(a.page.locator('#n .grp.g-quality')).toHaveClass(/open/);
   expect(await a.page.evaluate(() => location.hash), 'the page stays where it was').toBe('#dash');
   await quality.locator('i').click(); await expect(a.page.locator('#n .grp.open')).toHaveCount(0);
-  // OPERATIONS and MANAGE (29 October): two headings like APPS; AI Hub always orange; a one-page entry opens its page straight away
+  // OPERATIONS and MANAGE (29 October): two headings like APPS; AI Hub always orange; AI Hub, Help Center and Activity Log have sub-menus
   expect(await a.page.locator('.sech span').allInnerTexts()).toEqual(['OPERATIONS', 'MANAGE']);   // written in capitals on screen
   await expect(a.page.locator('.grp.g-aihub .gh i')).toHaveCSS('color', 'rgb(255, 107, 0)');
-  await a.page.locator('#n .grp.g-activity .gh').click(); await expect.poll(() => a.page.evaluate(() => location.hash)).toBe('#audit');
-  await expect(a.page.locator('#m h1')).toHaveText(/Activity Log/);
-  await a.page.locator('#n .grp.g-help .gh').click(); await expect(a.page.locator('#m h1')).toHaveText(/Help Center/);
-  await a.page.locator('#n .grp.g-aihub .gh').click(); await expect(a.page.locator('#m h1')).toHaveText(/AI Hub/);
+  for (const [g, k, h] of [['activity', 'audit', /Activity Log/], ['help', 'kb', /Help Center/], ['aihub', 'aihub', /AI Hub/]]) {
+    await a.page.locator(`#n .grp.g-${g} .gh`).click(); await expect(a.page.locator(`#n .grp.g-${g}`)).toHaveClass(/open/);
+    await expect(a.page.locator(`#n .grp.g-${g} .sub a.soon`).first(), 'coming-soon sub-pages, greyed').toBeVisible();
+    await a.page.locator(`#n .grp.g-${g} .sub a[href="#${k}"]`).click(); await expect(a.page.locator('#m h1')).toHaveText(h);
+  }
   await a.page.locator('.sech.sec-manage').click();
   expect(await a.page.locator('.appsr .appi').evaluateAll(l => l.map(b => b.title))).toEqual(['AI Hub', 'Help Center', 'Planning', 'Reports', 'Activity Log']);
   await expect(a.page.locator('.appi.g-aihub')).toHaveCSS('color', 'rgb(255, 107, 0)');
@@ -68,12 +69,12 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   // APPS: the panels end with ↗; the heading folds them into one row of icons (remembered); the icons-only menu keeps the line
   expect(await a.page.locator('.spc .gh em').first().innerText()).toBe('↗');
   await a.page.locator('.apph:not(.sech)').click();
-  expect(await a.page.locator('.appsr .appi').evaluateAll(l => l.map(b => b.title))).toEqual(['Q-Intelligence', 'AI Simulator', 'Learning']);
+  expect(await a.page.locator('.appsr .appi').evaluateAll(l => l.map(b => b.title))).toEqual(['Q-Intelligence', 'AI Simulator', 'Learning', 'AI agents', 'Transcripts']);
   expect(await a.page.locator('.spc').count()).toBe(0);
   await a.page.reload(); await a.page.waitForFunction(() => typeof ME !== 'undefined' && ME); await closeWelcome(a.page);
-  await expect(a.page.locator('.appsr .appi'), 'folded is remembered').toHaveCount(3);
+  await expect(a.page.locator('.appsr .appi'), 'folded is remembered').toHaveCount(5);
   await a.page.evaluate(() => { if (!COL) toggleSb(); });
-  expect([await a.page.locator('.apph').count(), await a.page.locator('#n .spsep').count(), await a.page.locator('.spc').count()]).toEqual([0, 2, 3]);   // icons-only: a line between OPERATIONS and MANAGE, and the APPS line
+  expect([await a.page.locator('.apph').count(), await a.page.locator('#n .spsep').count(), await a.page.locator('.spc').count()]).toEqual([0, 2, 5]);   // icons-only: a line between OPERATIONS and MANAGE, and the APPS line
   await a.page.evaluate(() => { toggleSb(); appsTog({ stopPropagation() {} }); });
   // the icons-only menu: the logo, every icon, the theme button and the photo on one centre line
   await a.page.evaluate(() => { if (!COL) toggleSb(); });
@@ -81,8 +82,16 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
     return [...new Set([m(document.querySelector('#br svg')), ...[...document.querySelectorAll('#n .gh i')].map(m), m(document.querySelector('.thc1')), m(document.querySelector('.av2'))])]; });
   expect(centres.length, 'one centre line: ' + centres).toBe(1);
   await a.page.evaluate(() => toggleSb());
+  await a.page.locator('#n .grp.sp-tr .gh, #n .appi.sp-tr').click(); await expect.poll(() => a.page.evaluate(() => location.hash), 'Transcripts opens straight away').toBe('#tr');
+  // the search in the menu: typed into directly, the matches drop down under it, no pop-up (29 October)
+  await a.page.locator('#sbq').fill('trans'); await expect(a.page.locator('#sbl .palr').first()).toContainText('Transcripts');
+  await expect(a.page.locator('#palq'), 'no pop-up').toHaveCount(0); await a.page.locator('#sbq').press('Enter');
+  await expect.poll(() => a.page.evaluate(() => location.hash), '"trans" in the search finds Transcripts').toBe('#tr');
+  await go(a.page, 'dash');
   await a.page.locator('.usr button[title="Admin"]').click();
   await expect(a.page.locator('#n .spt')).toHaveText('Admin');
+  await a.page.locator('#br .brand').click(); await expect(a.page.locator('#n .sech.sec-ops'), 'the logo goes back to the main menu').toHaveCount(1);
+  await a.page.locator('.usr button[title="Admin"]').click(); await expect(a.page.locator('#n .spt')).toHaveText('Admin');
   // the Admin panel (29 October): five one-word sections of at most five icons, folded; the coming-soon groups greyed
   expect(await a.page.locator('#n .sech span').allInnerTexts()).toEqual(['ACCOUNT', 'PEOPLE', 'SETUP', 'GOVERNANCE', 'PLATFORM']);
   expect(await a.page.locator('#n .appsr').evaluateAll(l => l.map(r => r.children.length))).toEqual([4, 4, 4, 5, 4]);

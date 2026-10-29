@@ -63,7 +63,7 @@ const gOpen = g => !COL && (g.space ? SPO.includes(g.id) : OG === null ? groupOf
 let SPV = null, LASTMAIN = 'dash';                                    // SPV = a panel opened by hand, until the next page opens
 const spaceOf = r => (GROUPS.find(g => g.items.some(([k]) => k === r)) || {}).space || 'main';
 const curSpace = () => SPV || spaceOf(route);
-const spName = s => ({ learn: 'Learning', ai: 'AI Simulator', qi: 'Q-Intelligence' })[s] || (ME.role === 'admin' ? 'Admin' : 'Settings');
+const spName = s => ({ learn: 'Learning', ai: 'AI Simulator', qi: 'Q-Intelligence', aiag: 'AI agents', tr: 'Transcripts' })[s] || (ME.role === 'admin' ? 'Admin' : 'Settings');
 // APPS folded (one row of icons) or open (one row per panel), remembered on this computer
 let APPSF = LS.get('qa_apps', true);
 function appsTog(ev) { ev.stopPropagation(); APPSF = !APPSF; LS.set('qa_apps', APPSF); render(); }
@@ -76,9 +76,11 @@ const foldAll = () => { APPSF = true; LS.set('qa_apps', true); for (const k in S
 function secTog(k, ev) { ev.stopPropagation(); SECF[k] = !SECF[k]; LS.set('qa_sec_' + k, SECF[k]); render(); }
 // the name under the photo: G.Georgieva (the initial of the first name and the last name), the whole name when one is missing
 const shortName = u => u.firstName && u.lastName ? u.firstName.trim()[0] + '.' + u.lastName.trim() : u.name;
-const SPIC = { learn: 'g_learning', ai: 'g_aisim', qi: 'g_qi', admin: 'g_admin' };
+const SPIC = { aiag: 'g_robot', tr: 'g_tr', learn: 'g_learning', ai: 'g_aisim', qi: 'g_qi', admin: 'g_admin' };
 const spTop = () => { const n = $('#n'); if (n) n.scrollTop = 0; };   // a panel always opens at its top (where "Back" is)
-function spGo(s, ev) { ev.stopPropagation(); if (s === 'ai' || s === 'qi') { qlShow('sonar', s === 'ai' ? 'AI' : 'Q'); qlHide(1300); } else { qlShow('draw', qlLetter(s)); qlHide(1100); } SPV = s; OG = null; FLY = null; UMN = false; render(); spTop(); }
+function spGo(s, ev) { ev.stopPropagation(); const one = groupsFor().filter(g => g.space === s).flatMap(g => g.items); if (one.length === 1) { SPV = null; FLY = null; UMN = false; if (route !== one[0][0]) location.hash = one[0][0]; else render(); return; }   // an app with only one page opens it
+  if (s === 'ai' || s === 'qi') { qlShow('sonar', s === 'ai' ? 'AI' : 'Q'); qlHide(1300); } else { qlShow('draw', qlLetter(s)); qlHide(1100); } SPV = s; OG = null; FLY = null; UMN = false; render(); spTop(); }
+function brandGo(ev) { if (curSpace() !== 'main') spBack(ev); else location.hash = 'dash'; }
 function spBack(ev) { ev.stopPropagation(); SPV = null; OG = null; FLY = null; UMN = false; if (spaceOf(route) !== 'main') location.hash = LASTMAIN; else { render(); spTop(); } }
 // clicking a group's icon opens its first page; when the sidebar is closed its pop-out menu stays open too
 let PENDFLY = null;
@@ -100,6 +102,23 @@ function tgG(id, ev) { if (COL) { const first = groupsFor().find(g => g.id === i
 // a coming-soon page (SOON) is greyed with a small Soon; a group with only such pages has a greyed icon
 const isSoonG = g => g.items.every(([k]) => Object.hasOwn(SOON, k));
 const subA = ([k, n]) => Object.hasOwn(SOON, k) ? `<a href="#${k}" class="soon ${k === route ? 'on' : ''}">${n}<small>${tr('Soon')}</small></a>` : `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`;
+// the search at the top of every menu: people type in it and the matches drop down under it (pages by their name in any language,
+// agents, lead IDs); Enter or a click opens the first or chosen one. The icons-only menu shows the magnifier, which opens the menu
+// and puts the cursor in the box (Gabriela, 29 October: no pop-up)
+let SBQ = '', SBI = 0;
+const sbBox = () => COL ? `<button class=sbs onclick="sbOpen()" title="Search the menu (Ctrl K)" aria-label="Search the menu">${IC.search}</button>`
+  : `<div class=sbw><div class=sbs onclick="$('#sbq').focus()">${IC.search}<input id=sbq placeholder="Search the menu…" aria-label="Search the menu" autocomplete=off value="${esc(SBQ)}" oninput="SBQ=this.value;SBI=0;sbList()" onkeydown="sbKey(event)" onfocus="sbList()" onblur="setTimeout(sbHide,150)"><kbd>Ctrl K</kbd></div><div id=sbl class=sbl role=listbox></div></div>`;
+function sbOpen() { if (COL) toggleSb(); setTimeout(() => { const i = $('#sbq'); if (i) i.focus(); }, 30); }
+const sbRes = () => SBQ.trim() ? palItems(SBQ).slice(0, 8) : [];
+function sbList() { const l = $('#sbl'); if (!l) return; const r = sbRes(); if (SBI >= r.length) SBI = 0;
+  l.innerHTML = !SBQ.trim() ? '' : r.map((it, k) => `<button class="palr ${k === SBI ? 'on' : ''}" role=option onmousedown="event.preventDefault();sbGo(${k})"><span class=pali>${it.ic}</span><span><b>${esc(it.t)}</b><small>${esc(it.s)}</small></span></button>`).join('') || `<p class=mu>${tr('Nothing found')}</p>`; }
+function sbHide() { const l = $('#sbl'); if (l) l.innerHTML = ''; }
+function sbGo(k) { const it = sbRes()[k]; SBQ = ''; SBI = 0; const i = $('#sbq'); if (i) { i.value = ''; i.blur(); } sbHide(); if (it) it.go(); }
+function sbKey(e) { const n = sbRes().length;
+  if (e.key === 'Escape') { SBQ = ''; e.target.value = ''; sbHide(); e.target.blur(); }
+  else if (e.key === 'ArrowDown' && n) { e.preventDefault(); SBI = (SBI + 1) % n; sbList(); }
+  else if (e.key === 'ArrowUp' && n) { e.preventDefault(); SBI = (SBI - 1 + n) % n; sbList(); }
+  else if (e.key === 'Enter') { e.preventDefault(); sbGo(SBI); } }
 const NAVH = () => { const sp = curSpace(), all = groupsFor();
   const row = g => { const act = groupOf(route) === g.id, one = g.items.length === 1, open = !one && gOpen(g), sys = '', soon = isSoonG(g);   // System settings is a page of Quality set-up now
   // the icon AND the name open the group's first page; only the small arrow opens or closes the list without leaving the page
@@ -110,10 +129,11 @@ const NAVH = () => { const sp = curSpace(), all = groupsFor();
   const grp = !secs.length ? mine.map(row).join('') : secs.map(([k, n, l], i) => COL ? (i ? '<div class=spsep></div>' : '') + l.map(row).join('')
     : `<button class="apph sech sec-${k} ${i ? '' : 'first'}" onclick="secTog('${k}',event)" aria-expanded="${!SECF[k]}" title="Show / hide"><span>${n}</span><em>${SECF[k] ? '›' : '⌄'}</em></button>`
       + (SECF[k] ? `<div class=appsr>${l.map(g => `<button class="appi g-${g.id} ${isSoonG(g) ? 'soon' : ''} ${groupOf(route) === g.id ? 'on' : ''}" onclick="gGo('${g.id}',event)" title="${g.name}" aria-label="${g.name}">${IC[g.icon]}</button>`).join('')}</div>` : l.map(row).join(''))).join('');
-  const back = sp === 'main' ? '' : `<div class="grp spb"><button class=gh onclick="spBack(event)" title="Back to the main menu"><i>${IC.back}</i><span>Back to the main menu</span></button></div><div class=spt>${spName(sp)}</div>`;
+  const srch = sbBox();
+  const back = srch + (sp === 'main' ? '' : `<div class="grp spb"><button class=gh onclick="spBack(event)" title="Back to the main menu"><i>${IC.back}</i><span>Back to the main menu</span></button></div><div class=spt>${spName(sp)}</div>`);
   // the panels under the line ("APPS"): each row ends with ↗ (it opens its own panel). In the full menu the heading folds them
   // into one row of icons (remembered); the icons-only menu always shows the line and the icons (Gabriela, 28 October)
-  const apps = sp !== 'main' ? [] : ['qi', 'ai', 'learn'].filter(x => all.some(g => g.space === x));
+  const apps = sp !== 'main' ? [] : ['qi', 'ai', 'learn', 'aiag', 'tr'].filter(x => all.some(g => g.space === x));
   if (!apps.length) return back + grp;
   const rows = apps.map(x => `<div class="grp spc sp-${x}"><button class=gh onclick="spGo('${x}',event)" title="${spName(x)}"><i>${IC[SPIC[x]]}</i><span>${spName(x)}</span><em>↗</em></button></div>`).join('');
   if (COL) return back + grp + `<div class=spsep></div>${rows}`;
@@ -138,11 +158,12 @@ function render() {
   if (!ME) { $('#m').innerHTML = LG(); $('#n').innerHTML = ''; $('#br').innerHTML = ''; $('#fz').innerHTML = ''; refocus(fk); return; }
   applySb();
   $('#m').innerHTML = (Object.hasOwn(PG, route) && typeof PG[route] === 'function' ? PG[route] : PG.dash)() + overlays();   // a link such as #constructor shows the dashboard
-  $('#br').innerHTML = `<div class=brand onclick="location.hash='dash'" title="Go to Home">${mark('mg2', 36)}<div><b>Q-SMART</b><small>Customer Service Analytics</small></div></div>`;
+  $('#br').innerHTML = `<div class=brand onclick="brandGo(event)" title="${curSpace() === 'main' ? 'Go to Home' : 'Back to the main menu'}">${mark('mg2', 36)}<div><b>Q-SMART</b><small>Customer Service Analytics</small></div></div>`;
   navOnly();
   $('#fz').innerHTML = FOOT();
   $$('.chat').forEach(c => { c.scrollTop = c.scrollHeight; });
   a11y($('#m')); refocus(fk); fitTables();
+  if (document.activeElement && document.activeElement.id === 'sbq') sbList();   // somebody typing in the menu's search keeps the matches
 }
 // a table wider than its card ends at the bottom of the screen, so its sideways scrollbar is at hand even with 100 rows per page (the
 // column titles stay pinned on top); while that scrollbar is below the screen, a second one shows above the table, kept in step with it
@@ -209,7 +230,7 @@ function a11y(root) {
 const enhance = () => { a11y($('#m')); fitTables(); };   // for parts of a page redrawn on their own
 const FATTR = ['onclick', 'oninput', 'onchange'];
 const focusKey = () => {
-  const a = document.activeElement, m = $('#m'); if (!a || a === document.body || !m || !m.contains(a)) return null;
+  const a = document.activeElement, m = $('#m'); if (!a || a === document.body || !m || !(m.contains(a) || a.id === 'sbq')) return null;   // the page's fields, and the menu's search
   if (a.id) { let c = {}; try { c = { s: a.selectionStart, e: a.selectionEnd }; } catch (e) { /* no cursor in this field */ } return { id: a.id, ...c }; }
   const at = FATTR.find(x => a.getAttribute(x)); return at ? { tag: a.tagName.toLowerCase(), at, v: a.getAttribute(at) } : null;
 };
@@ -270,26 +291,27 @@ addEventListener('hashchange', onHash);
 // ---------------------------------------------------------------- quick jump (Ctrl+K or the search box in any header): pages, agents, leads and actions in one list
 let PAL = null;
 function palOpen(q = '') { if (!ME) return; PAL = { q, i: 0 }; render(); setTimeout(() => { const i = $('#palq'); if (i) { i.focus(); i.setSelectionRange(99, 99); } }, 20); }
-function palItems() {
-  const q = PAL.q.trim().toLowerCase(), hit = s => !q || s.toLowerCase().includes(q), out = [];
-  const acts = [staff() && ['New evaluation', 'Score a call', "goPage('entry')"], isStaffR() && ['New quick flag', 'Red or green flag without a review', "goPage('flags');setTimeout(()=>qfNew({type:'red'}),300)"], isStaffR() && ['New task', 'Give a task to agents', "TV.tab='my';goPage('tasks');setTimeout(()=>newTask(),300)"], isStaffR() && ['New one-to-one', 'Document a one-to-one', "goPage('o2o')"]].filter(Boolean);
+function palItems(qs = PAL ? PAL.q : '') {
+  const q = qs.trim().toLowerCase(), hit = s => !q || s.toLowerCase().includes(q), out = [];
+  // every result opens with a function, never with code written as text (the security rules of the page block that)
+  const acts = [staff() && ['New evaluation', 'Score a call', () => goPage('entry')], isStaffR() && ['New quick flag', 'Red or green flag without a review', () => { goPage('flags'); setTimeout(() => qfNew({ type: 'red' }), 300); }], isStaffR() && ['New task', 'Give a task to agents', () => { TV.tab = 'my'; goPage('tasks'); setTimeout(() => newTask(), 300); }], isStaffR() && ['New one-to-one', 'Document a one-to-one', () => goPage('o2o')]].filter(Boolean);
   acts.forEach(([t, s, go]) => hit(t) && out.push({ ic: IC.plus, t, s, go }));
-  groupsFor().forEach(g => g.items.forEach(([k, n]) => hit(n + ' ' + g.name) && out.push({ ic: IC[g.icon], t: n, s: g.name, go: `goPage('${k}')` })));
+  groupsFor().forEach(g => g.items.forEach(([k, n]) => hit(n + ' ' + g.name + ' ' + tr(n) + ' ' + tr(g.name)) && out.push({ ic: IC[g.icon], t: n, s: g.name, go: () => goPage(k) })));
   if (q) {
-    AGENTS().filter(a => hit(a.name) || hit(a.username)).slice(0, 6).forEach(a => out.push({ ic: `<span class=av style="margin:0;width:24px;height:24px;font-size:9px">${esc(ini(a.name))}</span>`, t: a.name, s: 'Agent · ' + tn(a.team), go: ME.role === 'agent' ? "goPage('agents')" : `openAgent('${esc(a.username)}')` }));
-    EV.filter(e => String(e.id).toLowerCase().includes(q)).slice(0, 6).forEach(e => out.push({ ic: IC.eye, t: 'Lead ' + e.id, s: `${agn(e)} · ${f(e.d)} · ${Math.round(e.sc)}%`, go: `om('view','${e.rid}')` }));
-    const sq = PAL.q.trim();   // a function, not code made from the typed text: names such as O'Brien work, and nothing typed can run as code
+    AGENTS().filter(a => hit(a.name) || hit(a.username)).slice(0, 6).forEach(a => out.push({ ic: `<span class=av style="margin:0;width:24px;height:24px;font-size:9px">${esc(ini(a.name))}</span>`, t: a.name, s: 'Agent · ' + tn(a.team), go: ME.role === 'agent' ? () => goPage('agents') : () => openAgent(a.username) }));
+    EV.filter(e => String(e.id).toLowerCase().includes(q)).slice(0, 6).forEach(e => out.push({ ic: IC.eye, t: 'Lead ' + e.id, s: `${agn(e)} · ${f(e.d)} · ${Math.round(e.sc)}%`, go: () => om('view', e.rid) }));
+    const sq = qs.trim();   // a function, not code made from the typed text: names such as O'Brien work, and nothing typed can run as code
     out.push({ ic: IC.search, t: `Search Call Reviews for "${sq}"`, s: 'Lead ID, agent or campaign', go: () => { Q = sq; KQ = true; if (location.hash === '#calls') render(); else location.hash = 'calls'; } });
   }
   return out.slice(0, 14);
 }
-function palGo(k) { const it = palItems()[k]; PAL = null; render(); if (it) typeof it.go === 'function' ? it.go() : new Function(it.go)(); }
+function palGo(k) { const it = palItems()[k]; PAL = null; render(); if (it) it.go(); }
 const PALM = () => { const l = palItems(); if (PAL.i >= l.length) PAL.i = 0;
   return OVL(`<div class=pal><div class=sx><span>${IC.search}</span><input id=palq placeholder="Go to a page, an agent or a lead ID…" value="${esc(PAL.q)}" oninput="PAL.q=this.value;PAL.i=0;palRt()" onkeydown="palKey(event)"><kbd class=kb>Esc</kbd></div><div id=pall>${palList(l)}</div><small class=mu>↑ ↓ to choose · Enter to open</small></div>`, 'PAL=null;render()', 620, 99); };
 const palList = l => l.map((it, k) => `<button class="palr ${k === PAL.i ? 'on' : ''}" onclick="palGo(${k})"><span class=pali>${it.ic}</span><span><b>${esc(it.t)}</b><small>${esc(it.s)}</small></span></button>`).join('') || '<p class=mu style="padding:14px">Nothing found</p>';
 const palRt = () => { const b = $('#pall'); if (b) b.innerHTML = palList(palItems()); };
 function palKey(e) { const n = palItems().length; if (e.key === 'Escape') { PAL = null; render(); } else if (e.key === 'ArrowDown') { e.preventDefault(); PAL.i = (PAL.i + 1) % Math.max(n, 1); palRt(); } else if (e.key === 'ArrowUp') { e.preventDefault(); PAL.i = (PAL.i - 1 + n) % Math.max(n, 1); palRt(); } else if (e.key === 'Enter') { e.preventDefault(); palGo(PAL.i); } }
-addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); palOpen(); } });
+addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); const i = $('#sbq'); if (i && i.offsetParent) i.focus(); else palOpen(); } });
 // every header search box opens the quick jump too (typing goes straight into it)
 document.addEventListener('focusin', e => { if (e.target.classList && e.target.classList.contains('qi') && route !== 'calls') { const v = e.target.value; e.target.blur(); palOpen(v); } });
 addEventListener('beforeunload', e => { if (entDirty() || kbDirty()) { e.preventDefault(); e.returnValue = ''; } });
@@ -302,7 +324,7 @@ async function poll() {
   POLLING = true; let ch; try { ch = await load(); } finally { POLLING = false; }
   const u = UN(); if (PREVU !== null && u > PREVU) beep(); PREVU = u;
   const busy = ['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement || {}).tagName) || $$('audio').some(a => !a.paused);   // never restart a recording that is playing
-  if (ch && (!MD || MD.t === 'view') && !NO && !AC && !SYS && !RSV && !CFM && !PLY && !FM && !TKV && !TEST && !SSV && !TPLM && !AQV && !WEL && !PDSP && !PARR && !QFM && !PAL && !busy && route !== 'entry' && !SE && !KBE && !QZE && !NWE && !WCE && !PTE && !RCE && !LRQ) render(); else if (ch) refreshBell();
+  if (ch && !(document.activeElement && document.activeElement.id === 'sbq') && (!MD || MD.t === 'view') && !NO && !AC && !SYS && !RSV && !CFM && !PLY && !FM && !TKV && !TEST && !SSV && !TPLM && !AQV && !WEL && !PDSP && !PARR && !QFM && !PAL && !busy && route !== 'entry' && !SE && !KBE && !QZE && !NWE && !WCE && !PTE && !RCE && !LRQ) render(); else if (ch) refreshBell();
 }
 setInterval(poll, 20000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
