@@ -1142,3 +1142,8 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 /* Tasks: the "How XP works" box */
 .tkxph { padding: 12px 16px; margin-bottom: 14px } .tkxph summary { cursor: pointer; font-size: 14px } .tkxph ul { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13px; color: var(--mu) }
 .tkx:not(.tkc) .tkh { column-gap: 2px } .tkx:not(.tkc) .tkh .ic { width: 28px; height: 28px; padding: 0 } .tkx:not(.tkc) .tkh .tkac { display: inline-flex; gap: 0 }
+/* forms: the White colour (= no colour), and the steps as rows (title, description, minutes, ↑ ↓ ✕, + Add step) */
+.sw button.none { border: 1px solid var(--bd2) !important }
+.fst { display: grid; gap: 8px; margin-top: 6px } .fsr { display: flex; gap: 8px; align-items: flex-start; padding: 10px; border: 1px solid var(--bd); border-radius: 10px; background: var(--bg) }
+.fsn { font-weight: 600; padding-top: 9px; min-width: 20px; color: var(--mu) } .fsb { flex: 1; display: grid; gap: 6px; min-width: 0 } .fsl { display: flex; gap: 6px } .fsl input:first-child { flex: 1; min-width: 0 } .fsl input[type=number] { width: 84px; flex: none }
+.fsa { display: flex; flex-direction: column; gap: 2px } .fsa .ic { width: 26px; height: 26px } .fsadd { justify-content: center; border-style: dashed; width: 100% }

@@ -18,7 +18,8 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   // a person works on a day: a shift in the rota or their calendar, and no full day of approved time off
   const worksOn = (db, S, LV, u, d) => S.shifts.some(s => s.id === wf.planOf(S, u, d, db.rota || {}).v) && !((l => l && (l.part || 'full') === 'full' && !l.pend)(wf.lvOn(LV[u.username], d)));
   const addMonths = (s, n) => { const [y, m, d] = s.split('-').map(Number), t = new Date(Date.UTC(y, m - 1 + n, 1)), last = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + 1, 0)).getUTCDate(); t.setUTCDate(Math.min(d, last)); return t.toISOString().slice(0, 10); };
-  const checklist = v => (Array.isArray(v) ? v : []).slice(0, 30).map(c => ({ t: str(typeof c === 'string' ? c : c && c.t, 150), min: Math.min(600, Math.max(0, parseInt(c && c.min) || 0)), done: !!(c && c.done) })).filter(c => c.t);
+  const checklist = v => (Array.isArray(v) ? v : []).slice(0, 30).map(c => ({ t: str(typeof c === 'string' ? c : c && c.t, 150), min: Math.min(600, Math.max(0, parseInt(c && c.min) || 0)), done: !!(c && c.done), ...(c && c.d ? { d: str(c.d, 300) } : {}) })).filter(c => c.t);
+  const colour = v => /^#[0-9a-f]{6}$/i.test(v || '') ? v : '', category = v => str(v, 40).trim();
 
   // ---------------------------------------------------------------- recurring missions: today's copy is created the first time anybody asks
   // the first day of the current period of a repeating template ('' = its day has not come yet in this period)
@@ -51,7 +52,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
       recipients(db, tpl.users, tpl.teams).forEach(un => {
         const key = tpl.id + ':' + pd + ':' + un, u = userBy(db, un);
         if (db.tasks.some(t => t.key === key) || !worksOn(db, S, LV, u, td)) return;   // on a day off it waits for the next working day of the period
-        const t = { id: 'k' + hex(5), title: tpl.title, desc: tpl.desc || '', type: tpl.kind === 'task' || tpl.kind === 'checklist' ? 'task' : 'mission', priority: tpl.priority || 'med', points: tpl.points || 0, rev: !!tpl.rev, due: td, status: 'todo', assignee: un, labels: tpl.labels || [], checklist: checklist(tpl.checklist), created: iso(), by: tpl.by, key, tpl: tpl.id, freq: tpl.freq, completed: null };
+        const t = { id: 'k' + hex(5), title: tpl.title, desc: tpl.desc || '', type: tpl.kind === 'task' || tpl.kind === 'checklist' ? 'task' : 'mission', priority: tpl.priority || 'med', points: tpl.points || 0, rev: !!tpl.rev, due: td, status: 'todo', assignee: un, labels: tpl.labels || [], color: colour(tpl.color), category: category(tpl.category), checklist: checklist(tpl.checklist), created: iso(), by: tpl.by, key, tpl: tpl.id, freq: tpl.freq, completed: null };
         logT(t, tpl.by, 'created'); db.tasks.push(t); changed = true;
       });
     });
@@ -77,7 +78,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     if (!who.size) return bad(res, 'Choose at least one agent or team to give the task to');
     const group = 'g' + hex(4), out = [];
     who.forEach(un => {
-      const t = { id: 'k' + hex(5), group, rev: !!b.rev, title, desc: str(b.desc, 1500), start: DAY.test(b.start || '') ? b.start : '', tpl: str(b.tpl, 20), type: b.type === 'mission' ? 'mission' : 'task', priority: PRIO.includes(b.priority) ? b.priority : 'med', points: Math.min(1000, Math.max(0, parseInt(b.points) || 0)), due: b.due || '', status: 'todo', assignee: un, labels: list(b.labels, 8), checklist: checklist(b.checklist), created: iso(), by: me.username, completed: null };
+      const t = { id: 'k' + hex(5), group, rev: !!b.rev, title, desc: str(b.desc, 1500), start: DAY.test(b.start || '') ? b.start : '', tpl: str(b.tpl, 20), type: b.type === 'mission' ? 'mission' : 'task', priority: PRIO.includes(b.priority) ? b.priority : 'med', points: Math.min(1000, Math.max(0, parseInt(b.points) || 0)), due: b.due || '', status: 'todo', assignee: un, labels: list(b.labels, 8), color: colour(b.color), category: category(b.category), checklist: checklist(b.checklist), created: iso(), by: me.username, completed: null };
       logT(t, me.username, 'created'); db.tasks.push(t); out.push(t);
       notify(db, un, 'task', `New ${t.type}: ${title}${t.due ? ' (due ' + t.due + ')' : ''}`, { task: t.id });
     });
@@ -98,6 +99,8 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
       if (b.rev !== undefined) t.rev = !!b.rev;
       if (b.start !== undefined) { if (b.start && !DAY.test(b.start)) return bad(res, 'Choose a valid start date'); t.start = b.start || ''; }
       if (b.labels !== undefined) t.labels = list(b.labels, 8);
+      if (b.color !== undefined) t.color = colour(b.color);
+      if (b.category !== undefined) t.category = category(b.category);
       if (b.checklist !== undefined) t.checklist = checklist(b.checklist);
       if (b.assignee !== undefined && b.assignee !== t.assignee) { const a = userBy(db, b.assignee); if (!a || !seesUser(db, u, a.username)) return bad(res, 'Choose a valid person'); logT(t, u.username, 'assigned', a.name); t.assignee = a.username; notify(db, a.username, 'task', `A ${t.type} was assigned to you: ${t.title}`, { task: t.id }); }
     } else if (b.checklist !== undefined && Array.isArray(b.checklist) && b.checklist.length === t.checklist.length) t.checklist.forEach((c, i) => { c.done = !!(b.checklist[i] && b.checklist[i].done); });
@@ -132,7 +135,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   const FREQ = ['none', 'daily', 'weekly', 'monthly', 'quarterly'], KINDS_T = ['checklist', 'target', 'task'];
   const tplBody = b => {
     const title = str(b.title, 150); if (!title) throw new Error('Give the template a title');
-    const t = { title, desc: str(b.desc, 1500), kind: KINDS_T.includes(b.kind) ? b.kind : 'checklist', points: Math.min(1000, Math.max(0, parseInt(b.points) || 0)), priority: PRIO.includes(b.priority) ? b.priority : 'med', freq: FREQ.includes(b.freq) ? b.freq : 'none', weekday: Math.min(6, Math.max(0, parseInt(b.weekday) || 1)), monthday: Math.min(28, Math.max(1, parseInt(b.monthday) || 1)), color: /^#[0-9a-f]{6}$/i.test(b.color || '') ? b.color : '#7c3aed', users: list(b.users, 50, 40), teams: list(b.teams, 20, 40), checklist: checklist(b.checklist).map(({ t, min }) => ({ t, min })), labels: list(b.labels, 8), until: DAY.test(b.until || '') ? b.until : '', rev: !!b.rev };
+    const t = { title, desc: str(b.desc, 1500), kind: KINDS_T.includes(b.kind) ? b.kind : 'checklist', points: Math.min(1000, Math.max(0, parseInt(b.points) || 0)), priority: PRIO.includes(b.priority) ? b.priority : 'med', freq: FREQ.includes(b.freq) ? b.freq : 'none', weekday: Math.min(6, Math.max(0, parseInt(b.weekday) || 1)), monthday: Math.min(28, Math.max(1, parseInt(b.monthday) || 1)), color: b.color === '' ? '' : colour(b.color) || '#7c3aed', category: category(b.category), users: list(b.users, 50, 40), teams: list(b.teams, 20, 40), checklist: checklist(b.checklist).map(({ t, min, d }) => ({ t, min, ...(d ? { d } : {}) })), labels: list(b.labels, 8), until: DAY.test(b.until || '') ? b.until : '', rev: !!b.rev };
     if (t.freq !== 'none' && !t.users.length && !t.teams.length) throw new Error('Choose who receives the cards of a repeating template');
     return t;
   };

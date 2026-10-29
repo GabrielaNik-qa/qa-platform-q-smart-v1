@@ -119,3 +119,31 @@ test('dark mode and light mode switch the colours and are remembered', async ({ 
   expect(errors).toEqual([]);
   await ctx.close();
 });
+
+// task templates (29 October, ideas from the team's other tool): steps as rows (title, description, minutes, ↑ ↓, + Add step),
+// a category, ten colours (White = none), ready-made templates; a task made from a template keeps its colour and category
+test('a task template: ready-made, steps as rows, category and colour; the task made from it keeps them', async ({ browser }) => {
+  const a = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 900 } });
+  await go(a.page, 'tasks'); await a.page.evaluate(() => { TV.tab = 'tpl'; TV.lib = 'tpl'; render(); });
+  await expect(a.page.getByRole('heading', { name: 'Ready-made templates' })).toBeVisible();
+  await a.page.locator('.tktc button.pb', { hasText: 'Add' }).first().click();
+  await expect(a.page.locator('.fst .fsr')).toHaveCount(11);
+  await a.page.getByRole('button', { name: '+ Add step' }).click(); await expect(a.page.locator('.fst .fsr')).toHaveCount(12);
+  const last = a.page.locator('.fst .fsr').last();
+  await last.getByLabel('Step title').fill('Write the day report'); await last.getByLabel('Description').fill('Two lines are enough'); await last.getByLabel('Minutes').fill('15');
+  await last.getByRole('button', { name: 'Move up' }).click();
+  await expect(a.page.locator('.fst .fsr').nth(10).getByLabel('Step title')).toHaveValue('Write the day report');
+  await a.page.getByRole('button', { name: 'Colour Teal' }).click();
+  await a.page.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect.poll(async () => (await api(a.page, '/api/task-templates')).json.length).toBeGreaterThan(0);
+  const t = (await api(a.page, '/api/task-templates')).json.find(x => x.title === 'Daily morning routine');
+  expect([t.category, t.color, t.checklist.length, t.checklist[10]]).toEqual(['Daily', '#14b8a6', 12, { t: 'Write the day report', min: 15, d: 'Two lines are enough' }]);
+  // a task from it: the colour and the category come along, and the card shows the category
+  await a.page.evaluate(id => useTpl(id), t.id);
+  await expect(a.page.locator('.sw button[aria-pressed=true]')).toHaveAttribute('title', 'Teal');   // the New task form starts with the template's colour
+  const made = await api(a.page, '/api/tasks', { title: 'From the template', type: 'task', priority: 'med', color: '#14b8a6', category: 'Daily', checklist: [{ t: 'One', d: 'first', min: 5 }], assignees: ['f.b1'] }, 'POST');
+  expect(made.status).toBe(200);
+  const task = (await api(a.page, '/api/tasks')).json.find(x => x.title === 'From the template');
+  expect([task.color, task.category, task.checklist[0].d]).toEqual(['#14b8a6', 'Daily', 'first']);
+  expect(a.errors).toEqual([]); await a.ctx.close();
+});

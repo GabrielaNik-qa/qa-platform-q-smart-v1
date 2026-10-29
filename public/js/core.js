@@ -384,6 +384,8 @@ const vw = k => VW[k] || 'table';
 const vwSet = (k, v) => { VW[k] = v; LS.set('qa_views', VW); render(); };
 const vwBtn = k => `<div class=sg style="height:38px"><button class="${vw(k) === 'table' ? 'on' : ''}" onclick="vwSet('${k}','table')" title="Table view">${IC.list}</button><button class="${vw(k) === 'boxes' ? 'on' : ''}" onclick="vwSet('${k}','boxes')" title="Boxes view">${IC.grid}</button></div>`;
 
+// the colours of a task or a template: White = no colour (Gabriela, 29 October)
+const TCOL = [['', 'White'], ['#ef4444', 'Red'], ['#f97316', 'Orange'], ['#eab308', 'Yellow'], ['#22c55e', 'Green'], ['#14b8a6', 'Teal'], ['#3b82f6', 'Blue'], ['#a855f7', 'Purple'], ['#ec4899', 'Pink'], ['#334155', 'Dark']];
 const SWATCH = ['#ea580c', '#2563eb', '#7c3aed', '#0d9488', '#e11d48', '#16a34a', '#ca8a04', '#475569'];
 // folder icons: the data keeps the emoji it always had (so other versions of the app still read it), the page draws it as a line icon
 const FICONS = [['📁', 'folder'], ['📘', 'book'], ['🧭', 'compass'], ['💡', 'bulb'], ['🎯', 'target'], ['🚀', 'rocket'], ['⭐', 'star'], ['🔥', 'flame'], ['🛠️', 'tool'], ['📞', 'phone'],
@@ -402,10 +404,16 @@ function fmField(f) {
   if (f.t === 'picker') return `<div><b style="font-size:12.5px">${L}</b>${pkHtml('fm', k, f.kind)}</div>`;
   if (f.t === 'chips') return `<label>${L}<input placeholder="${esc(f.ph || 'separate with commas')}" value="${esc((v || []).join(', '))}" oninput="fmChips('${k}',this.value)">${hint}</label>`;
   if (f.t === 'checkbox') return `<label class=rad><input type=checkbox ${v ? 'checked' : ''} onchange="fmSet('${k}',this.checked,${f.re ? 1 : 0})"> <span>${L}${hint ? '<br>' + hint : ''}</span></label>`;
-  if (f.t === 'color') return `<div><b style="font-size:12.5px">${L}</b><div class=sw>${SWATCH.map(c => `<button type=button class="${v === c ? 'on' : ''}" style="background:${c}" onclick="fmSet('${k}','${c}',1)" aria-label="Colour ${c}" aria-pressed="${v === c}"></button>`).join('')}</div></div>`;
+  if (f.t === 'color') return `<div><b style="font-size:12.5px">${L}</b><div class=sw>${(f.o ? opts : SWATCH.map(c => [c, c])).map(([c, n]) => `<button type=button class="${(v || '') === c ? 'on' : ''} ${c ? '' : 'none'}" style="background:${c || '#fff'}" onclick="fmSet('${k}','${c}',1)" title="${esc(n)}" aria-label="Colour ${esc(n)}" aria-pressed="${(v || '') === c}"></button>`).join('')}</div></div>`;
+  // steps: one row each (title, description, minutes), moved up or down, removed, and "+ Add step" (Gabriela, 29 October)
+  if (f.t === 'steps') { const l = v || []; return `<div><b style="font-size:12.5px">${L}${l.length ? ` (${l.length})` : ''}</b><div class=fst>${l.map((x, i) => `<div class=fsr><span class=fsn>${i + 1}.</span><div class=fsb><input placeholder="Step title *" aria-label="Step title" value="${esc(x.t)}" oninput="fmStep('${k}',${i},'t',this.value)"><div class=fsl><input placeholder="Description" aria-label="Description" value="${esc(x.d || '')}" oninput="fmStep('${k}',${i},'d',this.value)"><input type=number min=0 max=600 placeholder="min" title="Minutes" aria-label="Minutes" value="${x.min || ''}" oninput="fmStep('${k}',${i},'min',Math.max(0,parseInt(this.value)||0))"></div></div><div class=fsa><button type=button class=ic onclick="fmStepMv('${k}',${i},-1)" ${i ? '' : 'disabled'} aria-label="Move up">↑</button><button type=button class=ic onclick="fmStepMv('${k}',${i},1)" ${i < l.length - 1 ? '' : 'disabled'} aria-label="Move down">↓</button><button type=button class=ic onclick="fmStepDel('${k}',${i})" aria-label="Remove this step">✕</button></div></div>`).join('')}<button type=button class="ib fsadd" onclick="fmStepAdd('${k}')">+ Add step</button></div>${hint}</div>`; }
   if (f.t === 'icon') return `<div><b style="font-size:12.5px">${L}</b><div class=emo>${FICONS.map(([c, n]) => `<button type=button class="${v === c || FICON_ALIAS[v] === n ? 'on' : ''}" onclick="fmSet('${k}',${jsq(c)},1)" title="${n}" aria-label="Icon ${n}" aria-pressed="${v === c}">${IC[n]}</button>`).join('')}</div></div>`;
   return `<label>${L}<input ${f.id ? 'id=' + f.id : ''} type="${f.t || 'text'}" placeholder="${esc(f.ph || '')}" value="${esc(v)}" ${f.max ? 'maxlength=' + f.max : ''} oninput="fmSet('${k}',this.value,${f.re ? 1 : 0});${f.on ? f.on + '(this.value)' : ''}">${hint}</label>`;
 }
+function fmStep(k, i, p, v) { const l = FM.d[k] || []; if (l[i]) l[i][p] = v; }   // typing in a step: no redraw, the cursor stays
+function fmStepAdd(k) { FM.d[k] = [...(FM.d[k] || []), { t: '', d: '', min: 0 }]; render(); setTimeout(() => { const l = $('.fst .fsr'); const x = l[l.length - 1]; if (x) x.querySelector('input').focus(); }, 30); }
+function fmStepMv(k, i, by) { const l = FM.d[k] || [], j = i + by; if (j < 0 || j >= l.length) return; [l[i], l[j]] = [l[j], l[i]]; render(); }
+function fmStepDel(k, i) { (FM.d[k] || []).splice(i, 1); render(); }
 async function fmSave() {
   const f = FM; if (!f || f.busy) return;                     // a second click while saving would create everything twice
   f.busy = true; render(); let err;
