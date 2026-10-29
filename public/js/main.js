@@ -23,7 +23,7 @@ async function login() {
   qlShow('beat', 'Q');                                          // the heartbeat plays until the first page is ready (boot hides it)
   const r = await api('/api/login', { username: $('#lu').value, password: $('#lp').value });
   if (!r.ok) qlHide();
-  if (r.ok) { MSG = ''; LU = ''; welAgain((await r.json()).username); await boot(); if (ME && location.hash !== '#dash') { OGKEEP = true; location.hash = 'dash'; } } else lerr('#lge', await errOf(r, 'Could not sign in'));   // a new sign-in may show the welcome again
+  if (r.ok) { MSG = ''; LU = ''; OG = ''; SPO = []; welAgain((await r.json()).username); await boot(); if (ME && location.hash !== '#dash') { OGKEEP = true; location.hash = 'dash'; } } else lerr('#lge', await errOf(r, 'Could not sign in'));   // a new sign-in may show the welcome again
 }
 // username = first letter of the first name + "." + last name (the server makes the same one, this is just the preview)
 const plainName = t => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -54,8 +54,9 @@ addEventListener('resize', () => { const c = COLP || innerWidth <= 1100; if (c !
 function sbDbl(e) { if (!ME || e.target.closest('a,button,.usr,select,input')) return; toggleSb(); }
 // ---------------------------------------------------------------- menu: a few main groups with drop-downs (a pop-out list when the sidebar is collapsed)
 let OG = '', OGKEEP = false, FLY = null, FLYY = 100;                                 // OG = the open group of the main menu ('' = none: the app opens with every group closed; null = the group of the page)
-let SPF = LS.get('qa_spf', []);                                      // sections of the Learning and Admin panels folded with their arrow
-const gOpen = g => !COL && (g.space ? !SPF.includes(g.id) : OG === null ? groupOf(route) === g.id : OG === g.id);   // panel sections start open
+// the sections of the panels that are unfolded: none at sign-in (Gabriela, 29 October); the section of the page you open unfolds by itself
+let SPO = [];
+const gOpen = g => !COL && (g.space ? SPO.includes(g.id) : OG === null ? groupOf(route) === g.id : OG === g.id);   // panel sections start open
 // ---- the menu panels: the main menu, and the Workforce, Compliance & CX, Learning and Admin panels that open from the bottom of it ("Admin ›";
 // "Set-up ›" for QA, team leads and trainers, who only have the scorecard pages there). The panel follows the page (a link to an
 // admin page opens the Admin panel); "← Back to the main menu" goes to the last page of the main menu.
@@ -85,13 +86,13 @@ function gGo(id, ev) {
   ev.stopPropagation(); UMN = false; const g = groupsFor().find(x => x.id === id); if (!g || !g.items.length) return;
   const y = ev.currentTarget.closest('.gh').getBoundingClientRect().top, first = g.items[0][0];
   if (COL) { if (route === first) { FLY = id; FLYY = y; render(); } else { PENDFLY = { id, y }; location.hash = first; } return; }
-  OG = id; if (route === first) render(); else location.hash = first;
+  tgG(id, ev);   // the full menu: the whole row (icon, name or arrow) folds and unfolds; the pages open from the list (Gabriela, 29 October)
 }
-function tgG(id, ev) { if (COL) { const first = groupsFor().find(g => g.id === id).items[0][0]; FLY = id; FLYY = ev.currentTarget.getBoundingClientRect().top; if (first !== route) { location.hash = first; return; } } else if ((GROUPS.find(g => g.id === id) || {}).space) { SPF = SPF.includes(id) ? SPF.filter(x => x !== id) : [...SPF, id]; LS.set('qa_spf', SPF); } else OG = (gOpen({ id }) ? '' : id); render(); }
+function tgG(id, ev) { if (COL) { const first = groupsFor().find(g => g.id === id).items[0][0]; FLY = id; FLYY = ev.currentTarget.getBoundingClientRect().top; if (first !== route) { location.hash = first; return; } } else if ((GROUPS.find(g => g.id === id) || {}).space) { SPO = SPO.includes(id) ? SPO.filter(x => x !== id) : [...SPO, id]; } else OG = (gOpen({ id }) ? '' : id); render(); }
 const NAVH = () => { const sp = curSpace(), all = groupsFor();
   const grp = all.filter(g => (g.space || 'main') === sp).map(g => { const act = groupOf(route) === g.id, open = gOpen(g), sys = '';   // System settings is a page of Quality set-up now
   // the icon AND the name open the group's first page; only the small arrow opens or closes the list without leaving the page
-  return `<div class="grp g-${g.id} ${open ? 'open' : ''} ${act ? 'act' : ''}" onmouseenter="flyHover('${g.id}',this)" onmouseleave="flyLeave()"><button class=gh onclick="gGo('${g.id}',event)" title="Open ${g.items[0][1]}"><i>${IC[g.icon]}</i><span>${g.name}</span><em onclick="event.stopPropagation();tgG('${g.id}',event)" title="Show / hide">›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}${sys}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}${sys}</div>` : ''}</div>`; }).join('');
+  return `<div class="grp g-${g.id} ${open ? 'open' : ''} ${act ? 'act' : ''}" onmouseenter="flyHover('${g.id}',this)" onmouseleave="flyLeave()"><button class=gh onclick="gGo('${g.id}',event)" title="${COL ? 'Open ' + g.items[0][1] : 'Show / hide'}"><i>${IC[g.icon]}</i><span>${g.name}</span><em onclick="event.stopPropagation();tgG('${g.id}',event)" title="Show / hide">›</em></button>${open ? `<div class=sub>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}${sys}</div>` : ''}${COL && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(([k, n]) => `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`).join('')}${sys}</div>` : ''}</div>`; }).join('');
   const back = sp === 'main' ? '' : `<div class="grp spb"><button class=gh onclick="spBack(event)" title="Back to the main menu"><i>${IC.back}</i><span>Back to the main menu</span></button></div><div class=spt>${spName(sp)}</div>`;
   // the panels under the line ("APPS"): each row ends with ↗ (it opens its own panel). In the full menu the heading folds them
   // into one row of icons (remembered); the icons-only menu always shows the line and the icons (Gabriela, 28 October)
@@ -243,7 +244,7 @@ async function onHash() {
   if (n !== 'entry') { ENT = null; EDITID = ''; }
   if (n !== 'kb') KBE = null;
   SPV = null; if (spaceOf(n) === 'main') LASTMAIN = n;
-  OG = OGKEEP ? '' : null; OGKEEP = false; FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; PDSP = false; PARR = false; SIMV = null; OO.view = 'list'; OO.E = null; OO.T = null; TXF = null; TXC = null; CSP = null; AINEW = false; AIDV = null; AIPV = null; voxStop(); RCE = null; WCE = null; PTE = null; LRQ = null; ARD = null; AQV = ''; PKN = null;   // OGKEEP: the jump to the Dashboard after signing in keeps the menu closed
+  OG = OGKEEP ? '' : null; OGKEEP = false; { const pg = GROUPS.find(g => g.space && g.items.some(([k]) => k === route)); if (pg && !SPO.includes(pg.id)) SPO = [...SPO, pg.id]; } FLY = PENDFLY ? PENDFLY.id : null; if (PENDFLY) FLYY = PENDFLY.y; PENDFLY = null; TKV = null; QFM = null; PAL = null; TPLM = false; SSV = null; TEST = null; FM = null; AIH = false; CALV = ''; NWV = ''; PDSP = false; PARR = false; SIMV = null; OO.view = 'list'; OO.E = null; OO.T = null; TXF = null; TXC = null; CSP = null; AINEW = false; AIDV = null; AIPV = null; voxStop(); RCE = null; WCE = null; PTE = null; LRQ = null; ARD = null; AQV = ''; PKN = null;   // OGKEEP: the jump to the Dashboard after signing in keeps the menu closed
   if (n === 'calls' && !KQ) { Q = ''; FSC = null; PN = 1; }   // opening Call Reviews from the menu starts with an empty search
   KQ = false; MD = null; NO = false; AC = null; SYS = false; RSV = null; PLY = null; SE = n === 'sco' ? SE : null;
   const from = route; route = n; await qlRun(async () => { await load(); render(); }, n, from); window.scrollTo(0, 0); maybeWelcome();

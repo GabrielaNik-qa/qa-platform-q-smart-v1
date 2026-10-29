@@ -42,6 +42,12 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   expect(await a.page.locator('#n .gh span').allInnerTexts()).toEqual(['Home', 'Quality', 'Analytics', 'Performance', 'Coaching', 'Planning', 'Reports', 'Q-Intelligence', 'AI Simulator', 'Learning', 'Workforce', 'Compliance & CX']);
   await expect(a.page.locator('.grp.sp-ai .gh i')).toHaveCSS('color', 'rgb(255, 212, 71)');
   await expect(a.page.locator('.grp.sp-qi .gh i')).toHaveCSS('color', 'rgb(255, 111, 145)');
+  // after signing in every group is folded; a click anywhere on a row (name or icon) unfolds it, a second click folds it (29 October)
+  await expect(a.page.locator('#n .grp.open')).toHaveCount(0);
+  const quality = a.page.locator('#n .grp.g-quality .gh');
+  await quality.locator('span').click(); await expect(a.page.locator('#n .grp.g-quality')).toHaveClass(/open/);
+  expect(await a.page.evaluate(() => location.hash), 'the page stays where it was').toBe('#dash');
+  await quality.locator('i').click(); await expect(a.page.locator('#n .grp.open')).toHaveCount(0);
   // APPS: the panels end with ↗; the heading folds them into one row of icons (remembered); the icons-only menu keeps the line
   expect(await a.page.locator('.spc .gh em').first().innerText()).toBe('↗');
   await a.page.locator('.apph').click();
@@ -61,6 +67,7 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   await a.page.locator('.usr button[title="Admin"]').click();
   await expect(a.page.locator('#n .spt')).toHaveText('Admin');
   expect((await a.page.locator('#n .gh span').allInnerTexts()).slice(1, 3)).toEqual(['My account', 'People']);
+  await expect(a.page.locator('#n .grp.open'), 'the panel\'s sections start folded too').toHaveCount(0);
   await go(a.page, 'sysset'); await expect(a.page.locator('#m h1')).toHaveText(/System settings/i);
   await a.page.evaluate(() => openAcct('password')); await a.page.getByRole('button', { name: /Go to settings/ }).click();
   await expect.poll(() => a.page.evaluate(() => location.hash)).toBe('#acpw');
