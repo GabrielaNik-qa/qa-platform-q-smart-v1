@@ -113,7 +113,8 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   await a.page.locator('.sech.sec-account').click();
   expect((await a.page.locator('#n .gh span').allInnerTexts()).slice(1)).toEqual(['My account', 'Company', 'Billing', 'Support']);
   await expect(a.page.locator('#n .grp.open'), 'the panel\'s groups start folded too').toHaveCount(0);
-  await a.page.locator('.sech.sec-account').click();
+  await a.page.locator('#br .brand').click(); await a.page.locator('.usr button[title="Admin"]').click();   // back to the main menu, then Admin again
+  await expect(a.page.locator('#n .appsr'), 'the Admin panel always opens with every section folded').toHaveCount(5); await expect(a.page.locator('#n .grp.open')).toHaveCount(0);
   await go(a.page, 'cs_vat'); await expect(a.page.locator('#m h1')).toHaveText(/EU VAT/i); await expect(a.page.locator('#m')).toContainText('Coming soon');
   await go(a.page, 'att'); await expect(a.page.locator('#n .sech.sec-people'), 'Workforce pages open in the Admin panel').toHaveCount(1);
   await go(a.page, 'sysset'); await expect(a.page.locator('#m h1')).toHaveText(/System settings/i);

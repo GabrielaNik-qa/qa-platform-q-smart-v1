@@ -78,7 +78,9 @@ function secTog(k, ev) { ev.stopPropagation(); SECF[k] = !SECF[k]; LS.set('qa_se
 const shortName = u => u.firstName && u.lastName ? u.firstName.trim()[0] + '.' + u.lastName.trim() : u.name;
 const SPIC = { aiag: 'g_robot', tr: 'g_tr', learn: 'g_learning', ai: 'g_aisim', qi: 'g_qi', admin: 'g_admin' };
 const spTop = () => { const n = $('#n'); if (n) n.scrollTop = 0; };   // a panel always opens at its top (where "Back" is)
-function spGo(s, ev) { ev.stopPropagation(); const one = groupsFor().filter(g => g.space === s).flatMap(g => g.items); if (one.length === 1) { SPV = null; FLY = null; UMN = false; if (route !== one[0][0]) location.hash = one[0][0]; else render(); return; }   // an app with only one page opens it
+// the Admin (Settings) panel always opens the same way: every section folded into its row of icons, whatever was open last time (Gabriela, 29 October)
+function foldPanel(s) { (SECS[s] || []).forEach(([k]) => { SECF[k] = true; LS.set('qa_sec_' + k, true); }); SPO = SPO.filter(id => (GROUPS.find(g => g.id === id) || {}).space !== s); }
+function spGo(s, ev) { ev.stopPropagation(); foldPanel(s); const one = groupsFor().filter(g => g.space === s).flatMap(g => g.items); if (one.length === 1) { SPV = null; FLY = null; UMN = false; if (route !== one[0][0]) location.hash = one[0][0]; else render(); return; }   // an app with only one page opens it
   if (s === 'ai' || s === 'qi') { qlShow('sonar', s === 'ai' ? 'AI' : 'Q'); qlHide(1300); } else { qlShow('draw', qlLetter(s)); qlHide(1100); } SPV = s; OG = null; FLY = null; UMN = false; render(); spTop(); }
 function brandGo(ev) { if (curSpace() !== 'main') spBack(ev); else location.hash = 'dash'; }
 function spBack(ev) { ev.stopPropagation(); SPV = null; OG = null; FLY = null; UMN = false; if (spaceOf(route) !== 'main') location.hash = LASTMAIN; else { render(); spTop(); } }
