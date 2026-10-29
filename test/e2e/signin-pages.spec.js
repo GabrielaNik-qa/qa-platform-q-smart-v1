@@ -87,6 +87,10 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   await a.page.locator('#sbq').fill('trans'); await expect(a.page.locator('#sbl .palr').first()).toContainText('Transcripts');
   await expect(a.page.locator('#palq'), 'no pop-up').toHaveCount(0); await a.page.locator('#sbq').press('Enter');
   await expect.poll(() => a.page.evaluate(() => location.hash), '"trans" in the search finds Transcripts').toBe('#tr');
+  // coming soon (29 October): Quality > Conversations, Q-Intelligence > Spotlight, and five Tools in the Learning panel (greyed)
+  await go(a.page, 'cs_conv'); await expect(a.page.locator('#m h1')).toHaveText(/Conversations/i);
+  await go(a.page, 'cs_spot'); await expect(a.page.locator('#m h1')).toHaveText(/Spotlight/i);
+  await go(a.page, 'cs_redact'); await expect(a.page.locator('#n .spt')).toHaveText('Learning'); await expect(a.page.locator('#n .grp.g-tools')).toHaveClass(/soon/);
   await go(a.page, 'dash');
   await a.page.locator('.usr button[title="Admin"]').click();
   await expect(a.page.locator('#n .spt')).toHaveText('Admin');

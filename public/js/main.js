@@ -296,7 +296,9 @@ function palItems(qs = PAL ? PAL.q : '') {
   // every result opens with a function, never with code written as text (the security rules of the page block that)
   const acts = [staff() && ['New evaluation', 'Score a call', () => goPage('entry')], isStaffR() && ['New quick flag', 'Red or green flag without a review', () => { goPage('flags'); setTimeout(() => qfNew({ type: 'red' }), 300); }], isStaffR() && ['New task', 'Give a task to agents', () => { TV.tab = 'my'; goPage('tasks'); setTimeout(() => newTask(), 300); }], isStaffR() && ['New one-to-one', 'Document a one-to-one', () => goPage('o2o')]].filter(Boolean);
   acts.forEach(([t, s, go]) => hit(t) && out.push({ ic: IC.plus, t, s, go }));
-  groupsFor().forEach(g => g.items.forEach(([k, n]) => hit(n + ' ' + g.name + ' ' + tr(n) + ' ' + tr(g.name)) && out.push({ ic: IC[g.icon], t: n, s: g.name, go: () => goPage(k) })));
+  // the pages that exist come before the coming-soon ones ("trans": Transcripts, then Translator)
+  groupsFor().flatMap(g => g.items.map(([k, n]) => [k, n, g])).sort((x, y) => Object.hasOwn(SOON, x[0]) - Object.hasOwn(SOON, y[0]))
+    .forEach(([k, n, g]) => hit(n + ' ' + g.name + ' ' + tr(n) + ' ' + tr(g.name)) && out.push({ ic: IC[g.icon], t: n, s: g.name, go: () => goPage(k) }));
   if (q) {
     AGENTS().filter(a => hit(a.name) || hit(a.username)).slice(0, 6).forEach(a => out.push({ ic: `<span class=av style="margin:0;width:24px;height:24px;font-size:9px">${esc(ini(a.name))}</span>`, t: a.name, s: 'Agent · ' + tn(a.team), go: ME.role === 'agent' ? () => goPage('agents') : () => openAgent(a.username) }));
     EV.filter(e => String(e.id).toLowerCase().includes(q)).slice(0, 6).forEach(e => out.push({ ic: IC.eye, t: 'Lead ' + e.id, s: `${agn(e)} · ${f(e.d)} · ${Math.round(e.sc)}%`, go: () => om('view', e.rid) }));

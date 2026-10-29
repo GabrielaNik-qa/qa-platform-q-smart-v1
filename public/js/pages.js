@@ -10,7 +10,7 @@ const isStaffR = () => ME && STAFFR.includes(ME.role);
 const GROUPS = [
   // the main menu in two sections, OPERATIONS and MANAGE, that fold like APPS; AI Hub, Help Center and Activity Log with sub-menus (Gabriela, 29 October)
   { id: 'home', name: 'Home', sec: 'ops', icon: 'g_home', items: [['dash', 'Dashboard'], ['autoqa', 'AutoQA'], ['tasks', 'Tasks'], ['pers', 'Personalize'], ['cs_start', 'Getting started']] },
-  { id: 'quality', name: 'Quality', sec: 'ops', icon: 'g_quality', items: [['calls', 'Reviews'], ['entry', 'QA Entry'], ['flags', 'Quick Flags'], ['disputes', 'Disputes'], ['cs_revqa', 'Reviewer QA']] },
+  { id: 'quality', name: 'Quality', sec: 'ops', icon: 'g_quality', items: [['calls', 'Reviews'], ['cs_conv', 'Conversations'], ['entry', 'QA Entry'], ['flags', 'Quick Flags'], ['disputes', 'Disputes'], ['cs_revqa', 'Reviewer QA']] },
   { id: 'analytics', name: 'Analytics', sec: 'ops', icon: 'g_analytics', items: [['agents', 'Agents'], ['team', 'Team Review'], ['cats', 'Category Stats'], ['cs_dashes', 'Topic dashboards']] },
   { id: 'performance', name: 'Performance', sec: 'ops', icon: 'g_perf', items: [['goals', 'Goals & KPIs'], ['pips', 'Improvement plans'], ['kudos', 'Recognition']] },
   { id: 'coaching', name: 'Coaching', sec: 'ops', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration'], ['cs_pins', 'Pins']] },
@@ -20,8 +20,10 @@ const GROUPS = [
   { id: 'reports', name: 'Reports', sec: 'manage', icon: 'g_reports', items: [['rbuild', 'Report builder'], ['rsaved', 'Saved & scheduled'], ['rexp', 'Export centre']] },
   { id: 'activity', name: 'Activity Log', sec: 'manage', icon: 'g_activity', items: [['audit', 'All activity'], ['cs_myact', 'My activity'], ['cs_actsign', 'Sign-ins'], ['cs_actexp', 'Exports & downloads']] },
   { id: 'learning', name: 'Learning', icon: 'g_learning', space: 'learn', items: [['acad', 'My Learning'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },
+  // Tools in the Learning panel: five tools to come (Gabriela's yes, 29 October)
+  { id: 'tools', name: 'Tools', icon: 'g_tools', space: 'learn', items: [['cs_redact', 'Redaction'], ['cs_transl', 'Translator'], ['cs_sample', 'Sample calculator'], ['cs_scoresim', 'Score simulator'], ['cs_script', 'Script builder']] },
   { id: 'aisim', name: 'AI Simulator', icon: 'g_aisim', space: 'ai', items: [['sim', 'Practice a call'], ['simres', 'Results'], ['simsc', 'Scenarios']] },
-  { id: 'qintel', name: 'Q-Intelligence', icon: 'g_qi', space: 'qi', items: [['qask', 'Ask Q'], ['qins', 'AI insights'], ['qknow', 'Knowledge']] },
+  { id: 'qintel', name: 'Q-Intelligence', icon: 'g_qi', space: 'qi', items: [['qask', 'Ask Q'], ['qins', 'AI insights'], ['cs_spot', 'Spotlight'], ['qknow', 'Knowledge']] },
   // two more apps (Gabriela, 29 October): AI agents (the AI roles that do a job in the app; more comes later) and Transcripts (was Learning > Tools)
   { id: 'aiagents', name: 'AI agents', icon: 'g_robot', space: 'aiag', items: [['qagents', 'AI agents']] },
   { id: 'transcripts', name: 'Transcripts', icon: 'g_tr', space: 'tr', items: [['tr', 'Transcripts']] },
@@ -56,6 +58,11 @@ const GROUPS = [
 ];
 // the "coming soon" pages of the Admin panel: the name and one sentence on what the page will do (admins only)
 const SOON = {
+  cs_conv: 'All the calls, chats and tickets to choose from for a review: All, Starred, Drafts and Saved filters, with a filter for bots.',
+  cs_spot: 'The AI picks the conversations worth reviewing, for example negative sentiment or an account closure.',
+  cs_redact: 'Remove personal data (card numbers, phone numbers, names) from transcripts and recordings before they are shared.',
+  cs_transl: 'Translate a transcript or a review comment into your language.', cs_sample: 'How many reviews each agent needs for a fair score, and a random fair sample to review.',
+  cs_scoresim: 'What if: how a failed critical item or a new weight would change the score.', cs_script: 'Call scripts and ready answers that agents can follow.',
   cs_myact: 'What you received (reviews, comments, reactions, survey feedback), what you gave, and your disputes.', cs_start: 'A check-list to set up Q-smart: scorecard, users, connections and AutoQA.',
   cs_revqa: 'Review the reviewers: check that reviews are fair and follow the scorecard.', cs_dashes: 'Dashboards for assignments, coaching, disputes, calibration, surveys and reviewer QA.',
   cs_pins: 'Save a moment of a conversation to talk about it in a coaching session.',
