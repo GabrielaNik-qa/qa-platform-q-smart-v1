@@ -1147,3 +1147,8 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .fst { display: grid; gap: 8px; margin-top: 6px } .fsr { display: flex; gap: 8px; align-items: flex-start; padding: 10px; border: 1px solid var(--bd); border-radius: 10px; background: var(--bg) }
 .fsn { font-weight: 600; padding-top: 9px; min-width: 20px; color: var(--mu) } .fsb { flex: 1; display: grid; gap: 6px; min-width: 0 } .fsl { display: flex; gap: 6px } .fsl input:first-child { flex: 1; min-width: 0 } .fsl input[type=number] { width: 84px; flex: none }
 .fsa { display: flex; flex-direction: column; gap: 2px } .fsa .ic { width: 26px; height: 26px } .fsadd { justify-content: center; border-style: dashed; width: 100% }
+
+/* Home: the language button next to the bell, and its short list */
+.lngb { position: relative } .lngb summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer } .lngb summary::-webkit-details-marker { display: none } .lngb summary svg { width: 16px; height: 16px } .lngb summary b { font-size: 12px; letter-spacing: .04em }
+.lngl { position: absolute; z-index: 30; top: calc(100% + 4px); right: 0; min-width: 150px; display: grid; padding: 4px; border: 1px solid var(--bd); border-radius: 10px; background: var(--pn); box-shadow: 0 10px 30px rgba(0,0,0,.18) }
+.lngl button { text-align: left; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--tx); font: inherit; cursor: pointer } .lngl button:hover { background: var(--bg) } .lngl button.on { font-weight: 700; color: var(--orange) }

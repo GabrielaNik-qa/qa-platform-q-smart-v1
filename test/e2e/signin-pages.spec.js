@@ -194,3 +194,18 @@ test('the language: chosen on the sign-in screen, saved with the account, the sa
   expect(errors).toEqual([]);
   await ctx.close();
 });
+
+test('Home has a language button next to the bell: it shows the language in use and changes it (saved with the account)', async ({ browser }) => {
+  const { page, ctx, errors } = await personPage(browser, 'f.qa1');
+  await go(page, 'dash');
+  await expect(page.locator('#m .lngb summary b')).toHaveText('EN');
+  await page.locator('#m .lngb summary').click();
+  await expect(page.locator('#m .lngl button')).toHaveText(['English', 'Български', 'Français']);   // each in its own words
+  await page.locator('#m .lngl button', { hasText: 'Français' }).click();
+  await expect(page.locator('body')).toContainText('Tableau de bord qualité');
+  await expect(page.locator('#m .lngb summary b')).toHaveText('FR');
+  expect((await api(page, '/api/me')).json.prefs.lang).toBe('fr');
+  await page.evaluate(() => setLang('en'));
+  expect(errors).toEqual([]);
+  await ctx.close();
+});

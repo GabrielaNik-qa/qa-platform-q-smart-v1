@@ -199,6 +199,8 @@ function userLang() {
   api('/api/prefs', { lang: I18N.lang }, 'PUT').then(r => r.ok ? r.json() : null).then(j => { if (j) ME = j; });
 }
 // the language buttons: native names (flags only as a small extra), the current one is marked for screen readers too
+// the language button on Home, next to the bell: the language in use (EN, BG, FR); a click shows the three, in their own words (Gabriela, 29 October)
+const langBtn = () => `<details class=lngb><summary class="ib ibx" title="${esc(tr('Language'))}" aria-label="${esc(tr('Language'))}">${IC.globe}<b>${I18N.lang.toUpperCase()}</b></summary><div class=lngl role=menu data-noi18n>${I18N.LANGS.map(l => `<button type=button role=menuitemradio aria-checked="${I18N.lang === l.code}" class="${I18N.lang === l.code ? 'on' : ''}" lang="${l.code}" onclick="setLang('${l.code}')">${l.name}</button>`).join('')}</div></details>`;
 const LANGSEL = () => `<div class=sg role=group aria-label="${esc(tr('Language'))}" data-noi18n style="width:fit-content;flex-wrap:wrap">${I18N.LANGS.map(l => `<button type=button class="ibx ${I18N.lang === l.code ? 'on' : ''}" aria-pressed="${I18N.lang === l.code}" lang="${l.code}" onclick="setLang('${l.code}')">${l.name}</button>`).join('')}</div>`;
 
 // ---------------------------------------------------------------- theme, accent colour, sounds
