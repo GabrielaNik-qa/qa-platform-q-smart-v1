@@ -36,6 +36,10 @@ test('a review: QA saves it, the agent sees it and disputes it, QA resolves it w
 });
 
 test('attendance: the agent checks in, takes a break, comes back and checks out with the buttons', async ({ browser }) => {
+  // at any hour: on this copy the shifts last the whole day (after the end of a shift the day is closed and the break button goes)
+  const ad = await personPage(browser, 'f.admin');
+  const shifts = (await api(ad.page, '/api/settings')).json.wf.shifts.map(x => ({ ...x, start: '00:00', end: '23:59' }));
+  expect((await api(ad.page, '/api/wf/settings', { shifts }, 'PUT')).status).toBe(200); await ad.ctx.close();
   const { page, ctx, errors } = await personPage(browser, 'f.b2');
   await go(page, 'att');
   for (const [button, action] of [['Check in', 'in'], ['Start a break', 'break'], ['End the break', 'back'], ['Check out', 'out']]) {
