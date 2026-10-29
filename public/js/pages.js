@@ -44,6 +44,7 @@ const GROUPS = [
   { id: 'wfsetup', name: 'Workforce set-up', sec: 'setup', icon: 'g_sys', space: 'admin', items: [['wcal', 'Work calendars'], ['shifts', 'Shift templates'], ['ltypes', 'Leave types'], ['attrules', 'Attendance rules']] },
   { id: 'messages', name: 'Messages', sec: 'setup', icon: 'g_mail', space: 'admin', items: [['notifs', 'Notification rules'], ['mailtpl', 'Email templates'], ['cs_maildom', 'Sending email domain'], ['cs_announce', 'Announcements']] },
   { id: 'aiset', name: 'AI', sec: 'setup', icon: 'g_aihub', space: 'admin', items: [['cs_aiprov', 'AI provider'], ['cs_ailimit', 'AI usage limits'], ['cs_aionoff', 'AI on or off'], ['cs_aiinstr', 'AI instructions']] },
+  { id: 'sbset', name: 'Sidebar settings', sec: 'setup', icon: 'g_layout', space: 'admin', items: [['cs_sbfull', 'Full-size sidebar'], ['cs_sbcompact', 'Compact sidebar'], ['cs_sbviews', 'Saved views']] },
   // GOVERNANCE
   { id: 'gdpr', name: 'GDPR', sec: 'gov', icon: 'g_shield', space: 'admin', items: [['privacy', 'Data protection'], ['cs_ropa', 'Record of processing'], ['cs_subproc', 'Sub-processors'], ['cs_dpa', 'Data processing agreement'], ['cs_consent', 'Recording consent']] },
   { id: 'aiact', name: 'AI Act', sec: 'gov', icon: 'g_scale', space: 'admin', items: [['cs_aireg', 'AI register'], ['cs_aihuman', 'Human checks'], ['cs_ainotice', 'AI notices']] },
@@ -58,6 +59,8 @@ const GROUPS = [
 ];
 // the "coming soon" pages of the Admin panel: the name and one sentence on what the page will do (admins only)
 const SOON = {
+  cs_sbfull: 'Put the sections and pages of the full-size sidebar in the order you want.', cs_sbcompact: 'Choose which icons the compact sidebar shows, and in which order.',
+  cs_sbviews: 'Save a sidebar layout, give it a name, and choose it for a team or a role.',
   cs_conv: 'All the calls, chats and tickets to choose from for a review: All, Starred, Drafts and Saved filters, with a filter for bots.',
   cs_spot: 'The AI picks the conversations worth reviewing, for example negative sentiment or an account closure.',
   cs_redact: 'Remove personal data (card numbers, phone numbers, names) from transcripts and recordings before they are shared.',

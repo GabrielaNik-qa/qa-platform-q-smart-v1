@@ -103,13 +103,13 @@ function tgG(id, ev) { if (COL) { const first = groupsFor().find(g => g.id === i
 const isSoonG = g => g.items.every(([k]) => Object.hasOwn(SOON, k));
 const subA = ([k, n]) => Object.hasOwn(SOON, k) ? `<a href="#${k}" class="soon ${k === route ? 'on' : ''}">${n}<small>${tr('Soon')}</small></a>` : `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`;
 // the search at the top of every menu: people type in it and the matches drop down under it (pages by their name in any language,
-// agents, lead IDs); Enter or a click opens the first or chosen one. The icons-only menu shows the magnifier, which opens the menu
+// not agents or lead IDs); Enter or a click opens the first or chosen one. The icons-only menu shows the magnifier, which opens the menu
 // and puts the cursor in the box (Gabriela, 29 October: no pop-up)
 let SBQ = '', SBI = 0;
 const sbBox = () => COL ? `<button class=sbs onclick="sbOpen()" title="Search the menu (Ctrl K)" aria-label="Search the menu">${IC.search}</button>`
   : `<div class=sbw><div class=sbs onclick="$('#sbq').focus()">${IC.search}<input id=sbq placeholder="Search the menu…" aria-label="Search the menu" autocomplete=off value="${esc(SBQ)}" oninput="SBQ=this.value;SBI=0;sbList()" onkeydown="sbKey(event)" onfocus="sbList()" onblur="setTimeout(sbHide,150)"><kbd>Ctrl K</kbd></div><div id=sbl class=sbl role=listbox></div></div>`;
 function sbOpen() { if (COL) toggleSb(); setTimeout(() => { const i = $('#sbq'); if (i) i.focus(); }, 30); }
-const sbRes = () => SBQ.trim() ? palItems(SBQ).slice(0, 8) : [];
+const sbRes = () => SBQ.trim() ? palItems(SBQ, true).slice(0, 8) : [];   // only the names of the menu's pages (Gabriela, 29 October)
 function sbList() { const l = $('#sbl'); if (!l) return; const r = sbRes(); if (SBI >= r.length) SBI = 0;
   l.innerHTML = !SBQ.trim() ? '' : r.map((it, k) => `<button class="palr ${k === SBI ? 'on' : ''}" role=option onmousedown="event.preventDefault();sbGo(${k})"><span class=pali>${it.ic}</span><span><b>${esc(it.t)}</b><small>${esc(it.s)}</small></span></button>`).join('') || `<p class=mu>${tr('Nothing found')}</p>`; }
 function sbHide() { const l = $('#sbl'); if (l) l.innerHTML = ''; }
@@ -130,7 +130,7 @@ const NAVH = () => { const sp = curSpace(), all = groupsFor();
     : `<button class="apph sech sec-${k} ${i ? '' : 'first'}" onclick="secTog('${k}',event)" aria-expanded="${!SECF[k]}" title="Show / hide"><span>${n}</span><em>${SECF[k] ? '›' : '⌄'}</em></button>`
       + (SECF[k] ? `<div class=appsr>${l.map(g => `<button class="appi g-${g.id} ${isSoonG(g) ? 'soon' : ''} ${groupOf(route) === g.id ? 'on' : ''}" onclick="gGo('${g.id}',event)" title="${g.name}" aria-label="${g.name}">${IC[g.icon]}</button>`).join('')}</div>` : l.map(row).join(''))).join('');
   const srch = sbBox();
-  const back = srch + (sp === 'main' ? '' : `<div class="grp spb"><button class=gh onclick="spBack(event)" title="Back to the main menu"><i>${IC.back}</i><span>Back to the main menu</span></button></div><div class=spt>${spName(sp)}</div>`);
+  const back = srch + (sp === 'main' ? '' : `<div class="grp spb"><button class=gh onclick="spBack(event)" title="Back to the main menu"><i>${IC.back}</i><span>Back to the main menu</span></button></div>${sp === 'admin' ? '' : `<div class=spt>${spName(sp)}</div>`}`);   // the Admin panel has no title (Gabriela, 29 October)
   // the panels under the line ("APPS"): each row ends with ↗ (it opens its own panel). In the full menu the heading folds them
   // into one row of icons (remembered); the icons-only menu always shows the line and the icons (Gabriela, 28 October)
   const apps = sp !== 'main' ? [] : ['qi', 'ai', 'learn', 'aiag', 'tr'].filter(x => all.some(g => g.space === x));
@@ -291,15 +291,15 @@ addEventListener('hashchange', onHash);
 // ---------------------------------------------------------------- quick jump (Ctrl+K or the search box in any header): pages, agents, leads and actions in one list
 let PAL = null;
 function palOpen(q = '') { if (!ME) return; PAL = { q, i: 0 }; render(); setTimeout(() => { const i = $('#palq'); if (i) { i.focus(); i.setSelectionRange(99, 99); } }, 20); }
-function palItems(qs = PAL ? PAL.q : '') {
+function palItems(qs = PAL ? PAL.q : '', menuOnly = false) {
   const q = qs.trim().toLowerCase(), hit = s => !q || s.toLowerCase().includes(q), out = [];
   // every result opens with a function, never with code written as text (the security rules of the page block that)
   const acts = [staff() && ['New evaluation', 'Score a call', () => goPage('entry')], isStaffR() && ['New quick flag', 'Red or green flag without a review', () => { goPage('flags'); setTimeout(() => qfNew({ type: 'red' }), 300); }], isStaffR() && ['New task', 'Give a task to agents', () => { TV.tab = 'my'; goPage('tasks'); setTimeout(() => newTask(), 300); }], isStaffR() && ['New one-to-one', 'Document a one-to-one', () => goPage('o2o')]].filter(Boolean);
-  acts.forEach(([t, s, go]) => hit(t) && out.push({ ic: IC.plus, t, s, go }));
+  if (!menuOnly) acts.forEach(([t, s, go]) => hit(t) && out.push({ ic: IC.plus, t, s, go }));
   // the pages that exist come before the coming-soon ones ("trans": Transcripts, then Translator)
   groupsFor().flatMap(g => g.items.map(([k, n]) => [k, n, g])).sort((x, y) => Object.hasOwn(SOON, x[0]) - Object.hasOwn(SOON, y[0]))
     .forEach(([k, n, g]) => hit(n + ' ' + g.name + ' ' + tr(n) + ' ' + tr(g.name)) && out.push({ ic: IC[g.icon], t: n, s: g.name, go: () => goPage(k) }));
-  if (q) {
+  if (q && !menuOnly) {
     AGENTS().filter(a => hit(a.name) || hit(a.username)).slice(0, 6).forEach(a => out.push({ ic: `<span class=av style="margin:0;width:24px;height:24px;font-size:9px">${esc(ini(a.name))}</span>`, t: a.name, s: 'Agent · ' + tn(a.team), go: ME.role === 'agent' ? () => goPage('agents') : () => openAgent(a.username) }));
     EV.filter(e => String(e.id).toLowerCase().includes(q)).slice(0, 6).forEach(e => out.push({ ic: IC.eye, t: 'Lead ' + e.id, s: `${agn(e)} · ${f(e.d)} · ${Math.round(e.sc)}%`, go: () => om('view', e.rid) }));
     const sq = qs.trim();   // a function, not code made from the typed text: names such as O'Brien work, and nothing typed can run as code

@@ -85,7 +85,9 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   await a.page.locator('#n .grp.sp-tr .gh, #n .appi.sp-tr').click(); await expect.poll(() => a.page.evaluate(() => location.hash), 'Transcripts opens straight away').toBe('#tr');
   // the search in the menu: typed into directly, the matches drop down under it, no pop-up (29 October)
   await a.page.locator('#sbq').fill('trans'); await expect(a.page.locator('#sbl .palr').first()).toContainText('Transcripts');
-  await expect(a.page.locator('#palq'), 'no pop-up').toHaveCount(0); await a.page.locator('#sbq').press('Enter');
+  await expect(a.page.locator('#palq'), 'no pop-up').toHaveCount(0);
+  await a.page.locator('#sbq').fill('agent c'); await expect(a.page.locator('#sbl')).toContainText('Nothing found');   // "Agent C1" is a person, not a menu name
+  await a.page.locator('#sbq').fill('trans'); await a.page.locator('#sbq').press('Enter');
   await expect.poll(() => a.page.evaluate(() => location.hash), '"trans" in the search finds Transcripts').toBe('#tr');
   // coming soon (29 October): Quality > Conversations, Q-Intelligence > Spotlight, and five Tools in the Learning panel (greyed)
   await go(a.page, 'cs_conv'); await expect(a.page.locator('#m h1')).toHaveText(/Conversations/i);
@@ -93,22 +95,22 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   await go(a.page, 'cs_redact'); await expect(a.page.locator('#n .spt')).toHaveText('Learning'); await expect(a.page.locator('#n .grp.g-tools')).toHaveClass(/soon/);
   await go(a.page, 'dash');
   await a.page.locator('.usr button[title="Admin"]').click();
-  await expect(a.page.locator('#n .spt')).toHaveText('Admin');
+  await expect(a.page.locator('#n .sech.sec-account')).toHaveCount(1); await expect(a.page.locator('#n .spt'), 'no ADMIN title').toHaveCount(0);
   await a.page.locator('#br .brand').click(); await expect(a.page.locator('#n .sech.sec-ops'), 'the logo goes back to the main menu').toHaveCount(1);
-  await a.page.locator('.usr button[title="Admin"]').click(); await expect(a.page.locator('#n .spt')).toHaveText('Admin');
+  await a.page.locator('.usr button[title="Admin"]').click(); await expect(a.page.locator('#n .sech.sec-account')).toHaveCount(1); await expect(a.page.locator('#n .spt'), 'no ADMIN title').toHaveCount(0);
   // the Admin panel (29 October): five one-word sections of at most five icons, folded; the coming-soon groups greyed
   expect(await a.page.locator('#n .sech span').allInnerTexts()).toEqual(['ACCOUNT', 'PEOPLE', 'SETUP', 'GOVERNANCE', 'PLATFORM']);
-  expect(await a.page.locator('#n .appsr').evaluateAll(l => l.map(r => r.children.length))).toEqual([4, 4, 4, 5, 4]);
+  expect(await a.page.locator('#n .appsr').evaluateAll(l => l.map(r => r.children.length))).toEqual([4, 4, 5, 5, 4]);   // SETUP got Sidebar settings
   // five places in every row: the icons sit in the same columns as GOVERNANCE, a shorter row leaves the last place empty
   const cols = await a.page.locator('#n .appsr').evaluateAll(l => l.map(r => [...r.children].map(b => Math.round(b.getBoundingClientRect().left))));
   for (const r of cols) expect(r).toEqual(cols[3].slice(0, r.length));
-  expect(await a.page.locator('#n .appi.soon').evaluateAll(l => l.map(b => b.title))).toEqual(['Billing', 'Support', 'AI', 'AI Act', 'Security', 'Accessibility', 'Sandbox', 'Features']);
+  expect(await a.page.locator('#n .appi.soon').evaluateAll(l => l.map(b => b.title))).toEqual(['Billing', 'Support', 'AI', 'Sidebar settings', 'AI Act', 'Security', 'Accessibility', 'Sandbox', 'Features']);
   await a.page.locator('.sech.sec-account').click();
   expect((await a.page.locator('#n .gh span').allInnerTexts()).slice(1)).toEqual(['My account', 'Company', 'Billing', 'Support']);
   await expect(a.page.locator('#n .grp.open'), 'the panel\'s groups start folded too').toHaveCount(0);
   await a.page.locator('.sech.sec-account').click();
   await go(a.page, 'cs_vat'); await expect(a.page.locator('#m h1')).toHaveText(/EU VAT/i); await expect(a.page.locator('#m')).toContainText('Coming soon');
-  await go(a.page, 'att'); await expect(a.page.locator('#n .spt'), 'Workforce pages open in the Admin panel').toHaveText('Admin');
+  await go(a.page, 'att'); await expect(a.page.locator('#n .sech.sec-people'), 'Workforce pages open in the Admin panel').toHaveCount(1);
   await go(a.page, 'sysset'); await expect(a.page.locator('#m h1')).toHaveText(/System settings/i);
   await a.page.evaluate(() => openAcct('password')); await a.page.getByRole('button', { name: /Go to settings/ }).click();
   await expect.poll(() => a.page.evaluate(() => location.hash)).toBe('#acpw');
