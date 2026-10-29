@@ -173,7 +173,7 @@ function agO2oTab(u, d) {
   return `<div class=agsts>${agStat(d.o2o.length, 'Total Sessions', '#3b82f6')}${agStat(done.length, 'Completed', '#10b981')}${agStat(d.o2o.length - done.length, 'Planned', '#f59e0b')}${agStat(acts.filter(a => a.done).length + '/' + acts.length, 'Actions done', '#a855f7')}</div>`
     + (d.o2o.map(one).join('') || `<div class="agem">No one-to-ones in ${esc(agLabel())}</div>`)
     + (d.coach.length ? `<h3 style="margin-top:22px">Coaching &amp; training <span class=bg>${d.coach.length}</span></h3>${d.coach.map(one).join('')}` : '')
-    + `<h3 style="margin-top:22px">Tasks <span class=bg>${open.length} open</span></h3>` + (open.slice(0, 6).map(t => agRow(t.type === 'mission' ? '🎯' : '✅', esc(t.title), `${t.due ? 'Due ' + t.due : 'No due date'}`, isOver(t) ? pill('Overdue', 'bad') : pill(t.status, 'ac'), `TV.tab='my';TV.team='';TV.st='all';TV.agent='${esc(u.username)}';goPage('tasks')`)).join('') || '<small class=mu>No open tasks</small>');
+    + `<h3 style="margin-top:22px">Tasks <span class=bg>${open.length} open</span></h3>` + (open.slice(0, 6).map(t => agRow(tkStar(t.type === 'mission'), esc(t.title), `${t.due ? 'Due ' + t.due : 'No due date'}`, isOver(t) ? pill('Overdue', 'bad') : pill(t.status, 'ac'), `TV.tab='my';TV.team='';TV.st='all';TV.agent='${esc(u.username)}';goPage('tasks')`)).join('') || '<small class=mu>No open tasks</small>');
 }
 function agSimTab(u, d) {
   const s = d.sims, best = s.length ? Math.max(...s.map(x => x.score)) : 0, mins = s.reduce((a, x) => a + x.minutes, 0);

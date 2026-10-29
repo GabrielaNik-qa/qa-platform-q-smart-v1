@@ -3,15 +3,56 @@ const ROLES5 = Object.keys(ROLE);
 async function setX(key, value, msg) { const r = await api('/api/settings/x/' + key, { value }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true); SET = await r.json(); render(); if (msg) toast(msg); }
 
 // ---- who can open which page (the server still checks every action, this decides what people see in the menu)
-let PERMD = null;
+// Admin › People › Roles: "All roles", then one page per role with its people as columns (Gabriela, 29 October).
+// Panel / Category / Subcategory = where the page is in the menu. A role's tick is the default for its people; a person can be given
+// or refused a page on their own (a thick box = that person's own choice). Changes are saved together, can be kept as a template,
+// and "Reset to default" brings back the roles of a new installation with no personal choices.
+let PERMD = null, PF = { q: '', panel: '', people: [], open: false };
+const permRows = () => GROUPS.filter(g => g.id !== 'myacc').flatMap(g => g.items.filter(([k]) => !Object.hasOwn(SOON, k) && !/^perm_/.test(k))
+  .map(([k, n]) => ({ k, n, c: g.name, p: g.space ? (g.space === 'admin' ? 'Admin' : spName(g.space)) : 'Main menu' })))
+  .filter(x => (!PF.panel || x.p === PF.panel) && (!PF.q.trim() || (x.n + ' ' + x.c + ' ' + x.p + ' ' + tr(x.n) + ' ' + tr(x.c)).toLowerCase().includes(PF.q.trim().toLowerCase())));
+const permCur = () => PERMD || { perm: JSON.parse(JSON.stringify(SET.perm || {})), permu: JSON.parse(JSON.stringify(SET.permu || {})) };
+const roleHas = (d, k, r) => (d.perm[k] || RR[k] || ROLES5).includes(r);
+const lockP = (k, r) => ADMINP.includes(k) && r === 'admin';                  // admins always keep the Admin pages
+const ownP = (d, k, un) => Object.hasOwn(d.permu[k] || {}, un);
+const userHas = (d, k, u) => lockP(k, u.role) || (ownP(d, k, u.username) ? d.permu[k][u.username] : roleHas(d, k, u.role));
+function permEdit(fn) { PERMD = permCur(); fn(PERMD); render(); }
+function permTog(k, r, on) { permEdit(d => { const l = new Set(d.perm[k] || RR[k] || ROLES5); on ? l.add(r) : l.delete(r); d.perm[k] = [...l]; }); }
+// a person's tick: the same as their role = no personal choice; different = their own choice
+function permTogU(k, un, on) { permEdit(d => { const u = ROSTER.find(x => x.username === un); if (!u) return; const m = d.permu[k] = d.permu[k] || {}; if (on === roleHas(d, k, u.role)) delete m[un]; else m[un] = on; if (!Object.keys(m).length) delete d.permu[k]; }); }
+async function permSave() { const d = PERMD; if (!d) return; await setX('perm', d.perm); await setX('permu', d.permu, 'Permissions saved'); PERMD = null; render(); }
+function permReset() { ask('Back to the default permissions?', 'Every page goes back to the roles it had when the app was installed, and the choices made for single people are removed. Your templates stay.', async () => { await setX('perm', {}); await setX('permu', {}, 'Default permissions restored'); PERMD = null; render(); }); }
+function permTplSave() { const n = (($('#ptn') || {}).value || '').trim(); if (!n) return toast('Give the template a name', true); const d = permCur(); setX('permtpl', [...(SET.permtpl || []), { id: 'pt' + Date.now(), name: n, at: new Date().toISOString(), perm: d.perm, permu: d.permu }], 'Template saved'); }
+function permTplUse(id) { const t = (SET.permtpl || []).find(x => x.id === id); if (!t) return; PERMD = { perm: JSON.parse(JSON.stringify(t.perm || {})), permu: JSON.parse(JSON.stringify(t.permu || {})) }; render(); toast('Template loaded: check it, then press Save'); }
+function permTplDel(id) { ask('Delete this template?', 'The permissions in use do not change.', () => setX('permtpl', (SET.permtpl || []).filter(x => x.id !== id), 'Template deleted')); }
+// the people of a role, and the "Teams & people" box: a tick for a whole team, or for single people (nothing ticked = everybody)
+const rolePeople = r => ROSTER.filter(u => u.role === r && u.active).sort((a, b) => a.name.localeCompare(b.name));
+function pfPerson(un, on) { const s = new Set(PF.people); on ? s.add(un) : s.delete(un); PF.people = [...s]; render(); }
+function pfTeam(r, tid, on) { const s = new Set(PF.people); rolePeople(r).filter(u => (u.team || '') === tid).forEach(u => (on ? s.add(u.username) : s.delete(u.username))); PF.people = [...s]; render(); }
+const permHead = (t, s) => head(t, s, `<div style="display:flex;gap:8px;flex-wrap:wrap">${bellBtn()}${PERMD ? `<button class=ib onclick="PERMD=null;render()">Cancel</button><button class=btn onclick="permSave()">Save</button>` : ''}<button class=ib onclick="permReset()">Reset to default</button></div>`);
+const permBar = extra => `<div class=pfbar><div class=sx style="width:240px"><span>${IC.search}</span><input id=pfq placeholder="Search a page…" aria-label="Search a page" value="${esc(PF.q)}" oninput="PF.q=this.value;render()"></div>`
+  + `<select id=pfp aria-label="Panel" onchange="PF.panel=this.value;render()"><option value="">All panels</option>${[...new Set(GROUPS.filter(g => g.id !== 'myacc').map(g => g.space ? (g.space === 'admin' ? 'Admin' : spName(g.space)) : 'Main menu'))].map(p => `<option ${PF.panel === p ? 'selected' : ''} value="${esc(p)}">${esc(p)}</option>`).join('')}</select>${extra || ''}</div>`;
+const permTpl = () => card('Templates', `<div class=row style="gap:8px;flex-wrap:wrap"><input id=ptn placeholder="Template name, e.g. Summer team" aria-label="Template name" maxlength=60 style="flex:1;min-width:200px"><button class=btn onclick="permTplSave()">Save as template</button></div>`
+  + ((SET.permtpl || []).length ? `<div style="display:grid;gap:6px;margin-top:10px">${SET.permtpl.map(t => `<div class=row style="gap:8px"><b style="flex:1">${esc(t.name)}</b><small class=mu>${esc(String(t.at).slice(0, 10))}</small><button class=ib onclick="permTplUse('${esc(t.id)}')">Use</button><button class=ib onclick="permTplDel('${esc(t.id)}')" aria-label="Delete">✕</button></div>`).join('')}</div>` : `<p class=mu style="margin:10px 0 0;font-size:13px">No template yet. Change the ticks, then save them as a template to use them again later.</p>`));
+const PNOTE = `<p class=mu style="font-size:13px;margin:10px 0 0">Unticking only hides the page. Actions are still protected on the server, so an agent can never change a review even if a page is visible.</p>`;
 PG.perms = function () {
-  // the coming-soon pages (SOON) are not real pages yet: they stay for admins only and are not listed here
-  const pages = GROUPS.filter(g => g.id !== 'myacc').flatMap(g => g.items.filter(([k]) => !Object.hasOwn(SOON, k)).map(([k, n]) => ({ k, n, g: g.name }))), cur = PERMD || JSON.parse(JSON.stringify(SET.perm || {}));
-  const has = (k, r) => (cur[k] || RR[k] || ROLES5).includes(r), lock = k => ADMINP.includes(k);
-  return head('Roles & permissions', 'Which roles see which pages in the menu. Admins always keep the Admin pages.', `<div style="display:flex;gap:8px">${bellBtn()}${PERMD ? `<button class=ib onclick="PERMD=null;render()">Cancel</button><button class=btn onclick="setX('perm',PERMD,'Permissions saved');PERMD=null">Save</button>` : ''}<button class=ib onclick="ask('Back to the default permissions?','Every page goes back to the roles it had when the app was installed.',()=>setX('perm',{},'Default permissions restored'))">Reset to default</button></div>`)
-    + card('', `<div class=sc><table class=ct><tr><th>Page</th><th>Menu group</th>${ROLES5.map(r => `<th style="text-align:center">${ROLE[r]}</th>`).join('')}</tr>${pages.map(p => `<tr><td><b>${esc(p.n)}</b></td><td><small>${esc(p.g)}</small></td>${ROLES5.map(r => `<td style="text-align:center"><input type=checkbox ${has(p.k, r) ? 'checked' : ''} ${lock(p.k) && r === 'admin' ? 'disabled' : ''} onchange="permTog('${p.k}','${r}',this.checked)"></td>`).join('')}</tr>`).join('')}</table></div><p class=mu style="font-size:13px;margin:10px 0 0">Unticking only hides the page. Actions are still protected on the server, so an agent can never change a review even if a page is visible.</p>`);
+  const d = permCur(), rows = permRows();
+  return permHead('Roles & permissions', 'Which roles see which pages in the menu. Admins always keep the Admin pages.') + permBar()
+    + card('', `<div class=sc><table class=ct><tr><th>Panel</th><th>Category</th><th>Subcategory</th>${ROLES5.map(r => `<th style="text-align:center">${ROLE[r]}</th>`).join('')}</tr>${rows.map(p => `<tr><td><small>${esc(p.p)}</small></td><td>${esc(p.c)}</td><td><b>${esc(p.n)}</b></td>${ROLES5.map(r => `<td style="text-align:center"><input type=checkbox ${roleHas(d, p.k, r) || lockP(p.k, r) ? 'checked' : ''} ${lockP(p.k, r) ? 'disabled' : ''} onchange="permTog('${p.k}','${r}',this.checked)"></td>`).join('')}</tr>`).join('')}</table></div>${PNOTE}`) + permTpl();
 };
-function permTog(k, r, on) { PERMD = PERMD || JSON.parse(JSON.stringify(SET.perm || {})); const l = new Set(PERMD[k] || RR[k] || ROLES5); on ? l.add(r) : l.delete(r); PERMD[k] = [...l]; render(); }
+// one role: its people are the columns; the first column is the role itself (the default for everybody without a choice of their own)
+const permRole = r => function () {
+  const d = permCur(), rows = permRows(), all = rolePeople(r), sel = new Set(PF.people.filter(un => all.some(u => u.username === un)));
+  const ppl = sel.size ? all.filter(u => sel.has(u.username)) : all, teams = [...new Set(all.map(u => u.team || ''))];
+  const box = `<details class=pfd ${PF.open ? 'open' : ''} ontoggle="PF.open=this.open"><summary>Teams & people: <b>${sel.size ? sel.size + ' / ' + all.length : 'All'}</b></summary><div class=pfl>`
+    + (sel.size ? `<a href="javascript:void(0)" class=agl onclick="PF.people=[];render()">Show everybody</a>` : '')
+    + teams.map(t => { const m = all.filter(u => (u.team || '') === t), on = m.every(u => sel.has(u.username));
+      return `<label class="rad pft"><input type=checkbox ${on ? 'checked' : ''} onchange="pfTeam('${r}','${esc(t)}',this.checked)"><b>${esc(tn(t))}</b><small class=mu>${m.length}</small></label>${m.map(u => `<label class="rad pfu"><input type=checkbox ${sel.has(u.username) ? 'checked' : ''} onchange="pfPerson('${esc(u.username)}',this.checked)">${esc(u.name)}</label>`).join('')}`; }).join('') + `</div></details>`;
+  return permHead(ROLE[r], 'Which pages the people with this role see. The first column is the role; a thick box is a person\'s own choice, the other boxes follow the role.') + permBar(box)
+    + card('', !all.length ? `<p class=mu style="margin:0">Nobody has this role yet.</p>` : `<div class=sc><table class="ct pmt"><tr><th>Panel</th><th>Category</th><th>Subcategory</th><th style="text-align:center">${ROLE[r]}<br><small class=mu>role</small></th>${ppl.map(u => `<th style="text-align:center">${esc(u.name)}<br><small class=mu>${esc(tn(u.team))}</small></th>`).join('')}</tr>`
+      + rows.map(p => `<tr><td><small>${esc(p.p)}</small></td><td>${esc(p.c)}</td><td><b>${esc(p.n)}</b></td><td style="text-align:center"><input type=checkbox ${roleHas(d, p.k, r) || lockP(p.k, r) ? 'checked' : ''} ${lockP(p.k, r) ? 'disabled' : ''} onchange="permTog('${p.k}','${r}',this.checked)"></td>${ppl.map(u => `<td style="text-align:center"><input type=checkbox class="${ownP(d, p.k, u.username) ? 'pown' : ''}" ${userHas(d, p.k, u) ? 'checked' : ''} ${lockP(p.k, r) ? 'disabled' : ''} onchange="permTogU('${p.k}','${esc(u.username)}',this.checked)"></td>`).join('')}</tr>`).join('') + `</table></div>${PNOTE}`) + permTpl();
+};
+for (const r of ROLES5) PG['perm_' + r] = permRole(r);
 
 // ---- integrations: links to the other tools used every day
 const INTF = [['crm', 'CRM lead link', 'https://crm.example.com/leads/{id}', 'Lead IDs become clickable everywhere, and QA Entry fills the CRM link by itself. {id} = the lead ID.'],

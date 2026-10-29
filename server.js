@@ -252,7 +252,7 @@ app.post('/api/demo/reset', need('admin'), devOnly, (req, res) => {
   catch (e) { res.status(500).json({ error: 'The reset failed - run "node seed.js" in the terminal to see why' }); }
 });
 // what the browser receives of the system settings: e-mail templates and notification rules are only for admins
-const setOut = (db, u) => { const s = { ...db.settings, oldTeams: db.oldTeams, wf: wfm.settingsOf(db.settings.wf, wfm.localDay()) }; delete s.ai; if (u.role !== 'admin') { delete s.mailtpl; delete s.notifOff; } return s; };
+const setOut = (db, u) => { const s = { ...db.settings, oldTeams: db.oldTeams, wf: wfm.settingsOf(db.settings.wf, wfm.localDay()) }; delete s.ai; if (u.role !== 'admin') { delete s.mailtpl; delete s.notifOff; delete s.permtpl; s.permu = Object.fromEntries(Object.entries(s.permu || {}).filter(([, m]) => m && Object.hasOwn(m, u.username)).map(([p, m]) => [p, { [u.username]: m[u.username] }])); } return s; };   // a person only gets their own per-person access
 const ctx = { newEval, FILE, DIR: __dirname, app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, limited, setOut,
   scopeOf: (db, u) => scopeOf(db, u), seesUser: (db, u, username, team) => seesUser(db, u, username, team) };
 // a password version: changing or resetting a password ends the sign-ins made with the old one (see refreshSession)

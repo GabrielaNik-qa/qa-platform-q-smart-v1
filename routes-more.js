@@ -67,16 +67,25 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   });
 
   // ---------------------------------------------------------------- settings that admins (and for the planner QA) change on their own pages
-  const KEYS = { planner: ['admin', 'qa'], perm: ['admin'], integ: ['admin'], notifOff: ['admin'], mailtpl: ['admin'] };
+  const KEYS = { planner: ['admin', 'qa'], perm: ['admin'], permu: ['admin'], permtpl: ['admin'], integ: ['admin'], notifOff: ['admin'], mailtpl: ['admin'] };
   app.put('/api/settings/x/:key', need(), (req, res) => {
     const k = req.params.key, u = req.session.user; if (!KEYS[k]) return res.status(404).json({ error: 'unknown setting' }); if (!KEYS[k].includes(u.role)) return res.status(403).json({ error: 'not allowed' });
-    let v = clean((req.body || {}).value);
+    // the permissions have their own checks below (more than 60 pages, and a template keeps its id and date)
+    let v = ['perm', 'permu', 'permtpl'].includes(k) ? (req.body || {}).value : clean((req.body || {}).value);
     if (k === 'integ') {                                          // the integration links are shown to everybody as links: only https:// addresses (R-13)
       if (!v || typeof v !== 'object' || Array.isArray(v)) return bad(res, 'Links must start with https://');
       const out = {};
       for (const [x, s] of Object.entries(v)) { const t = typeof s === 'string' ? s.trim() : ''; if (t && !/^https:\/\/[^\s"'<>`]+$/i.test(t)) return bad(res, 'Links must start with https://'); out[x] = t.slice(0, 400); }
       v = out;
     }
+    // per-person access (Roles & permissions): { page: { username: true / false } }, only yes / no values
+    const plain = o => o && typeof o === 'object' && !Array.isArray(o), okKey = x => typeof x === 'string' && /^[A-Za-z0-9][\w.@-]{0,79}$/.test(x);   // page names and usernames only
+    const permuOf = o => { const out = {}; if (!plain(o)) return out; for (const [p, m] of Object.entries(o).slice(0, 500)) { if (!okKey(p) || !plain(m)) continue; const x = {}; for (const [un, on] of Object.entries(m).slice(0, 2000)) if (okKey(un) && typeof on === 'boolean') x[un] = on; out[p] = x; } return out; };
+    const permOf = o => { const out = {}; if (!plain(o)) return out; for (const [p, l] of Object.entries(o).slice(0, 500)) if (okKey(p) && Array.isArray(l)) out[p] = l.filter(x => ['admin', 'qa', 'lead', 'trainer', 'agent'].includes(x)); return out; };
+    if (k === 'permu') v = permuOf(v);
+    if (k === 'perm') v = permOf(v);
+    // saved permission templates: a name, when, and the roles and per-person access at that moment (30 at most)
+    if (k === 'permtpl') v = (Array.isArray(v) ? v : []).slice(0, 30).filter(plain).map((t, i) => ({ id: String(t.id || '').replace(/[^\w-]/g, '').slice(0, 40) || 'pt' + Date.now() + i, name: String(t.name || '').trim().slice(0, 60) || 'Template', at: String(t.at || '').replace(/[^\dT:.Z-]/g, '').slice(0, 30), perm: permOf(t.perm), permu: permuOf(t.permu) }));
     const db = load(); db.settings = { ...db.settings, [k]: v }; save(db); res.json(setOut(db, u));
   });
 

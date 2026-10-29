@@ -5,6 +5,8 @@
 // Score of a person (0-100) = 70% completion + 30% done on time − 2 points for every overdue task.
 let TSEQ = { seqs: [], runs: [] }, TKW = 0;   // the sequences and their rounds; TKW = weeks the timeline is moved from today
 let TV = { view: LS.get('qa_tkview', 'board'), lib: 'hist', hq: '', tab: LS.get('qa_tktab', 'my'), q: '', st: 'all', team: '', agent: '', et: '', p: 'all', sk: 'score', sd: -1 }, TKV = null, TPLM = false;
+// a target (it earns XP) has an orange star, a task a yellow one (Gabriela, 29 October: no emojis)
+const tkStar = target => `<span class="tkstar ${target ? 'tgt' : ''}" aria-hidden="true">★</span>`;
 const isOver = t => t.status !== 'done' && !t.archived && t.due && t.due < todayS();
 const TIC = {
   my: svg('<path d="M10 6h11M10 12h11M10 18h11M3 6l1 1 2-2M3 12l1 1 2-2M3 18l1 1 2-2"/>', 17),
@@ -111,7 +113,7 @@ async function tickT(id, i, on) {
 }
 
 // ---- the page
-const tkKpi = (t, v, s, ic, c, click) => `<div class="tkk ${click ? 'clk' : ''}" ${click ? `onclick="${click}"` : ''}><div class=row><span>${t}</span><span style="color:var(--mu)">${ic}</span></div><b style="color:${c || 'var(--tx)'}">${v}</b><small>${s}</small></div>`;
+const tkKpi = (t, v, s, ic, c, st) => `<div class="tkk clk ${TV.st === st ? 'on' : ''}" role=button tabindex=0 onclick="TV.st='${st}';render()" onkeydown="if(event.key==='Enter')this.click()" title="Show these tasks"><div class=row><span>${t}</span><span style="color:var(--mu)">${ic}</span></div><b style="color:${c || 'var(--tx)'}">${v}</b><small>${s}</small></div>`;
 function tkMyScore() {
   const s = tkStats(TASKS.filter(t => t.assignee === ME.username));
   return `<div class=tkms><div><div class=cap>MY SCORE</div><div class=tkmsv><b style="color:${s.total ? tkSCol(s.score) : 'var(--bad)'}">${s.score}</b><small>/100</small></div><div class=row style="gap:10px"><div style="flex:1">${bar(s.comp, tkSCol(s.score))}</div><small>${Math.round(s.comp)}%</small></div></div><div class=tkmss><div><b>${s.done}/${s.total}</b><small>DONE</small></div><div><b>${s.on}</b><small>ON TIME</small></div><div><b style="${s.over ? 'color:var(--bad)' : ''}">${s.over}</b><small>OVERDUE</small></div></div></div>`;
@@ -119,29 +121,38 @@ function tkMyScore() {
 const tkTeams = () => TEAMS.filter(t => !t.system && AGENTS().some(a => a.team === t.id));
 const tkTeamChips = (key, cnt) => `<div class=tkchips><button class="tkcp ${TV[key] ? '' : 'on'}" onclick="TV.${key}='';${key === 'team' ? "TV.agent='';" : ''}render()">All Teams</button>${tkTeams().map(t => `<button class="tkcp ${TV[key] === t.id ? 'on' : ''}" onclick="TV.${key}='${t.id}';${key === 'team' ? "TV.agent='';" : ''}render()"><i style="background:${t.color}"></i>${esc(t.name)}${cnt ? ` (${cnt(t.id)})` : ''}</button>`).join('')}</div>`;
 
+// "How XP works", under the number cards (Gabriela, 29 October): the same rules as the code (tasks here, the leaderboard in perf.js)
+const tkXpHelp = () => `<details class="card tkxph" ${TV.xph ? 'open' : ''} ontoggle="TV.xph=this.open"><summary><span class="tkstar tgt" aria-hidden="true">★</span> <b>How XP works</b></summary><ul>
+  <li>${tr('Every task or target can be worth XP points, from 0 to 1000. The person who creates it, or its template, chooses how many.')}</li>
+  <li>${tr('The XP is earned when the task is Done. A task that needs a review earns its XP when the reviewer approves it.')}</li>
+  <li>${tr('Each month, the XP of the finished tasks is added up. It is the Task XP on Performance › Recognition.')}</li>
+  <li>${tr('Leaderboard points for the month = Task XP + 5 for each kudos + 3 for each green flag + the average score divided by 10 + 10 when the average reaches the team pass mark.')}</li>
+  <li>${tr('Every month starts again at 0. XP does not change the quality score or the task score.')}</li></ul></details>`;
 function tkMy() {
   const base = tkBase(), act = base.filter(t => !t.archived), arc = base.filter(t => t.archived), ed = canEditWork(), s = tkStats(act);
   const inProg = act.filter(t => t.status === 'doing' || t.status === 'review').length;
-  const kp = `<div class=tkkp>${tkKpi('Total Tasks', act.length, 'assigned', TIC.list)}${tkKpi('Completed', s.done, Math.round(s.comp) + '% rate', TIC.done, 'var(--ok)')}${tkKpi('In Progress', inProg, 'active now', TIC.act, 'var(--wn)')}${tkKpi('Overdue', s.over, 'need attention', TIC.warn, 'var(--bad)')}${tkKpi('Archived', arc.length, 'click to view', TIC.arch, '', "TV.st='archive';render()")}</div>`;
-  const cnt = k => k === 'archive' ? arc.length : k === 'all' ? act.length : act.filter(t => k === 'active' ? (t.status === 'doing' || t.status === 'review') : t.status === k).length;
-  const segs = [['all', `All (${cnt('all')})`], ['todo', 'To Do'], ['active', 'Active'], ['done', 'Done'], ['archive', `${TIC.arch} Archives (${cnt('archive')})`]];
+  const kp = `<div class=tkkp>${tkKpi('Total Tasks', act.length, 'assigned', TIC.list, '', 'all')}${tkKpi('Completed', s.done, Math.round(s.comp) + '% rate', TIC.done, 'var(--ok)', 'done')}${tkKpi('In Progress', inProg, 'active now', TIC.act, 'var(--wn)', 'active')}${tkKpi('Overdue', s.over, 'need attention', TIC.warn, 'var(--bad)', 'overdue')}${tkKpi('Archived', arc.length, 'click to view', TIC.arch, '', 'archive')}</div>`;
+  const cnt = k => k === 'archive' ? arc.length : k === 'all' ? act.length : act.filter(t => tkStOk(t, k)).length;
+  const segs = [['all', `All (${cnt('all')})`], ['todo', 'To Do'], ['active', 'Active'], ['done', 'Done'], ['overdue', 'Overdue'], ['archive', `${TIC.arch} Archives (${cnt('archive')})`]];
   const all = tkMine().filter(t => !t.archived), people = AGENTS().filter(a => !TV.team || a.team === TV.team);
   const filt = `<section class="card tkfl"><div class=row style="justify-content:flex-start;gap:12px;flex-wrap:wrap"><div class=sx style="width:300px"><span>${IC.search}</span><input id=tkq placeholder="Search tasks…" value="${esc(TV.q)}" oninput="TV.q=this.value;tkRt()"></div><div class=sg>${segs.map(([k, n]) => `<button class="${TV.st === k ? 'on' : ''}" onclick="TV.st='${k}';render()">${n}</button>`).join('')}</div><div class=sg role=group style="margin-left:auto">${[['board', 'Board'], ['time', 'Timeline']].map(([k, n]) => `<button class="${TV.view === k ? 'on' : ''}" aria-pressed="${TV.view === k}" onclick="TV.view='${k}';LS.set('qa_tkview','${k}');render()">${n}</button>`).join('')}</div></div>`
     + (ed ? `<div class=tkrow><span class=cap>TEAM</span>${tkTeamChips('team', id => all.filter(t => teamOf(t.assignee) === id).length)}</div><div class=tkrow><span class=cap>AGENT</span><div class=tkchips><button class="tkcp ${TV.agent ? '' : 'on'}" onclick="TV.agent='';render()">All (${people.length})</button>${people.map(a => `<button class="tkcp ${TV.agent === a.username ? 'on' : ''}" onclick="TV.agent='${esc(a.username)}';render()" title="${esc(a.name)} · ${all.filter(t => t.assignee === a.username).length} tasks">${tkAv(a.username, 22)}${esc(a.name.split(' ')[0])}</button>`).join('')}</div></div>` : '') + `</section>`;
-  return kp + filt + `<div id=tkbd>${tkBoard()}</div>`;
+  return kp + tkXpHelp() + filt + `<div id=tkbd>${tkBoard()}</div>`;
 }
+// the status filter: all, to do, active (in progress or in review), done, overdue (late and not done)
+const tkStOk = (t, st = TV.st) => st === 'all' || (st === 'active' ? t.status === 'doing' || t.status === 'review' : st === 'overdue' ? isOver(t) : t.status === st);
 function tkBoard() {
   const base = tkBase();
   if (TV.st === 'archive') { const l = base.filter(t => t.archived).sort((a, b) => String(b.archived).localeCompare(String(a.archived))); return l.length ? `<div class=tkarc>${l.slice(0, 60).map(tkCard).join('')}</div>${l.length > 60 ? `<small class=mu>Showing the 60 most recent of ${l.length}</small>` : ''}` : '<div class=agem>The archive is empty</div>'; }
   const act = base.filter(t => !t.archived);
-  if (TV.view === 'time') return tkTime(act.filter(t => TV.st === 'all' || (TV.st === 'active' ? t.status === 'doing' || t.status === 'review' : t.status === TV.st)));
+  if (TV.view === 'time') return tkTime(act.filter(t => tkStOk(t)));
   if (TKVM === 'list') {
-    const l = act.filter(t => TV.st === 'all' || (TV.st === 'active' ? t.status === 'doing' || t.status === 'review' : t.status === TV.st)).sort(tkOrder), ed = canEditWork(), stn = { todo: 'To Do', doing: 'In Progress', review: 'In review', done: 'Done' };
+    const l = act.filter(t => tkStOk(t)).sort(tkOrder), ed = canEditWork(), stn = { todo: 'To Do', doing: 'In Progress', review: 'In review', done: 'Done' };
     return l.length ? `<div class=card style="padding:0"><div class=sc><table class=ct><tr><th>TASK</th>${ed ? '<th>FOR</th>' : ''}<th>STATUS</th><th>PRIORITY</th><th>DUE</th><th>PROGRESS</th></tr>${l.map(t => { const cl = tkItems(t.checklist), dn = cl.filter(c => c.done).length, [pn, pc] = TPRI[t.priority] || TPRI.med;
       return `<tr class=clk onclick="TKV='${t.id}';render()"><td><i class=tkdot style="background:${pc}"></i> <b>${esc(t.title)}</b>${t.pinned ? ` <span style="color:var(--ac)">${TIC.pin}</span>` : ''}</td>${ed ? `<td style="white-space:nowrap">${tkAv(t.assignee, 22)} ${esc(an(t.assignee) || t.assignee)}</td>` : ''}<td>${stn[t.status] || esc(t.status)}</td><td><span class=tkch style="--c:${pc}">${pn}</span></td><td style="white-space:nowrap">${t.due ? (isOver(t) ? `<b style="color:var(--bad)">${t.due}</b>` : t.due) : '—'}</td><td>${cl.length ? `<div class=sv><b class=mono>${dn}/${cl.length}</b>${bar(dn / cl.length * 100, dn === cl.length ? 'var(--ok)' : 'var(--ac)')}</div>` : '—'}</td></tr>`; }).join('')}</table></div></div>` : '<div class=agem>No tasks here</div>';
   }
-  const cols = [['todo', 'To Do', 'var(--mu)', 'Nothing to do'], ['doing', 'In Progress', 'var(--wn)', 'Nothing in progress'], ['review', 'In review', 'var(--ac)', 'Nothing waits for a check'], ['done', 'Done', 'var(--ok)', 'No completed tasks']].filter(([k]) => TV.st === 'all' || TV.st === k || (TV.st === 'active' && (k === 'doing' || k === 'review')));
-  return `<div class=tkkan style="grid-template-columns:repeat(${cols.length},minmax(230px,1fr))">${cols.map(([k, n, c, em]) => { let x = act.filter(t => t.status === k); const total = x.length;
+  const cols = [['todo', 'To Do', 'var(--mu)', 'Nothing to do'], ['doing', 'In Progress', 'var(--wn)', 'Nothing in progress'], ['review', 'In review', 'var(--ac)', 'Nothing waits for a check'], ['done', 'Done', 'var(--ok)', 'No completed tasks']].filter(([k]) => TV.st === 'all' || TV.st === k || (TV.st === 'active' && (k === 'doing' || k === 'review')) || (TV.st === 'overdue' && k !== 'done'));
+  return `<div class=tkkan style="grid-template-columns:repeat(${cols.length},minmax(230px,1fr))">${cols.map(([k, n, c, em]) => { let x = act.filter(t => t.status === k && (TV.st !== 'overdue' || isOver(t))); const total = x.length;
     x = k === 'done' ? x.sort((a, b) => String(b.completed).localeCompare(String(a.completed))).slice(0, 30) : x.sort(tkOrder);
     return `<div class=tkcol ondragover="event.preventDefault()" ondrop="tkDrop(event,'${k}')"><div class=tkchd><span><i style="background:${c}"></i>${n}</span><span class=bg>${total}</span></div>${x.map(tkCard).join('') || `<div class=tkem>${em}</div>`}${total > x.length ? `<small class=mu style="text-align:center">+${total - x.length} older — archive them to keep the board short</small>` : ''}</div>`; }).join('')}</div>`;
 }
@@ -259,7 +270,7 @@ PG.tasks = function () {
 // ---- forms
 const TASK_FIELDS = [
   { k: 'title', l: 'Title', req: 1 }, { k: 'desc', l: 'Description', t: 'textarea' },
-  { k: 'type', l: 'Type', t: 'select', o: [['task', '✅ Task'], ['mission', '🎯 Target (earns XP)']] }, { k: 'priority', l: 'Priority', t: 'select', o: [['low', '🟢 Low'], ['med', '🟡 Medium'], ['high', '🔴 High']] },
+  { k: 'type', l: 'Type', t: 'select', o: [['task', '★ Task'], ['mission', '★ Target (earns XP)']] }, { k: 'priority', l: 'Priority', t: 'select', o: [['low', '🟢 Low'], ['med', '🟡 Medium'], ['high', '🔴 High']] },
   { k: 'start', l: 'Start date', t: 'date' }, { k: 'due', l: 'Deadline', t: 'date' }, { k: 'rev', l: 'Needs my review before it is done', t: 'checkbox', hint: 'When the person marks it done, it waits in In review until you approve it or send it back.' }, { k: 'points', l: 'XP points', t: 'number' }, { k: 'labels', l: 'Labels', t: 'chips' },
   { k: 'checklist', l: 'Checklist (one step per line, add | 5 for 5 minutes)', t: 'lines', rows: 5, ph: 'Check work email | 5\nClose tickets in Zendesk | 20' }
 ];
@@ -270,7 +281,7 @@ const editTask = id => { const t = TASKS.find(x => x.id === id); TKV = null; ope
   save: async d => { const old = tkItems(t.checklist), body = { ...d, checklist: tkLines(d.checklist).map(c => ({ ...c, done: !!(old.find(o => o.t === c.t) || {}).done })) }; const r = await api('/api/tasks/' + id, body, 'PUT'); if (!r.ok) return errOf(r, 'Could not save the task'); await load(); toast('Task saved'); } }); };
 const delTask = id => ask('Delete this task?', 'It is removed for the agent too. Archive it instead if you want to keep the history.', async () => { TKV = null; const r = await api('/api/tasks/' + id, null, 'DELETE'); toast(r.ok ? 'Task deleted' : await errOf(r, 'Could not delete'), !r.ok); await load(); render(); }, { yes: 'Yes, delete', no: 'Cancel', danger: true });
 const TKM = () => { const t = TASKS.find(x => x.id === TKV); if (!t) { TKV = null; return ''; } const can = canEditWork() || t.assignee === ME.username;
-  return OVL(`<div class=mh><h2>${t.type === 'mission' ? '🎯' : '✅'} ${esc(t.title)}</h2>${X("TKV=null;render()")}</div><div class=mb><div class=row style="flex-wrap:wrap;gap:8px"><span>${pill(({ todo: 'To do', doing: 'In progress', review: 'In review', done: 'Done' })[t.status], t.status === 'done' ? 'ok' : 'ac')}${t.run ? ' ' + pill(esc(t.seqName || '') + ' · ' + tr(`Step ${t.step} of ${t.steps}`), 'mu') : ''} ${t.archived ? pill('Archived', 'wn') : ''}</span><small class=mu>${esc(an(t.assignee) || t.assignee)} · given by ${esc(an(t.by) || t.by)}</small></div>${t.desc ? `<p style="margin:0">${lineBr(t.desc)}</p>` : ''}${tkCard(t).replace('draggable=true', 'draggable=false').replace(/onclick="TKV='[^']*';render\(\)"/, '')}<h3 class=tklh>History</h3>${tkLog(t)}${canEditWork() ? `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ib ibx" onclick="editTask('${t.id}')">${IC.pen} Edit</button><button class="ib ibx" onclick="tkAgain('${t.id}')">${IC.plus} Give again</button><button class="ib ibx" onclick="tkToTpl('${t.id}')">${TIC.tpl} Save as a template</button><button class="ib ibx" onclick="delTask('${t.id}')">${IC.bin} Delete</button></div>` : ''}</div>`, 'TKV=null;render()', 560, 55); };
+  return OVL(`<div class=mh><h2>${tkStar(t.type === 'mission')} ${esc(t.title)}</h2>${X("TKV=null;render()")}</div><div class=mb><div class=row style="flex-wrap:wrap;gap:8px"><span>${pill(({ todo: 'To do', doing: 'In progress', review: 'In review', done: 'Done' })[t.status], t.status === 'done' ? 'ok' : 'ac')}${t.run ? ' ' + pill(esc(t.seqName || '') + ' · ' + tr(`Step ${t.step} of ${t.steps}`), 'mu') : ''} ${t.archived ? pill('Archived', 'wn') : ''}</span><small class=mu>${esc(an(t.assignee) || t.assignee)} · given by ${esc(an(t.by) || t.by)}</small></div>${t.desc ? `<p style="margin:0">${lineBr(t.desc)}</p>` : ''}${tkCard(t).replace('draggable=true', 'draggable=false').replace(/onclick="TKV='[^']*';render\(\)"/, '')}<h3 class=tklh>History</h3>${tkLog(t)}${canEditWork() ? `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ib ibx" onclick="editTask('${t.id}')">${IC.pen} Edit</button><button class="ib ibx" onclick="tkAgain('${t.id}')">${IC.plus} Give again</button><button class="ib ibx" onclick="tkToTpl('${t.id}')">${TIC.tpl} Save as a template</button><button class="ib ibx" onclick="delTask('${t.id}')">${IC.bin} Delete</button></div>` : ''}</div>`, 'TKV=null;render()', 560, 55); };
 const TPLMM = () => '';
 // the history of a task, newest first (tasks from before the history existed show when they were given and done)
 const TKA = { created: 'Given', doing: 'Started', todo: 'Moved back to To Do', review: 'Sent for review', approved: 'Approved', returned: 'Sent back', done: 'Marked done', assigned: 'Given to', due: 'Deadline changed', archived: 'Archived', restored: 'Restored' };
@@ -279,7 +290,7 @@ const tkLog = t => { const l = (t.log || []).length ? t.log : [{ at: t.created, 
 
 const TPL_FIELDS = [
   { k: 'title', l: 'Template name', req: 1 }, { k: 'desc', l: 'Description', t: 'textarea', rows: 2 },
-  { k: 'kind', l: 'Type', t: 'select', o: [['checklist', '📋 Checklist'], ['target', '🎯 Target'], ['task', '✅ Task']] }, { k: 'priority', l: 'Priority', t: 'select', o: [['low', 'Low'], ['med', 'Medium'], ['high', 'High']] },
+  { k: 'kind', l: 'Type', t: 'select', o: [['checklist', 'Checklist'], ['target', '★ Target'], ['task', '★ Task']] }, { k: 'priority', l: 'Priority', t: 'select', o: [['low', 'Low'], ['med', 'Medium'], ['high', 'High']] },
   { k: 'checklist', l: 'Steps (one per line, add | 5 for 5 minutes)', t: 'lines', rows: 6, ph: 'Check work email – Outlook | 5\nCheck escalation group in Teams | 10' },
   { k: 'color', l: 'Colour', t: 'color' }, { k: 'points', l: 'XP points', t: 'number' },
   { k: 'freq', l: 'Repeats', t: 'select', re: 1, o: [['none', 'No — I use it by hand'], ['daily', 'Every day'], ['weekly', 'Every week'], ['monthly', 'Every month'], ['quarterly', 'Every quarter']], hint: 'Repeating cards skip the days a person does not work (rota, calendar, time off): they come on the next working day.' },

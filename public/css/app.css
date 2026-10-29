@@ -1123,3 +1123,22 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .qout{margin-top:12px;border:1px solid var(--bd);border-radius:12px;padding:12px 14px;background:var(--bg)}.qth{display:grid;gap:3px;padding:8px 0;border-bottom:1px dashed var(--bd)}.qth:last-of-type{border-bottom:0}
 .g3{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.qkl{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}.qkp{font-size:12.5px;color:var(--mu);white-space:pre-wrap;max-height:110px;overflow:hidden;margin:8px 0 0}
 .lgnote{margin-top:16px;border:1px solid var(--bd);border-radius:12px;padding:10px 14px;font-size:12.5px;color:var(--mu);display:grid;gap:4px}.lgnote p{margin:0;white-space:pre-wrap}   /* the privacy note on the sign-in page */
+
+/* Roles & permissions: the boxes over the table, the Teams & people box (a tick for a whole team or for single people), a thick box = a person's own choice */
+.pfbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 12px } .pfbar select { width: auto }
+.pfd { position: relative } .pfd summary { list-style: none; cursor: pointer; padding: 9px 12px; border: 1px solid var(--bd); border-radius: 10px; background: var(--pn); font-size: 13px } .pfd summary::-webkit-details-marker { display: none }
+.pfl { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; min-width: 260px; max-height: 360px; overflow: auto; padding: 10px; border: 1px solid var(--bd); border-radius: 10px; background: var(--pn); box-shadow: 0 10px 30px rgba(0,0,0,.18); display: grid; gap: 4px }
+.pfl .pft { margin-top: 6px } .pfl .pft input { width: 18px; height: 18px; accent-color: var(--orange) } .pfl .pft small { margin-left: auto } .pfl .pfu { padding-left: 26px; font-size: 13px }
+.pmt input.pown { outline: 2px solid var(--orange); outline-offset: 1px; accent-color: var(--orange) }
+
+/* Tasks: every number card opens its tasks; the card in use has an orange edge */
+.tkk.clk { cursor: pointer } .tkk.clk:hover { border-color: var(--bd2) } .tkk.on { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange) inset }
+
+/* tasks: an orange star for a target, a yellow star for a task */
+.tkstar { color: var(--yellow); -webkit-text-stroke: .5px rgba(0,0,0,.25) } .tkstar.tgt { color: var(--orange); -webkit-text-stroke: 0 }
+/* an opened task card: the buttons on the top row, the title on its own line under them, in full (Gabriela, 29 October) */
+.tkx:not(.tkc) .tkh { flex-wrap: wrap; row-gap: 6px } .tkx:not(.tkc) .tkh .tkac { margin-left: auto }
+.tkx:not(.tkc) .tkh > b { order: 5; flex: 1 1 100%; min-width: 0; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; font-size: 15px; line-height: 1.3 }
+/* Tasks: the "How XP works" box */
+.tkxph { padding: 12px 16px; margin-bottom: 14px } .tkxph summary { cursor: pointer; font-size: 14px } .tkxph ul { margin: 10px 0 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13px; color: var(--mu) }
+.tkx:not(.tkc) .tkh { column-gap: 2px } .tkx:not(.tkc) .tkh .ic { width: 28px; height: 28px; padding: 0 } .tkx:not(.tkc) .tkh .tkac { display: inline-flex; gap: 0 }

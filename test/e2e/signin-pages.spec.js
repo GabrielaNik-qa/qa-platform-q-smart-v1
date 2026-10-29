@@ -112,6 +112,12 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   await go(a.page, 'cs_vat'); await expect(a.page.locator('#m h1')).toHaveText(/EU VAT/i); await expect(a.page.locator('#m')).toContainText('Coming soon');
   await go(a.page, 'att'); await expect(a.page.locator('#n .sech.sec-people'), 'Workforce pages open in the Admin panel').toHaveCount(1);
   await go(a.page, 'sysset'); await expect(a.page.locator('#m h1')).toHaveText(/System settings/i);
+  // Roles > one page per role (29 October): Panel, Category, Subcategory, the role, then its people; a person's own tick is thick
+  await go(a.page, 'perm_agent');
+  expect((await a.page.locator('#m table tr').first().locator('th').allInnerTexts()).slice(0, 4).map(t => t.split('\n')[0])).toEqual(['PANEL', 'CATEGORY', 'SUBCATEGORY', 'AGENT']);
+  const firstP = a.page.locator('#m table tr').nth(1).locator('input[type=checkbox]').nth(1);
+  await firstP.click(); await expect(a.page.locator('#m input.pown')).toHaveCount(1); await expect(a.page.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
+  await a.page.getByRole('button', { name: 'Cancel', exact: true }).click(); await expect(a.page.locator('#m input.pown')).toHaveCount(0);
   await a.page.evaluate(() => openAcct('password')); await a.page.getByRole('button', { name: /Go to settings/ }).click();
   await expect.poll(() => a.page.evaluate(() => location.hash)).toBe('#acpw');
   expect(a.errors).toEqual([]); await a.ctx.close();

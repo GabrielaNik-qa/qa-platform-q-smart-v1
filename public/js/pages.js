@@ -36,7 +36,7 @@ const GROUPS = [
   { id: 'support', name: 'Support', sec: 'account', icon: 'g_support', space: 'admin', items: [['cs_contact', 'Contact support'], ['cs_ideas', 'Feature requests'], ['cs_status', 'Service status & SLA'], ['cs_release', 'Release notes']] },
   // PEOPLE
   { id: 'people', name: 'Users', sec: 'people', icon: 'g_people', space: 'admin', items: [['users', 'Users'], ['teams', 'Teams'], ['wsp', 'Workspaces'], ['skills', 'Skills']] },
-  { id: 'roles', name: 'Roles', sec: 'people', icon: 'g_badge', space: 'admin', items: [['perms', 'Roles & permissions']] },
+  { id: 'roles', name: 'Roles', sec: 'people', icon: 'g_badge', space: 'admin', items: [['perms', 'All roles'], ['perm_agent', 'Agent'], ['perm_trainer', 'Trainer'], ['perm_lead', 'Team Lead'], ['perm_qa', 'QA Specialist'], ['perm_admin', 'Admin']] },
   { id: 'signin', name: 'Sign-in', sec: 'people', icon: 'g_key', space: 'admin', items: [['signin', 'Sign-in'], ['cs_sso', 'Single sign-on'], ['cs_scim', 'Automatic users (SCIM)'], ['cs_pwrules', 'Password & two-step rules'], ['cs_ip', 'Allowed IP addresses']] },
   { id: 'workforce', name: 'Workforce', sec: 'people', icon: 'g_wf', space: 'admin', items: [['today', 'Team today'], ['att', 'Attendance'], ['leave', 'Time off'], ['rota', 'Shifts and rota'], ['cap', 'Capacity planning']] },
   // SETUP
@@ -99,9 +99,11 @@ const RR = { org: ['admin'], privacy: ['admin'], signin: ['admin'], words: ['adm
 Object.assign(RR, { sysset: ['admin'], rbuild: STAFFR, rsaved: STAFFR, rexp: STAFFR, planner: ['admin', 'qa', 'lead'], workload: ['admin', 'qa', 'lead'], compliance: STAFFR, risks: STAFFR, complaints: STAFFR, csat: STAFFR, perms: ['admin'], integ: ['admin'], notifs: ['admin'], backup: ['admin'], mailtpl: ['admin'] });
 // an admin can change who sees which page (Admin > Roles & permissions); admins always keep the Admin pages
 Object.keys(SOON).forEach(k => { RR[k] = ['admin']; });
-const ADMINP = ['users', 'teams', 'wsp', 'skills', 'perms', 'integ', 'notifs', 'backup', 'mailtpl', 'audit', 'wcal', 'shifts', 'ltypes', 'attrules'];
+Object.keys(ROLE).forEach(r => { RR['perm_' + r] = ['admin']; });   // the page of each role in Roles & permissions
+const ADMINP = ['perm_agent', 'perm_trainer', 'perm_lead', 'perm_qa', 'perm_admin', 'users', 'teams', 'wsp', 'skills', 'perms', 'integ', 'notifs', 'backup', 'mailtpl', 'audit', 'wcal', 'shifts', 'ltypes', 'attrules'];
 const own = (o, k) => o && Object.hasOwn(o, k) ? o[k] : undefined;   // only the object's own entries (a link such as #constructor is not a page)
-const canRoute = k => { if (ME.role === 'admin' && ADMINP.includes(k)) return true; const p = own(SET.perm, k) || own(RR, k); return !Array.isArray(p) || p.includes(ME.role); };
+// a person's own choice (Roles & permissions) comes before their role's
+const canRoute = k => { if (ME.role === 'admin' && ADMINP.includes(k)) return true; const m = own(SET.permu, k); if (m && Object.hasOwn(m, ME.username)) return m[ME.username] === true; const p = own(SET.perm, k) || own(RR, k); return !Array.isArray(p) || p.includes(ME.role); };
 const groupsFor = () => GROUPS.map(g => ({ ...g, items: g.items.filter(([k]) => canRoute(k)) })).filter(g => g.items.length);
 const groupOf = r => ({ aqlist: 'home', aqgaps: 'home' })[r] || (GROUPS.find(g => g.items.some(([k]) => k === r)) || {}).id;
 
