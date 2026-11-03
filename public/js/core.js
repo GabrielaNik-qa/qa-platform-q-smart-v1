@@ -282,7 +282,10 @@ async function load() {
     cs_faq: ['faq'], cs_gloss: ['gloss'], cs_videos: ['videos'], cs_tours: ['tours'], cs_pins: ['pins'], cs_revqa: ['revqa'], cs_myact: ['kudos', 'surveys'], cs_dashes: ['surveys', 'revqa', 'pins'], cs_script: ['scripts'], cs_announce: ['announce'], cs_ideas: ['ideas'] };
   if (ME) want.push(['c_announce', '/api/c/announce']);   // the announcements show on every page
   if (route === 'cs_contact') want.push(['su', '/api/support']);
-  if (route === 'cs_hcsite' && adm) want.push(['hs', '/api/hc?all=1']);   // the Help Center website, drafts included   // Contact support: my requests (all of them for admins)
+  if (route === 'cs_hcsite' && adm) want.push(['hs', '/api/hc?all=1']);
+  if (['cs_apikeys', 'cs_api', 'cs_webhooks', 'cs_mcp'].includes(route) && adm) want.push(['dv', '/api/devinfo']);   // the developer pages (devs.js)
+  if (route === 'cs_apikeys' && adm) want.push(['dk', '/api/devkeys']);
+  if (route === 'cs_webhooks' && adm) want.push(['wh', '/api/hooks']);   // the Help Center website, drafts included   // Contact support: my requests (all of them for admins)
   (Object.hasOwn(CL, route) ? CL[route] : []).forEach(c => { if (ME && (!['reports', 'risks', 'complaints'].includes(c) || ed)) want.push(['c_' + c, '/api/c/' + c]); });
   if (['rbuild', 'rsaved', 'goals', 'calendar', 'kudos', 'dash', 'pers'].includes(route)) want.push(['tk', '/api/tasks']);
   if (route === 'calendar') want.push(['se', '/api/sessions']);
@@ -329,6 +332,9 @@ async function load() {
   if (R.qf) QF = JSON.parse(R.qf);
   if (R.su) SUPR = JSON.parse(R.su);
   if (R.hs) HCS = JSON.parse(R.hs);
+  if (R.dv) DEVI = JSON.parse(R.dv);
+  if (R.dk) DEVK = JSON.parse(R.dk);
+  if (R.wh) DEVH = JSON.parse(R.wh);
   Object.keys(R).filter(k => k.startsWith('c_') && R[k]).forEach(k => { CO[k.slice(2)] = JSON.parse(R[k]); });
   if (R.xp) XPS = JSON.parse(R.xp);
   if (R.bk) BKS = JSON.parse(R.bk);

@@ -112,12 +112,16 @@ delete SOON.cs_contact;
 RR.cs_hcsite = ['admin'];
 // built on 3 November (platform.js): Sandbox, Import data and Beta features, for admins
 ['cs_sandbox', 'cs_import', 'cs_beta'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
+// built on 4 November (devs.js): API keys, Developer API, Webhooks and MCP connectors, for admins
+['cs_apikeys', 'cs_api', 'cs_webhooks', 'cs_mcp'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
+// built on 4 November (billing.js): Plan & seats, Invoices and Payment method with Stripe, for admins
+['cs_plan', 'cs_invoices', 'cs_payment'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
 // built on 3 November (registers.js): no longer coming soon, still for admins only
 ['cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
 Object.keys(SOON).forEach(k => { RR[k] = ['admin']; });
 Object.keys(ROLE).forEach(r => { RR['perm_' + r] = ['admin']; });   // the page of each role in Roles & permissions
 const ADMINP = ['perm_agent', 'perm_trainer', 'perm_lead', 'perm_qa', 'perm_admin', 'users', 'teams', 'wsp', 'skills', 'perms', 'integ', 'notifs', 'backup', 'mailtpl', 'audit', 'wcal', 'shifts', 'ltypes', 'attrules'];
-ADMINP.push('cs_sandbox', 'cs_import', 'cs_beta', 'cs_hcsite', 'cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp');   // the registers and logs built on 3 November
+ADMINP.push('cs_plan', 'cs_invoices', 'cs_payment', 'cs_apikeys', 'cs_api', 'cs_webhooks', 'cs_mcp', 'cs_sandbox', 'cs_import', 'cs_beta', 'cs_hcsite', 'cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp');   // the registers and logs built on 3 November
 const own = (o, k) => o && Object.hasOwn(o, k) ? o[k] : undefined;   // only the object's own entries (a link such as #constructor is not a page)
 // a person's own choice (Roles & permissions) comes before their role's
 const canRoute = k => { if (typeof betaOff === 'function' && betaOff(k)) return false;   // a beta feature an admin switched off (Admin › Beta features) is hidden from everybody

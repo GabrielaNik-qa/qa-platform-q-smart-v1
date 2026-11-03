@@ -15,7 +15,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, SBOX_FILE, SBX, a
     const from = (req.body || {}).from === 'copy' ? 'copy' : 'demo', real = load(), me = real.users.find(u => u.username === req.session.user.username);
     if (!me) return bad(res, 'Your account was not found');
     const d = from === 'copy' ? JSON.parse(JSON.stringify(real)) : company(me);
-    if (d.settings) { delete d.settings.ai; delete d.settings.mailtpl; }   // no AI keys and no e-mail texts in the copy: the sandbox never spends money or writes to people
+    if (d.settings) { delete d.settings.ai; delete d.settings.mailtpl; delete d.settings.billing; }   // and no Stripe keys   // no AI keys and no e-mail texts in the copy: the sandbox never spends money or writes to people
     Object.assign(d, { sandbox: true, sandboxFrom: from, sandboxAt: iso() });
     const tmp = SBOX_FILE + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(d, null, 2)); fs.renameSync(tmp, SBOX_FILE);
     req.session.sandbox = true; res.json({ ...sbInfo(), on: true });

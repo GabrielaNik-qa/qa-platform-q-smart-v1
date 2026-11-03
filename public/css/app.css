@@ -1228,3 +1228,20 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .sbxopt { display: flex; flex-direction: column; gap: 6px; margin: 0 } .sbxopt p { flex: 1; margin: 0 0 8px } .sbxopt button { align-self: flex-start }
 .sbxl { margin: 0; padding-left: 18px; display: grid; gap: 6px }
 small.beta { font: 600 10px var(--font); letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; color: #7c3aed; background: color-mix(in srgb, #7c3aed 14%, transparent); margin-left: 6px; vertical-align: middle }
+
+/* Developers: API keys, Developer API, Webhooks, MCP connectors (4 November) */
+.devcode { position: relative; margin: 8px 0 } .devcode small { display: block; margin-bottom: 4px } .devcode pre { margin: 0; padding: 12px 96px 12px 14px; border-radius: 10px; background: var(--sunk); border: 1px solid var(--bd); overflow: auto; font: 500 12.5px var(--mono, monospace); white-space: pre-wrap; word-break: break-all }
+.devcode .devcp { position: absolute; right: 8px; bottom: 8px }
+.devperm { display: grid; gap: 6px } .devpr { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--bd) } .devpr .seg button:disabled { opacity: .35; cursor: not-allowed }
+.devbars { display: inline-flex; gap: 2px; align-items: flex-end; height: 22px; vertical-align: middle } .devbars i { width: 4px; border-radius: 1px; background: var(--orange); opacity: .8 }
+.devnew { border-color: var(--orange) } .devm { font-size: 11.5px; padding: 2px 6px; border-radius: 5px; color: #0e7490; background: color-mix(in srgb, #0e7490 14%, transparent) } .devm.post { color: #9a3412; background: color-mix(in srgb, #ea580c 16%, transparent) }
+.devmcp .devsteps { display: grid; gap: 4px; margin-top: 14px } .devstep { display: grid; grid-template-columns: 34px 1fr; gap: 12px; padding-bottom: 12px; position: relative }
+.devstep:not(:last-child)::before { content: ''; position: absolute; left: 14px; top: 30px; bottom: 0; width: 1px; background: var(--bd) } .devstep p { margin: 4px 0 8px }
+.devn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--bd); display: grid; place-items: center; font-size: 12.5px; color: var(--mu); background: var(--pn) }
+
+/* Billing with Stripe (4 November) */
+.billp { display: grid; grid-template-columns: 1fr 1fr 1.2fr 2fr 34px; gap: 6px; align-items: center; margin-bottom: 6px }
+.billplan { display: flex; flex-direction: column; gap: 6px; margin: 0 } .billplan p { flex: 1; margin: 0 } .billplan button, .billplan .agl { align-self: flex-start; margin-top: 6px } .billplan.cur { border-color: var(--ok) }
+.billpr { font: 700 22px var(--font) }
+.billcard { display: inline-grid; place-items: center; width: 64px; height: 42px; border-radius: 8px; color: #fff; font: 700 12px var(--font); letter-spacing: .06em; background: linear-gradient(135deg, #1e3a8a, #6d28d9) }
+@media (max-width: 900px) { .billp { grid-template-columns: 1fr 1fr } }

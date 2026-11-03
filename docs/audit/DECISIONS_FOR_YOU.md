@@ -1049,15 +1049,15 @@ Details in `REMAINING_ISSUES.md`.
 | 1 | Merge `q-smart-v1-audit` into `q-smart-v1` | **No** (not now) | Everything stays on `q-smart-v1-audit` |
 | 2 | Database | **Firebase** (free of charge) | CLAUDE.md corrected (it still said SQLite) |
 | 3 | Rename the GitHub repository | **Leave it** | — |
-| 4 | Payments | **Paddle** | Billing pages built with Paddle when the account exists |
-| 5 | Single sign-on, automatic users, password rules | **Yes, with Firebase, not before** | — |
+| 4 | Payments | ~~Paddle~~ → **Stripe** (changed on 4 November) | Built: Admin › Billing (see "Stripe" below) |
+| 5 | Single sign-on, automatic users, password rules | ~~With Firebase, not before~~ → **Google and Microsoft sign-in now** (changed on 4 November) | When the two app registrations are given, and a sign-in design is chosen |
 | 6 | E-mail sending | **Brevo** (answer of 3 November) | Ready: see "E-mails with Brevo" below |
 | 7 | AI | **Claude, with a monthly limit per team** | When the API key is given |
 | 8 | Contact support | **A form**: e-mail, subject, description, type of request, a file or picture, Submit | Built (3 November) |
 | 9 | Importing conversations | Question: can calls be evaluated without storing them in Q-smart (to save Firebase costs)? | Answered in the chat |
 | 10 | EU data location | **Yes** (EU Firebase region) | With Firebase |
-| 11 | Webhooks, developer API, MCP, API keys | **Now** | To build |
-| 12 | Sandbox, Import data, Beta features | **Now** | To build |
+| 11 | Webhooks, developer API, MCP, API keys | **Now** | Built (4 November): API keys for admins, access per area, all data readable by MCP |
+| 12 | Sandbox, Import data, Beta features | **Now** | Built (3 November) |
 | 13 | A person must check every AutoQA score | **No: AI scores are only for comparison (the accuracy rate of the reviewers, parallel scoring) and training, never to evaluate agents** | AI register updated: AutoQA is a limited-risk use as long as this stays true |
 | 14 | Feature requests and release notes | **Per company; a release note with every change** | Release notes kept up to date |
 | 15 | V1 time zone | **Yes**: start the server with `TZ=Europe/Sofia` | To do in the hosting set-up |
@@ -1089,3 +1089,16 @@ Brevo's free plan sends up to 300 e-mails a day. With your own domain, add the S
 ### Firebase (3 November)
 - Start the Firebase version **only when you say so**.
 - It will be a **separate repository**; this version of the app stays and keeps working.
+
+### Your answers of 4 November
+- **API keys:** admins only. **Access per area** (No access / Read / Write), like the developer pages of ElevenLabs.
+- **Webhooks:** the events were chosen for you: review saved, changed, deleted; dispute opened, resolved; quick flag; task done; new user; practice call finished.
+- **MCP:** may read **all** the data (also the comments and conversations), with the access of its key.
+- **Public address:** the free Cloudflare address (*.trycloudflare.com). It changes at every restart of the tunnel, so the pages show the address you opened them with. A named tunnel on your own domain keeps one address.
+- **Excel exports:** real dates (Date category) and real percentages (Percentage category) instead of Custom formats.
+
+### Stripe (4 November)
+- Admin › Billing: Plan & seats, Invoices, Payment method. Paying, the card, invoices and cancelling happen on Stripe's own pages.
+- Seats = everybody with an active account.
+- The Stripe keys are typed in Admin › Billing › Plan & seats and kept encrypted. Test keys (sk_test_…) never move real money.
+

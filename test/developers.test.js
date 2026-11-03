@@ -3,13 +3,17 @@
 const test = require('node:test'), assert = require('node:assert/strict'), http = require('http'), crypto = require('crypto');
 const { startApp, client } = require('./fixture-round4');
 
-let app, rcv, got = [];
+let app, rcv, got = [], fake, asked = [];
 test.before(async () => {
-  app = await startApp({ env: { WEBHOOK_ALLOW_LOCAL: '1' } });
+  // a fake Stripe on this computer: it answers like Stripe and remembers what it was asked
+  fake = http.createServer((req, res) => { let b = ''; req.on('data', c => { b += c; }); req.on('end', () => { asked.push({ m: req.method, u: req.url, b, auth: req.headers.authorization }); res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(req.url.startsWith('/v1/checkout') ? { url: 'https://checkout.stripe.test/c1' } : req.url.startsWith('/v1/billing_portal') ? { url: 'https://billing.stripe.test/p1' } : req.url.startsWith('/v1/invoices') ? { data: [{ id: 'in_1', number: 'QS-0001', created: 1762128000, total: 4900, currency: 'eur', status: 'paid', invoice_pdf: 'https://pay.stripe.test/in_1.pdf', hosted_invoice_url: 'https://pay.stripe.test/in_1' }] } : { data: [{ type: 'card', card: { brand: 'visa', last4: '4242', exp_month: 4, exp_year: 2030 } }] })); }); });
+  await new Promise(ok => fake.listen(0, '127.0.0.1', ok));
+  app = await startApp({ env: { WEBHOOK_ALLOW_LOCAL: '1', STRIPE_API_BASE: 'http://127.0.0.1:' + fake.address().port } });
   rcv = http.createServer((req, res) => { let b = ''; req.on('data', c => { b += c; }); req.on('end', () => { got.push({ h: req.headers, b }); res.writeHead(req.url === '/fail' ? 500 : 200); res.end('ok'); }); });
   await new Promise(ok => rcv.listen(0, '127.0.0.1', ok));
 });
-test.after(() => { if (app) app.stop(); if (rcv) rcv.close(); });
+test.after(() => { if (app) app.stop(); if (rcv) rcv.close(); if (fake) fake.close(); });
 const call = (path, key, body, method) => fetch(app.base + path, { method: method || (body ? 'POST' : 'GET'), headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: 'Bearer ' + key } : {}) }, body: body ? JSON.stringify(body) : undefined })
   .then(async r => ({ status: r.status, json: await r.json().catch(() => null) }));
 const until = async (fn, ms = 4000) => { const t = Date.now(); while (Date.now() - t < ms) { if (fn()) return true; await new Promise(r => setTimeout(r, 50)); } return false; };
@@ -82,4 +86,33 @@ test('webhooks: admins only, https or nothing (no local network); events are sig
   await a.post('/api/evaluations', { scid: sc.id, agent: 'f.b1', id: 'HOOK-SANDBOX', dt: '2026-11-03', a: ans, ch: 'call' });
   await new Promise(r => setTimeout(r, 400)); assert.equal(got.length, 0, 'the sandbox never sends events');
   await a.del('/api/sandbox'); await a.del('/api/hooks/' + h.id); await a.del('/api/hooks/' + bad.id);
+});
+
+// Stripe (4 November): admins only; the keys are kept encrypted and never sent back; Checkout and the portal are Stripe's own pages;
+// the webhook of Stripe is only believed with the right signature
+test('Stripe billing: encrypted keys, checkout with one seat per active account, portal, invoices, card, signed events only', async () => {
+  const a = await client(app.base, 'f.admin'), qa = await client(app.base, 'f.qa1');
+  assert.equal((await qa.get('/api/billing')).status, 403);
+  assert.equal((await a.put('/api/billing/settings', { secret: 'pk_test_123' })).status, 400, 'the publishable key is not the secret key');
+  const sk = 'sk_test_' + 'a'.repeat(24), wh = 'whsec_' + 'b'.repeat(24);
+  const s = await a.put('/api/billing/settings', { secret: sk, whsec: wh, plans: [{ id: 'pro', name: 'Pro', price: '€9 per seat / month', priceId: 'price_1ABC' }, { name: '' }] });
+  assert.deepEqual([s.json.configured, s.json.mode, s.json.keyEnd, s.json.hook, s.json.plans.length], [true, 'test', 'aaaa', true, 1]);
+  assert.ok(!JSON.stringify(s.json).includes(sk) && !JSON.stringify(app.db().settings.billing).includes(sk), 'never sent back, never readable in the data file');
+  assert.equal((await a.post('/api/billing/portal', {})).status, 400, 'no customer yet');
+  asked = []; const c = await a.post('/api/billing/checkout', { plan: 'pro' }); assert.equal(c.json.url, 'https://checkout.stripe.test/c1');
+  const seats = app.db().users.filter(u => u.active !== false).length, q = new URLSearchParams(asked[0].b);
+  assert.deepEqual([asked[0].u, asked[0].auth, q.get('mode'), q.get('line_items[0][price]'), q.get('line_items[0][quantity]')], ['/v1/checkout/sessions', 'Bearer ' + sk, 'subscription', 'price_1ABC', String(seats)]);
+  // Stripe's events: a wrong signature is refused; a right one records the subscription
+  const send = (ev, secret = wh) => { const body = JSON.stringify(ev), t = Math.floor(Date.now() / 1000), v1 = crypto.createHmac('sha256', secret).update(t + '.' + body).digest('hex');
+    return fetch(app.base + '/api/billing/stripe-webhook', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Stripe-Signature': `t=${t},v1=${v1}` }, body }).then(r => r.status); };
+  const done = { id: 'evt_1', type: 'checkout.session.completed', data: { object: { customer: 'cus_1', subscription: 'sub_1' } } };
+  assert.equal(await send(done, 'whsec_wrong'), 400); assert.equal(app.db().billing, undefined);
+  assert.equal(await send(done), 200);
+  assert.equal(await send({ id: 'evt_2', type: 'customer.subscription.updated', data: { object: { id: 'sub_1', customer: 'cus_1', status: 'active', cancel_at_period_end: false, items: { data: [{ price: { id: 'price_1ABC' }, quantity: seats, current_period_end: 1764720000 }] } } } }), 200);
+  const b = (await a.get('/api/billing')).json; assert.deepEqual([b.sub.status, b.sub.plan.name, b.sub.seats], ['active', 'Pro', seats]);
+  assert.equal((await a.post('/api/billing/portal', {})).json.url, 'https://billing.stripe.test/p1');
+  assert.equal((await a.get('/api/billing/invoices')).json[0].total, 49);
+  assert.deepEqual((await a.get('/api/billing/payment')).json, { type: 'card', brand: 'visa', last4: '4242', exp: '04/2030' });
+  assert.equal(await send({ id: 'evt_3', type: 'invoice.payment_failed', data: { object: { status: 'open' } } }), 200);
+  assert.ok(app.db().notifications.some(n => n.to === 'f.admin' && /payment .* failed/.test(n.text || n.msg || JSON.stringify(n))), 'admins are told when a payment fails');
 });

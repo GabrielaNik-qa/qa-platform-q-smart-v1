@@ -218,7 +218,9 @@ app.use(session({
   cookie: { httpOnly: true, sameSite: 'lax', secure: 'auto', maxAge: 12 * 36e5 }   // 'auto': HTTPS-only when opened through HTTPS (the tunnel); signed out after 12 hours without use
 }));
 // only signed-in staff may send large data (imports, backups); an agent never needs more than a few hundred KB (an Excel file of their own reviews)
-const bigJson = express.json({ limit: '25mb' }), midJson = express.json({ limit: '2mb' }), smallJson = express.json({ limit: '100kb' });
+// the Stripe webhook is signed over its exact bytes, so for that one address the raw body is kept next to the parsed one
+const keepRaw = (req, res, buf) => { if (req.originalUrl === '/api/billing/stripe-webhook') req.rawBody = buf; };
+const bigJson = express.json({ limit: '25mb', verify: keepRaw }), midJson = express.json({ limit: '2mb', verify: keepRaw }), smallJson = express.json({ limit: '100kb', verify: keepRaw });
 app.use((req, res, next) => { const u = req.session && req.session.user; (!u ? smallJson : u.role === 'agent' ? midJson : bigJson)(req, res, next); });
 // no real page sends data nested more than a few levels deep; thousands of levels would crash whatever reads it next (it is checked without recursion)
 const tooDeep = (v, max = 64) => { const st = [[v, 0]]; while (st.length) { const [x, d] = st.pop(); if (x && typeof x === 'object') { if (d >= max) return true; for (const k in x) st.push([x[k], d + 1]); } } return false; };
@@ -228,7 +230,7 @@ app.use((req, res, next) => req.body && typeof req.body === 'object' && !Buffer.
 app.use((req, res, next) => { const u = req.session && req.session.user;
   if (!(req.session && req.session.sandbox && u && u.role === 'admin' && fs.existsSync(SBOX_FILE))) return next();
   req.sandbox = true; SBX.run({ file: SBOX_FILE }, next); });
-const SBNO = /^\/api\/(backups|seed|demo|org\/purge|evaluations\/[^/]+\/recording|ai\/(settings|keys|test|usage))/;
+const SBNO = /^\/api\/(backups|seed|demo|billing|org\/purge|evaluations\/[^/]+\/recording|ai\/(settings|keys|test|usage))/;
 app.use((req, res, next) => req.sandbox && SBNO.test(req.path) && (req.method !== 'GET' || /^\/api\/backups/.test(req.path)) ? res.status(403).json({ error: 'This is switched off in the sandbox' }) : next());
 const AUDIT = require('./audit');
 app.use((req, res, next) => req.sandbox ? next() : AUDIT.middleware(req, res, next));   // the sandbox is practice: it is not written in the audit log
@@ -534,7 +536,8 @@ const att = require('./routes-att')(ctx);   // Workforce: check-ins, the status 
 require('./routes-today')({ ...ctx, att });   // Workforce: Team today, the morning brief, the Bradford score, attendance reports
 require('./routes-cap')({ ...ctx, att });     // Workforce: Capacity planning, the fair split of the leads of every campaign among the agents
 require('./routes-hc')(ctx);
-require('./routes-platform')(ctx);    // Admin › Platform: the sandbox, Import data, Beta features          // the Help Center website (public, at /hc): categories, sections and articles about Q-smart
+require('./routes-platform')(ctx);
+require('./routes-billing')(ctx);     // Admin › Billing with Stripe: plans, subscription, invoices, the card (Stripe's own pages)    // Admin › Platform: the sandbox, Import data, Beta features          // the Help Center website (public, at /hc): categories, sections and articles about Q-smart
 
 // the font files never change (a new font gets a new file name), so the browser keeps them for a year instead of asking every time
 app.use('/fonts', express.static(path.join(__dirname, 'public', 'fonts'), { maxAge: '365d', immutable: true }));
