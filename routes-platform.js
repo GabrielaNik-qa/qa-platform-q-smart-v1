@@ -81,6 +81,8 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, SBOX_FILE, SBX, a
         ch: CHN[String(r.channel || 'call').toLowerCase()] || 'other', rv: rv ? rv.name : str(r.reviewer, 80) || ctx.me.name, by: rv ? rv.username : ctx.me.username, seen: null, at: iso(), imp: true });
       return `${a.name} · ${id}`; }
   };
+  // one review from another program (the API and MCP of routes-api.js use the same checks)
+  app.locals.importReview = (db, r, me) => ONE.reviews(db, r, { me });
   function run(db, kind, rows, me) {
     const ctx = { me, hash: kind === 'users' ? bcrypt.hashSync(DEFAULT_PASSWORD, 10) : '' };   // one password hash for the whole file (everybody must change it at the first sign-in)
     return rows.map((r, i) => { try { return { n: i + 2, r, ok: true, what: ONE[kind](db, r, ctx) }; } catch (e) { return { n: i + 2, r, ok: false, why: e.message }; } });

@@ -517,6 +517,7 @@ const isAudio = (b, ext) => {
 // ------------------------------------------------------------------ the other modules
 // the routes that were part of this file: the helpers they use are handed over by name
 const core = { ADMIN_TEAM, BASE, DAY, DEFAULT_PASSWORD, DUMMY, EXT, EXTS, ExcelJS, FLAGS, LANGS, PREF_ID, REC, ROLES, STAFF, addTeam, addUser, agentInScope, app, authed, bad, bcrypt, build, canSee, cellOf, chFields, chOf, cleanPrefs, cleanSC, crypto, cur, evDate, evOf, express, findEv, forAgent, fs, hex, hits, inScope, isAudio, isOwner, iso, lday, leadId, leadsTeam, limited, link, list, load, mail, makeUsername, nameParts, need, newEval, newPw, notify, path, pub, pwBad, recFiles, recent, rosterPub, save, scopeOf, setStaffWs, sha, staffUsers, str, teamBody, userBody, userBy, validEmail };
+require('./routes-api')(ctx);          // API keys, the API (/api/v1), webhooks and MCP (/mcp): first, so the webhook events see every change
 require('./routes-account')(core);    // sign-in and accounts
 require('./routes-people')(core);     // people
 require('./routes-reviews')(core);    // reviews

@@ -364,10 +364,10 @@ test('Excel files keep numbers as numbers and only real dates become dates (repo
   const adm = await as('t.admin');
   const read = async buf => { const wb = new ExcelJS.Workbook(); await wb.xlsx.load(buf); return wb.worksheets[0]; };
   const rep = await read((await adm.post('/api/export/call-reviews', { rows: [['Agent', 'Average score (%)'], ['Ana One', 92.5]], pf: -1, pt: -1, dc: -1, name: 'Report' })).buf);
-  assert.equal(rep.getCell('B2').value, 92.5);
+  assert.equal(rep.getCell('B2').value, 0.925, 'a % column is a real percentage (4 November)'); assert.equal(rep.getCell('B2').numFmt, '0.00%');
   const fl = await read((await adm.post('/api/export/call-reviews', { rows: [['Lead ID', 'Type', 'Date'], ['L1', 'Call', '2026-10-01']], pf: 6, pt: 6, dc: 2, name: 'Quick Flags' })).buf);
   assert.equal(fl.getCell('B2').value, 'Call');
-  assert.ok(fl.getCell('C2').value instanceof Date);
+  assert.ok(fl.getCell('C2').value instanceof Date); assert.equal(fl.getCell('C2').numFmt, 'mm-dd-yy', 'the built-in short date (Date category)');
   const rv = await read((await adm.post('/api/export/call-reviews', { rows: [['Lead ID', 'Date'], ['L1', '2026-10-01'], ['L2', 'not a date']], pf: 9, pt: 9, name: 'Call Reviews' })).buf);
   assert.ok(rv.getCell('B2').value instanceof Date, 'the review export still turns its date column into dates');
   assert.equal(rv.getCell('B3').value, 'not a date', 'but leaves other text alone');

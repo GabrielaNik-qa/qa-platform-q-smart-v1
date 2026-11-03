@@ -121,11 +121,15 @@ module.exports = ({ BASE, DAY, EXT, EXTS, ExcelJS, FLAGS, REC, STAFF, agentInSco
       db.exports.unshift({ id: 'x' + hex(5), name, n: rows.length - 1, pf, pt, dc, by: u.username, byName: u.name, at: iso(), rows: keep ? rows : null }); db.exports = db.exports.slice(0, 200); save(db);
     }
     const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(name.replace(/[\\/?*[\]:]/g, ' '));
-    rows.forEach((r, i) => ws.addRow(r.map((v, j) => (i && j === dc && typeof v === 'string' && DAY.test(v)) ? new Date(v + 'T12:00:00') : v)));
+    // which columns are dates and percentages: the ones the page names (dc, pf..pt), and any column whose header says so (reports send none)
+    const head = rows[0].map(h => String(h == null ? '' : h)), isDate = j => j === dc || /(date|day|created|updated|completed|due|reviewed)/i.test(head[j]), isPct = j => (j >= pf && j <= pt) || /%/.test(head[j]);
+    rows.forEach((r, i) => ws.addRow(r.map((v, j) => (i && isDate(j) && typeof v === 'string' && DAY.test(v)) ? new Date(v + 'T12:00:00') : v)));
     ws.eachRow((row, n) => row.eachCell((c, j) => {
       c.font = { name: 'Calibri', size: 12, bold: n === 1 };
-      if (n > 1 && j - 1 === dc && c.value instanceof Date) c.numFmt = 'mm/dd/yyyy';
-      if (n > 1 && j - 1 >= pf && j - 1 <= pt && typeof c.value === 'number') c.numFmt = 'General"%"';
+      // Excel's own formats (Gabriela, 4 November): a real Date in the Date category (the short date of the computer that opens it), and a
+      // score as a real Percentage (85.6 is saved as 0.856 and shown as 85.60%), so formulas, filters and pivot tables read them as numbers
+      if (n > 1 && isDate(j - 1) && c.value instanceof Date) c.numFmt = 'mm-dd-yy';   // built-in format 14: Excel shows it in the Date category
+      if (n > 1 && isPct(j - 1) && typeof c.value === 'number') { c.value = Math.round(c.value * 10) / 1000; c.numFmt = '0.00%'; }   // built-in format 10: Percentage
     }));
     const nC = rows[0].length, wide = { 5: 34, [nC - 2]: 30, [nC - 1]: 40, [nC]: 40 };
     ws.columns.forEach((col, i) => { col.width = wide[i + 1] || Math.min(34, Math.max(11, String(rows[0][i]).length + 4)); });
