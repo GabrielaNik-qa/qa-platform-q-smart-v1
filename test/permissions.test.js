@@ -94,3 +94,23 @@ test('contact support: a request with a picture; the sender and the admins see i
   assert.equal((await a.put('/api/support/' + r.json.id, { status: 'answered' })).json.status, 'answered');
   assert.ok((await a.get('/api/support')).json.some(x => x.id === r.json.id));
 });
+
+// Knowledge Base like Confluence (3 November): folders for some teams only; reactions, comments, stars and the last versions
+test('knowledge base: a folder for B2B only is hidden from B2C (pages, tests, export too); reactions, comments, stars, versions', async () => {
+  const a = await client(app.base, 'f.admin'), b1 = await client(app.base, 'f.b1'), c1 = await client(app.base, 'f.c1');
+  const f = (await a.post('/api/kb/folders', { name: 'B2B only', teams: ['t-b2b'] })).json;
+  const art = (await a.post('/api/kb/articles', { title: 'B2B pricing', folder: f.id, body: '# Prices\nOne', emoji: '💶', cover: '#3b82f6', quiz: { pass: 80, questions: [{ q: 'Q?', opts: ['a', 'b'], a: 0 }] } })).json;
+  assert.equal(art.emoji, '💶'); assert.equal(art.cover, '#3b82f6');
+  assert.ok((await b1.get('/api/kb')).json.articles.some(x => x.id === art.id), 'B2B sees it');
+  const c = (await c1.get('/api/kb')).json; assert.ok(!c.articles.some(x => x.id === art.id) && !c.folders.some(x => x.id === f.id), 'B2C does not');
+  assert.equal((await c1.post('/api/kb/read', { id: art.id })).status, 404); assert.equal((await c1.post('/api/kb/articles/' + art.id + '/test', { answers: [0] })).status, 404);
+  assert.equal((await c1.get('/api/kb/articles/' + art.id + '/export')).status, 404); assert.equal((await c1.post('/api/kb/articles/' + art.id + '/react', { e: '👍' })).status, 404);
+  assert.deepEqual((await b1.post('/api/kb/articles/' + art.id + '/react', { e: '👍' })).json.reactions, { '👍': ['f.b1'] });
+  assert.deepEqual((await b1.post('/api/kb/articles/' + art.id + '/react', { e: '👍' })).json.reactions, {}, 'a second click takes it back');
+  assert.equal((await b1.post('/api/kb/articles/' + art.id + '/react', { e: 'x' })).status, 400);
+  const cm = (await b1.post('/api/kb/articles/' + art.id + '/comments', { t: 'Clear, thank you' })).json.comments; assert.equal(cm[0].n, 'Agent B1');
+  const b2 = await client(app.base, 'f.b2'); assert.equal((await b2.del('/api/kb/articles/' + art.id + '/comments/' + cm[0].id)).status, 403, 'not somebody else\'s comment');
+  assert.deepEqual((await b1.post('/api/kb/star', { id: art.id })).json.stars, [art.id]); assert.deepEqual((await b1.get('/api/kb')).json.stars, [art.id]);
+  await a.put('/api/kb/articles/' + art.id, { title: 'B2B pricing', folder: f.id, body: '# Prices\nTwo' });
+  const v = (await a.get('/api/kb')).json.articles.find(x => x.id === art.id).versions; assert.equal(v.length, 1); assert.equal(v[0].body, '# Prices\nOne');
+});

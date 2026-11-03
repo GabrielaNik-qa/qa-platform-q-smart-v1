@@ -247,3 +247,26 @@ test('contact support: an agent sends a request with a picture and follows it', 
   await expect(g.page.locator('#m table')).toContainText('The export button does nothing'); await expect(g.page.locator('#m table')).toContainText('screen.png');
   expect(g.errors).toEqual([]); await g.ctx.close();
 });
+
+// Knowledge Base like Confluence (3 November)
+test('knowledge base: create a page with an emoji, react, star, comment, table of contents, details and version history', async ({ browser }) => {
+  const a = await personPage(browser, 'f.admin', { viewport: { width: 1440, height: 900 } });
+  await go(a.page, 'kb'); await expect(a.page.locator('#m .cfs')).toContainText('Knowledge Base');
+  await a.page.locator('#m').getByRole('button', { name: 'Create' }).click();
+  await a.page.locator('#m input[maxlength="4"]').fill('🧭');
+  await a.page.locator('#m label', { hasText: 'Title' }).locator('input').fill('How we greet customers');
+  await a.page.locator('#kbb').fill('## The first words\nSay your name.\n\n## The closing\nThank the customer.');
+  await a.page.getByRole('button', { name: 'Publish article' }).click();
+  await expect(a.page.locator('#m .cft1')).toContainText('How we greet customers'); await expect(a.page.locator('#m .cft1')).toContainText('🧭');
+  await expect(a.page.locator('#m .cfs .cft.on')).toContainText('How we greet customers');                 // selected in the tree
+  await a.page.locator('#m .cfrx', { hasText: '👍' }).first().click(); await expect(a.page.locator('#m .cfrx.on')).toContainText('👍 1');
+  await a.page.locator('#m .cfact .ic').first().click(); await expect(a.page.locator('#m .cfact .ic.on')).toHaveText('★');
+  await a.page.locator('#kbcm').fill('Very clear'); await a.page.locator('#m .cfcm').getByRole('button', { name: 'Save' }).click(); await expect(a.page.locator('#m .cfcm')).toContainText('Very clear');
+  await a.page.getByRole('button', { name: 'Table of contents' }).click(); await expect(a.page.locator('.cftoc button')).toHaveText(['The first words', 'The closing']);
+  await a.page.getByRole('button', { name: 'Details' }).click(); await expect(a.page.locator('.cfdet')).toContainText('words'); await a.page.locator('.cfdet').getByRole('button', { name: 'Close' }).click();
+  await a.page.locator('.cfact').getByRole('button', { name: 'Edit' }).click(); await a.page.locator('#kbb').fill('## The first words\nSay your name and the company.');
+  await a.page.getByRole('button', { name: 'Save changes' }).click(); await a.page.getByRole('button', { name: 'More actions' }).click();
+  await a.page.locator('.cfmenu').getByRole('button', { name: 'Version history' }).click(); await expect(a.page.locator('#m')).toContainText('Version 1');
+  await a.page.locator('#m .cfs').getByRole('button', { name: /Starred/ }).click(); await expect(a.page.locator('#m .cfs')).toContainText('How we greet customers');
+  expect(a.errors).toEqual([]); await a.ctx.close();
+});

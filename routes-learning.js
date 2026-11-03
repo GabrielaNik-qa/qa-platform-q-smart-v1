@@ -24,6 +24,9 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   const ancestors = (db, fid) => { const out = []; let f = db.kbFolders.find(x => x.id === fid), n = 0; while (f && n++ < 30) { out.push(f); f = db.kbFolders.find(x => x.id === f.parent); } return out; };
   const isRequired = (db, a, u) => applies(a.req, u) || ancestors(db, a.folder).some(f => applies(f.req, u));
   const passedTest = (db, user, aid) => db.attempts.some(t => t.user === user && t.aid === aid && t.passed);
+  // folders given to some teams only (Gabriela, 3 November): a person sees a folder when every folder above it is open to everybody or to their team
+  const folderSeen = (db, fid, u) => isEd(u) || ancestors(db, fid).every(f => !(f.teams || []).length || f.teams.includes(u.team));
+  const artSeen = (db, a, u) => !!a && folderSeen(db, a.folder, u);
   const pubArt = (a, ed) => ed || !a.quiz ? a : { ...a, quiz: { pass: a.quiz.pass, questions: a.quiz.questions.map(q => ({ q: q.q, opts: q.opts })) } };
   const pubQuiz = (q, ed) => ed ? q : { ...q, questions: q.questions.map(x => ({ q: x.q, opts: x.opts })) };
   const quizAssigned = (q, u) => q.status === 'published' && u.active !== false && (q.assign.all || (q.assign.teams || []).includes(u.team) || (q.assign.users || []).includes(u.username));
@@ -46,7 +49,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   // ---------------------------------------------------------------- read everything the knowledge base page needs
   app.get('/api/kb', need(), (req, res) => {
     const db = load(), u = req.session.user, ed = isEd(u);
-    res.json({ folders: db.kbFolders, articles: db.kbArticles.map(a => pubArt(a, ed)), reads: db.kbReads[u.username] || {}, newsletters: db.newsletters.filter(n => ed || n.published),
+    res.json({ folders: db.kbFolders.filter(f => folderSeen(db, f.id, u)), articles: db.kbArticles.filter(a => artSeen(db, a, u)).map(a => pubArt(a, ed)), reads: db.kbReads[u.username] || {}, stars: (db.kbStars || {})[u.username] || [], newsletters: db.newsletters.filter(n => ed || n.published),
       attempts: db.attempts.filter(a => a.user === u.username).map(a => ({ id: a.id, aid: a.aid, qid: a.qid, score: a.score, passed: a.passed, at: a.at })) });
   });
 
@@ -55,7 +58,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     const name = str(b.name, 60); if (!name) throw new Error('Give the folder a name');
     const parent = b.parent && db.kbFolders.some(f => f.id === b.parent) ? b.parent : '';
     if (cur && (parent === cur.id || descendants(db, cur.id).has(parent))) throw new Error('A folder cannot be moved inside itself');
-    return { name, parent, color: /^#[0-9a-f]{6}$/i.test(b.color || '') ? b.color : '#2563eb', icon: str(b.icon, 8) || '📁', desc: str(b.desc, 400), req: reqOf(b.req) };
+    return { name, parent, color: /^#[0-9a-f]{6}$/i.test(b.color || '') ? b.color : '#2563eb', icon: str(b.icon, 8) || '📁', desc: str(b.desc, 400), req: reqOf(b.req), teams: list(b.teams, 30, 40) };
   };
   app.post('/api/kb/folders', need(...EDIT), (req, res) => {
     const db = load(); try { const f = { id: 'f' + hex(4), ...folderBody(req.body || {}, db), created: iso() }; db.kbFolders.push(f); save(db); res.json(f); } catch (e) { bad(res, e.message); }
@@ -86,7 +89,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   };
   const artBody = (b, db) => {
     const title = str(b.title, 150); if (!title) throw new Error('Give the article a title');
-    return { title, folder: b.folder && db.kbFolders.some(f => f.id === b.folder) ? b.folder : '', topics: list(b.topics, 10, 40), body: str(b.body, 200000), req: reqOf(b.req), quiz: quizBody(b.quiz) };
+    return { title, folder: b.folder && db.kbFolders.some(f => f.id === b.folder) ? b.folder : '', topics: list(b.topics, 10, 40), body: str(b.body, 200000), req: reqOf(b.req), quiz: quizBody(b.quiz), emoji: str(b.emoji, 8), cover: /^#[0-9a-f]{6}$/i.test(b.cover || '') ? b.cover : '' };
   };
   app.post('/api/kb/articles', need(...EDIT), (req, res) => {
     const db = load(), me = req.session.user;
@@ -94,17 +97,32 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   });
   app.put('/api/kb/articles/:id', need(...EDIT), (req, res) => {
     const db = load(), a = db.kbArticles.find(x => x.id === req.params.id), me = req.session.user; if (!a) return res.status(404).json({ error: 'not found' });
-    try { Object.assign(a, artBody(req.body || {}, db), { updated: iso(), editor: me.name }); save(db); res.json(a); } catch (e) { bad(res, e.message); }
+    try { const nb = artBody(req.body || {}, db); if (nb.title !== a.title || nb.body !== a.body) a.versions = [{ title: a.title, body: a.body, by: a.editor || a.author || '', at: a.updated || a.created }, ...(a.versions || [])].slice(0, 10);
+      Object.assign(a, nb, { updated: iso(), editor: me.name }); save(db); res.json(a); } catch (e) { bad(res, e.message); }
   });
   app.delete('/api/kb/articles/:id', need(...EDIT), (req, res) => {
     const db = load(); if (!db.kbArticles.some(a => a.id === req.params.id)) return res.status(404).json({ error: 'not found' });
     db.kbArticles = db.kbArticles.filter(a => a.id !== req.params.id); Object.values(db.kbReads).forEach(r => delete r[req.params.id]); save(db); res.json({ ok: 1 });
   });
 
+  // ---------------------------------------------------------------- reactions, comments and stars on articles (like Confluence, 3 November)
+  const REACT = ['👍', '❤️', '🎉', '👏', '💡'];
+  const seenArt = (req, res) => { const db = load(), u = req.session.user, a = db.kbArticles.find(x => x.id === req.params.id); if (!artSeen(db, a, u)) { res.status(404).json({ error: 'not found' }); return null; } return { db, u, a }; };
+  app.post('/api/kb/articles/:id/react', need(), (req, res) => { const c = seenArt(req, res); if (!c) return; const e = (req.body || {}).e; if (!REACT.includes(e)) return bad(res, 'Choose a reaction');
+    const r = c.a.reactions = c.a.reactions || {}, l = new Set(r[e] || []); if (l.has(c.u.username)) l.delete(c.u.username); else l.add(c.u.username); r[e] = [...l]; if (!r[e].length) delete r[e]; save(c.db); res.json({ reactions: r }); });
+  app.post('/api/kb/articles/:id/comments', need(), (req, res) => { const c = seenArt(req, res); if (!c) return; const t = str((req.body || {}).t, 2000); if (!t) return bad(res, 'Write a comment first');
+    const x = { id: 'c' + hex(4), u: c.u.username, n: c.u.name, t, at: iso() }; c.a.comments = [...(c.a.comments || []), x].slice(-200);
+    if (c.a.authorU && c.a.authorU !== c.u.username) notify(c.db, c.a.authorU, 'kb', `${c.u.name} commented on "${c.a.title}": ${t.slice(0, 70)}`, {});
+    save(c.db); res.json({ comments: c.a.comments }); });
+  app.delete('/api/kb/articles/:id/comments/:cid', need(), (req, res) => { const c = seenArt(req, res); if (!c) return; const x = (c.a.comments || []).find(k => k.id === req.params.cid); if (!x) return res.status(404).json({ error: 'not found' });
+    if (x.u !== c.u.username && !isEd(c.u)) return res.status(403).json({ error: 'not allowed' }); c.a.comments = c.a.comments.filter(k => k !== x); save(c.db); res.json({ comments: c.a.comments }); });
+  app.post('/api/kb/star', need(), (req, res) => { const db = load(), u = req.session.user, id = str((req.body || {}).id, 40), a = db.kbArticles.find(x => x.id === id); if (!artSeen(db, a, u)) return res.status(404).json({ error: 'not found' });
+    db.kbStars = db.kbStars || {}; const l = new Set(db.kbStars[u.username] || []); if ((req.body || {}).on === false) l.delete(id); else l.add(id); db.kbStars[u.username] = [...l].slice(-100); save(db); res.json({ stars: db.kbStars[u.username] }); });
+
   // ---------------------------------------------------------------- "mark as read", folder completion, lesson tests
   app.post('/api/kb/read', need(), (req, res) => {
     const db = load(), u = req.session.user, id = str((req.body || {}).id, 40), on = (req.body || {}).read !== false;
-    if (!db.kbArticles.some(a => a.id === id) && !db.newsletters.some(n => 'n:' + n.id === id)) return res.status(404).json({ error: 'not found' });
+    if (!artSeen(db, db.kbArticles.find(a => a.id === id), u) && !db.newsletters.some(n => 'n:' + n.id === id)) return res.status(404).json({ error: 'not found' });
     if (on) markRead(db, u.username, id); else if (db.kbReads[u.username]) delete db.kbReads[u.username][id];
     save(db); res.json({ ok: 1 });
   });
@@ -117,7 +135,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   });
   app.post('/api/kb/articles/:id/test', need(), (req, res) => {
     const db = load(), u = req.session.user, a = db.kbArticles.find(x => x.id === req.params.id);
-    if (!a || !a.quiz) return res.status(404).json({ error: 'This article has no test' });
+    if (!a || !a.quiz || !artSeen(db, a, u)) return res.status(404).json({ error: 'This article has no test' });
     const g = grade(a.quiz.questions, (req.body || {}).answers), passed = g.score >= a.quiz.pass;
     db.attempts.push({ id: 't' + hex(5), user: u.username, aid: a.id, score: g.score, passed, at: iso() });
     if (passed) markRead(db, u.username, a.id);
@@ -272,11 +290,11 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     res.setHeader('Content-Type', 'application/zip'); res.setHeader('Content-Disposition', `attachment; filename="${slug(name)}.zip"`); res.send(buf);
   };
   app.get('/api/kb/articles/:id/export', need(), async (req, res) => {
-    const db = load(), a = db.kbArticles.find(x => x.id === req.params.id); if (!a) return res.status(404).json({ error: 'not found' });
+    const db = load(), a = db.kbArticles.find(x => x.id === req.params.id); if (!artSeen(db, a, req.session.user)) return res.status(404).json({ error: 'not found' });
     const zip = new JSZip(); artFiles(zip, a, ''); await sendZip(res, zip, a.title);
   });
   app.get('/api/kb/folders/:id/export', need(), async (req, res) => {
-    const db = load(), f = db.kbFolders.find(x => x.id === req.params.id); if (!f) return res.status(404).json({ error: 'not found' });
+    const db = load(), f = db.kbFolders.find(x => x.id === req.params.id); if (!f || !folderSeen(db, f.id, req.session.user)) return res.status(404).json({ error: 'not found' });
     const zip = new JSZip();
     const walk = (fol, dir) => {
       db.kbArticles.filter(a => a.folder === fol.id).forEach(a => artFiles(zip, a, dir));
