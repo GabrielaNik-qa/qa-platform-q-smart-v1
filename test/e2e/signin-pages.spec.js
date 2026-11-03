@@ -109,7 +109,7 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   // five places in every row: the icons sit in the same columns as GOVERNANCE, a shorter row leaves the last place empty
   const cols = await a.page.locator('#n .appsr').evaluateAll(l => l.map(r => [...r.children].map(b => Math.round(b.getBoundingClientRect().left))));
   for (const r of cols) expect(r).toEqual(cols[3].slice(0, r.length));
-  expect(await a.page.locator('#n .appi.soon').evaluateAll(l => l.map(b => b.title))).toEqual(['Billing', 'Support', 'AI', 'Sidebar settings', 'AI Act', 'Security', 'Accessibility', 'Sandbox', 'Features']);
+  expect(await a.page.locator('#n .appi.soon').evaluateAll(l => l.map(b => b.title))).toEqual(['Billing', 'Support', 'AI', 'Sidebar settings', 'Sandbox', 'Features']);   // AI Act, Security and Accessibility were built on 3 November
   await a.page.locator('.sech.sec-account').click();
   expect((await a.page.locator('#n .gh span').allInnerTexts()).slice(1)).toEqual(['My account', 'Company', 'Billing', 'Support']);
   await expect(a.page.locator('#n .grp.open'), 'the panel\'s groups start folded too').toHaveCount(0);

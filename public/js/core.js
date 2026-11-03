@@ -273,15 +273,16 @@ async function load() {
   if (route === 'att' && ed && ATAB === 'rep' && ATRQ) want.push(['atrep', '/api/att/report?team=' + encodeURIComponent(ATRTM) + '&from=' + ATRF + '&to=' + ATRT]);
   if (['coach', 'o2o', 'acad'].includes(route) || (dashy && ME && ME.role === 'agent')) want.push(['se', '/api/sessions']);
   if (route === 'o2o') { want.push(['tk', '/api/tasks']); if (ed) want.push(['ot', '/api/o2o-templates']); }   // the one-to-one form shows open tasks and uses the templates
-  if (route === 'audit' && adm) want.push(['au', '/api/audit']);
+  if (['audit', 'cs_actsign', 'cs_seclog'].includes(route) && adm) want.push(['au', '/api/audit']);
   if (route === 'tasks' || route === 'coach' || dashy) want.push(['tk', '/api/tasks']);
   if (route === 'cal' || (route === 'calendar' && ed)) want.push(['ca', '/api/calibrations']);
   // the new sections: their lists, plus what the Agents page and the dashboard show from them
-  const CL = { rbuild: ['reports', 'surveys', 'complaints'], rsaved: ['reports', 'surveys', 'complaints'], goals: ['goals', 'surveys', 'kudos'], pips: ['pips'], kudos: ['kudos'], compliance: ['risks'], risks: ['risks'], complaints: ['complaints'], csat: ['surveys'], calendar: ['pips'], agents: ['goals', 'pips', 'kudos', 'surveys', 'complaints'], dash: ['goals', 'kudos', 'surveys', 'complaints'] };
+  const CL = { rbuild: ['reports', 'surveys', 'complaints'], rsaved: ['reports', 'surveys', 'complaints'], goals: ['goals', 'surveys', 'kudos'], pips: ['pips'], kudos: ['kudos'], compliance: ['risks'], risks: ['risks'], complaints: ['complaints'], csat: ['surveys'], calendar: ['pips'], agents: ['goals', 'pips', 'kudos', 'surveys', 'complaints'], dash: ['goals', 'kudos', 'surveys', 'complaints'],
+    cs_ropa: ['ropa'], cs_subproc: ['subproc'], cs_dpa: ['dpas'], cs_consent: ['consents'], cs_aireg: ['aireg'], cs_ainotice: ['ainotices'], cs_breach: ['breaches'], cs_a11y: ['a11y'] };
   (Object.hasOwn(CL, route) ? CL[route] : []).forEach(c => { if (ME && (!['reports', 'risks', 'complaints'].includes(c) || ed)) want.push(['c_' + c, '/api/c/' + c]); });
   if (['rbuild', 'rsaved', 'goals', 'calendar', 'kudos', 'dash', 'pers'].includes(route)) want.push(['tk', '/api/tasks']);
   if (route === 'calendar') want.push(['se', '/api/sessions']);
-  if (route === 'rexp' && ed) want.push(['xp', '/api/exports']);
+  if ((route === 'rexp' && ed) || (route === 'cs_actexp' && adm)) want.push(['xp', '/api/exports']);
   if (route === 'backup' && adm) want.push(['bk', '/api/backups']);
   if (route === 'integ') want.push(['ai', '/api/ai/status']);
   if (route === 'integ' && adm) want.push(['ais', '/api/ai/settings']);

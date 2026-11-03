@@ -30,3 +30,17 @@ test('templates keep their name, id and date; Reset to default empties the roles
   await a.put('/api/settings/x/perm', { value: {} }); const r = await a.put('/api/settings/x/permu', { value: {} });
   assert.deepEqual([r.json.perm, r.json.permu, r.json.permtpl.length], [{}, {}, 2]);
 });
+
+// Admin › GOVERNANCE registers (3 November): admins only; a link must be https://; the accessibility statement needs a text
+test('the governance registers: only admins read and write them; links must be https://; a statement needs a text', async () => {
+  const a = await client(app.base, 'f.admin'), qa = await client(app.base, 'f.qa1'), b1 = await client(app.base, 'f.b1');
+  for (const c of ['ropa', 'subproc', 'dpas', 'consents', 'aireg', 'ainotices', 'breaches', 'a11y']) {
+    for (const x of [qa, b1]) { assert.equal((await x.get('/api/c/' + c)).status, 403, c); assert.equal((await x.post('/api/c/' + c, { title: 'x' })).status, 403, c); }
+    assert.equal((await a.get('/api/c/' + c)).status, 200, c);
+  }
+  const r = await a.post('/api/c/breaches', { title: 'Laptop lost', found: '2026-11-03', foundAt: '09:30', risk: 'high', authority: 'todo', status: 'open' });
+  assert.equal(r.status, 200); assert.equal(r.json.title, 'Laptop lost'); assert.equal(r.json.by, 'f.admin');
+  assert.equal((await a.post('/api/c/dpas', { party: 'Supplier', link: 'javascript:alert(1)' })).status, 400);
+  assert.equal((await a.post('/api/c/dpas', { party: 'Supplier', link: 'https://files.example/dpa.pdf' })).status, 200);
+  assert.equal((await a.post('/api/c/a11y', { status: 'partial', text: '  ' })).status, 400);
+});

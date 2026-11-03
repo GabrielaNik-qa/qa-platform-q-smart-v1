@@ -151,3 +151,26 @@ test('a task template: ready-made, steps as rows, category and colour; the task 
   expect([task.color, task.category, task.checklist[0].d]).toEqual(['#14b8a6', 'Daily', 'first']);
   expect(a.errors).toEqual([]); await a.ctx.close();
 });
+
+// Admin › GOVERNANCE and the Activity Log (3 November): registers kept by the admin, sign-ins from the real audit log
+test('governance: a data breach with its 72-hour clock, the record of processing from Q-smart\'s own list, sign-ins and exports', async ({ browser }) => {
+  const a = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 900 } });
+  await go(a.page, 'cs_breach'); await expect(a.page.locator('#m h1')).toHaveText(/Data breaches/i);
+  await a.page.getByRole('button', { name: 'Add' }).click();
+  await a.page.getByLabel('What happened').fill('A list of customers sent to the wrong e-mail');
+  const now = new Date(Date.now() - 2 * 36e5);
+  await a.page.getByLabel('Found on').fill(now.toISOString().slice(0, 10)); await a.page.getByLabel('At', { exact: true }).fill(now.toTimeString().slice(0, 5));
+  await a.page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(a.page.locator('#m table')).toContainText('A list of customers sent to the wrong e-mail');
+  await expect(a.page.locator('#m table')).toContainText(/7[01] h left/);                        // found two hours ago
+  await expect(a.page.locator('#m .card.tip')).toContainText('still have to be reported');
+  await go(a.page, 'cs_ropa'); await a.page.getByRole('button', { name: "Start from Q-smart's own list" }).click();
+  await expect(a.page.locator('#m table tr')).toHaveCount(7);                                        // a heading and six activities
+  await expect(a.page.locator('#m table')).toContainText('Quality reviews of conversations');
+  await go(a.page, 'cs_actsign'); await expect(a.page.locator('#m table')).toContainText('Signed in');
+  await go(a.page, 'cs_seclog'); await expect(a.page.locator('#m h1')).toHaveText(/Security log/i);
+  await go(a.page, 'cs_actexp'); await expect(a.page.locator('#m h1')).toHaveText(/Exports & downloads/i);
+  await go(a.page, 'cs_a11y'); await a.page.getByRole('button', { name: 'Write the statement' }).click(); await a.page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(a.page.locator('#m')).toContainText('What works: every page can be used with the keyboard');
+  expect(a.errors).toEqual([]); await a.ctx.close();
+});

@@ -3,7 +3,7 @@
 const fs = require('fs'), path = require('path');
 const RPT = require('./public/js/rpt-engine.js');
 module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify, userBy, mail, BASE, scopeOf, setOut }) => {
-  const EDIT = ['admin', 'qa', 'lead', 'trainer'], ALL = ['admin', 'qa', 'lead', 'trainer', 'agent'];
+  const ADMIN1 = ['admin'], EDIT = ['admin', 'qa', 'lead', 'trainer'], ALL = ['admin', 'qa', 'lead', 'trainer', 'agent'];
   // who may read / write each collection; mine(u, x) = an agent may only see the records about themselves
   const COLS = {
     reports: { read: EDIT, write: EDIT, ownOnly: true },
@@ -12,7 +12,10 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     kudos: { read: ALL, write: ALL, ownOnly: true },
     risks: { read: EDIT, write: EDIT },
     complaints: { read: EDIT, write: EDIT },
-    surveys: { read: ALL, write: ['admin', 'qa', 'lead'], mine: (u, x) => x.agent === u.username }
+    surveys: { read: ALL, write: ['admin', 'qa', 'lead'], mine: (u, x) => x.agent === u.username },
+    // the registers of Admin › GOVERNANCE (GDPR, EU AI Act, data breaches, accessibility): admins only (3 November)
+    ropa: { read: ADMIN1, write: ADMIN1 }, subproc: { read: ADMIN1, write: ADMIN1 }, dpas: { read: ADMIN1, write: ADMIN1 }, consents: { read: ADMIN1, write: ADMIN1 },
+    aireg: { read: ADMIN1, write: ADMIN1 }, ainotices: { read: ADMIN1, write: ADMIN1 }, breaches: { read: ADMIN1, write: ADMIN1 }, a11y: { read: ADMIN1, write: ADMIN1 }
   };
   // cleans whatever the browser sends: only text, numbers, yes/no, lists and small objects are kept
   const clean = (v, depth = 0) => {
@@ -22,7 +25,8 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     return undefined;
   };
   // the few records whose numbers feed reports are checked here too (the page checks first, but the server must not trust the page)
-  const CHECK = { surveys: x => Number.isInteger(x.score) && x.score >= 1 && x.score <= 5 && /^\d{4}-\d{2}-\d{2}$/.test(String(x.date || '')) ? '' : 'Each survey answer needs a date (YYYY-MM-DD) and a score from 1 to 5',
+  const CHECK = { dpas: x => !x.link || /^https:\/\/[^\s"'<>`]+$/i.test(String(x.link)) ? '' : 'Links must start with https://', a11y: x => String(x.text || '').trim() ? '' : 'Write the statement',
+    surveys: x => Number.isInteger(x.score) && x.score >= 1 && x.score <= 5 && /^\d{4}-\d{2}-\d{2}$/.test(String(x.date || '')) ? '' : 'Each survey answer needs a date (YYYY-MM-DD) and a score from 1 to 5',
     // the pages count the goals of a plan, so anything but a list of goals would break them for everybody
     pips: x => x.goals == null || (Array.isArray(x.goals) && x.goals.every(g => g && typeof g === 'object' && !Array.isArray(g))) ? '' : 'The goals of an improvement plan must be a list' };
   const coll = (db, c) => { if (!Array.isArray(db[c])) db[c] = []; return db[c]; };
