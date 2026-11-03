@@ -70,8 +70,8 @@ const breachClock = x => { if (x.authority === 'done') return regPill(x.reported
   const t = Date.parse((x.found || '') + 'T' + (x.foundAt || '00:00')); if (!t) return '—'; const h = Math.round((t + 72 * 36e5 - Date.now()) / 36e5);
   return h < 0 ? regPill(tf('{n} h late', { n: -h }), 'bad') : regPill(tf('{n} h left', { n: h }), h < 24 ? 'bad' : 'wn'); };
 const A11Y0 = 'Q-smart wants everybody to be able to use it, also with a keyboard only, a screen reader or a larger text size.\n\nWhat works: every page can be used with the keyboard; buttons, boxes and tick boxes have names that screen readers read, in the chosen language; the text can be enlarged in the browser; light and dark colours can be chosen.\n\nWhat is not accessible yet: (write here what you found)\n\nIf something does not work for you, write to us and we will help you and fix it.';
-function regForm(k, id) {
-  const R = GOVR[k], x = (CO[R.c] || []).find(r => r.id === id) || (R.one ? { text: tr(A11Y0), status: 'partial' } : {});
+function regForm(k, id, pre) {
+  const R = GOVR[k], x = (CO[R.c] || []).find(r => r.id === id) || (R.one ? { text: tr(A11Y0), status: 'partial' } : { ...(pre || {}) });
   openForm({ title: id ? tr('Change') + ': ' + tr(R.t) : R.t, w: 640, yes: 'Save', d: Object.fromEntries(R.f.map(f => [f.k, Array.isArray(x[f.k]) ? JSON.parse(JSON.stringify(x[f.k])) : x[f.k] ?? (f.o ? (typeof f.o === 'function' ? '' : f.o[0][0]) : '')])), fields: R.f,
     save: d => { const miss = R.f.find(f => f.req && !String(d[f.k] || '').trim()); if (miss) return tr('Fill in') + ': ' + tr(miss.l);
       if (d.link && !/^https:\/\//i.test(d.link)) return 'Links must start with https://'; return coSave(R.c, { ...(R.before ? R.before(d) : d), id }); } });

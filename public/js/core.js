@@ -18,7 +18,9 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => '&#' + c.ch
 // a text as a JavaScript string inside onclick="..." (apostrophes, quotes and backslashes in names are all safe)
 const jsq = s => esc(JSON.stringify(String(s == null ? '' : s)));
 const avg = a => a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0;
-const f = d => d.toLocaleDateString(I18N.locale()), fdt = d => new Date(d).toLocaleString(I18N.locale());   // dates follow the chosen language
+// dates follow the chosen language, unless an admin chose a format for everybody (Admin › Regional settings)
+const f = d => { const r = (SET.region || {}).date || 'auto'; if (r === 'auto') return d.toLocaleDateString(I18N.locale()); const p = n => String(n).padStart(2, '0'), D = p(d.getDate()), M = p(d.getMonth() + 1), Y = d.getFullYear(); return r === 'ymd' ? `${Y}-${M}-${D}` : r === 'mdy' ? `${M}/${D}/${Y}` : r === 'dmy/' ? `${D}/${M}/${Y}` : `${D}.${M}.${Y}`; };
+const fdt = d => { const x = new Date(d), R = SET.region || {}; if ((R.date || 'auto') === 'auto' && (R.time || 'auto') === 'auto') return x.toLocaleString(I18N.locale()); return f(x) + ' ' + x.toLocaleTimeString(I18N.locale(), { hour: '2-digit', minute: '2-digit', ...(R.time === '12' ? { hour12: true } : R.time === '24' ? { hour12: false } : {}) }); };
 const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const ds = n => { const d = new Date(); d.setDate(d.getDate() + n); return iso(d); };
 const ini = n => String(n || '?').split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
@@ -279,7 +281,8 @@ async function load() {
   // the new sections: their lists, plus what the Agents page and the dashboard show from them
   const CL = { rbuild: ['reports', 'surveys', 'complaints'], rsaved: ['reports', 'surveys', 'complaints'], goals: ['goals', 'surveys', 'kudos'], pips: ['pips'], kudos: ['kudos'], compliance: ['risks'], risks: ['risks'], complaints: ['complaints'], csat: ['surveys'], calendar: ['pips'], agents: ['goals', 'pips', 'kudos', 'surveys', 'complaints'], dash: ['goals', 'kudos', 'surveys', 'complaints'],
     cs_ropa: ['ropa'], cs_subproc: ['subproc'], cs_dpa: ['dpas'], cs_consent: ['consents'], cs_aireg: ['aireg'], cs_ainotice: ['ainotices'], cs_breach: ['breaches'], cs_a11y: ['a11y'],
-    cs_faq: ['faq'], cs_gloss: ['gloss'], cs_videos: ['videos'], cs_tours: ['tours'], cs_pins: ['pins'], cs_revqa: ['revqa'], cs_myact: ['kudos', 'surveys'], cs_dashes: ['surveys', 'revqa', 'pins'] };
+    cs_faq: ['faq'], cs_gloss: ['gloss'], cs_videos: ['videos'], cs_tours: ['tours'], cs_pins: ['pins'], cs_revqa: ['revqa'], cs_myact: ['kudos', 'surveys'], cs_dashes: ['surveys', 'revqa', 'pins'], cs_script: ['scripts'], cs_announce: ['announce'], cs_ideas: ['ideas'] };
+  if (ME) want.push(['c_announce', '/api/c/announce']);   // the announcements show on every page
   (Object.hasOwn(CL, route) ? CL[route] : []).forEach(c => { if (ME && (!['reports', 'risks', 'complaints'].includes(c) || ed)) want.push(['c_' + c, '/api/c/' + c]); });
   if (['rbuild', 'rsaved', 'goals', 'calendar', 'kudos', 'dash', 'pers'].includes(route)) want.push(['tk', '/api/tasks']);
   if (route === 'calendar') want.push(['se', '/api/sessions']);

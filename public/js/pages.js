@@ -98,6 +98,10 @@ const SOON = {
 const RR = { org: ['admin'], privacy: ['admin'], signin: ['admin'], words: ['admin'], qask: STAFFR, qagents: STAFFR, qins: STAFFR, qknow: STAFFR, simsc: ['admin', 'trainer'], entry: ['admin', 'qa'], flags: STAFFR, team: STAFFR, cats: STAFFR, coach: STAFFR, cal: STAFFR, sco: STAFFR, scat: ['admin', 'qa'], roots: ['admin', 'qa'], aqcats: ['admin', 'qa'], users: ['admin'], teams: ['admin'], wsp: ['admin'], skills: ['admin'], audit: ['admin'], wcal: ['admin'], shifts: ['admin'], ltypes: ['admin'], attrules: ['admin'], today: STAFFR };
 Object.assign(RR, { sysset: ['admin'], rbuild: STAFFR, rsaved: STAFFR, rexp: STAFFR, planner: ['admin', 'qa', 'lead'], workload: ['admin', 'qa', 'lead'], compliance: STAFFR, risks: STAFFR, complaints: STAFFR, csat: STAFFR, perms: ['admin'], integ: ['admin'], notifs: ['admin'], backup: ['admin'], mailtpl: ['admin'] });
 // an admin can change who sees which page (Admin > Roles & permissions); admins always keep the Admin pages
+// built on 3 November (tools.js): the tools and Feature requests and Release notes for everybody, the settings for admins
+['cs_redact', 'cs_scoresim', 'cs_script', 'cs_ideas', 'cs_release'].forEach(k => { delete SOON[k]; });
+['cs_sample'].forEach(k => { delete SOON[k]; RR[k] = STAFFR; });
+['cs_sbfull', 'cs_sbcompact', 'cs_sbviews', 'cs_brand', 'cs_region', 'cs_announce'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
 // built on 3 November (help.js): Help Center, My activity and Pins for everybody, Reviewer QA and Topic dashboards for staff, Getting started for admins
 ['cs_faq', 'cs_videos', 'cs_tours', 'cs_gloss', 'cs_myact', 'cs_pins'].forEach(k => { delete SOON[k]; });
 ['cs_revqa', 'cs_dashes'].forEach(k => { delete SOON[k]; RR[k] = STAFFR; });
@@ -111,7 +115,11 @@ ADMINP.push('cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ain
 const own = (o, k) => o && Object.hasOwn(o, k) ? o[k] : undefined;   // only the object's own entries (a link such as #constructor is not a page)
 // a person's own choice (Roles & permissions) comes before their role's
 const canRoute = k => { if (ME.role === 'admin' && ADMINP.includes(k)) return true; const m = own(SET.permu, k); if (m && Object.hasOwn(m, ME.username)) return m[ME.username] === true; const p = own(SET.perm, k) || own(RR, k); return !Array.isArray(p) || p.includes(ME.role); };
-const groupsFor = () => GROUPS.map(g => ({ ...g, items: g.items.filter(([k]) => canRoute(k)) })).filter(g => g.items.length);
+// the sidebar as an admin arranged it (Admin › Setup › Sidebar settings): hidden groups and their order; a view saved for the person's role wins
+const sbLayout = () => { const s = SET.sidebar || {}; return (ME && (s.views || []).find(v => (v.roles || []).includes(ME.role))) || s; };
+const groupsFor = () => { const L = sbLayout(), hide = L.hide || [], ord = L.order || [];
+  return GROUPS.map(g => ({ ...g, items: g.items.filter(([k]) => canRoute(k)) })).filter(g => g.items.length && !hide.includes(g.id))
+    .sort((a, b) => { const i = ord.indexOf(a.id), j = ord.indexOf(b.id); return (i < 0 ? 999 : i) - (j < 0 ? 999 : j); }); };
 const groupOf = r => ({ aqlist: 'home', aqgaps: 'home' })[r] || (GROUPS.find(g => g.items.some(([k]) => k === r)) || {}).id;
 
 // ---- dashboard

@@ -1161,3 +1161,10 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .mya { display: grid; grid-template-columns: 220px 1fr; gap: 14px; align-items: start } .mynav { display: grid; gap: 2px; padding: 10px } .mynav .cap { margin: 10px 8px 4px } .mynav .cap:first-child { margin-top: 0 }
 .mynav button { display: flex; justify-content: space-between; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--tx); font: inherit; cursor: pointer; text-align: left } .mynav button:hover { background: var(--bg) } .mynav button.on { background: var(--bg); font-weight: 700 } .mynav small { color: var(--mu) }
 @media(max-width:900px){ .mya { grid-template-columns: 1fr } }
+
+/* announcements, feature-request votes, the brand logo, the sidebar settings rows (3 November) */
+.annb { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 14px; padding: 10px 14px; border: 1px solid var(--ac); border-left: 4px solid var(--ac); border-radius: 10px; background: color-mix(in srgb, var(--ac) 8%, var(--pn)) } .annb.warn { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 8%, var(--pn)) }
+.idv { flex-direction: column; min-width: 54px } .idv.on { border-color: var(--orange); color: var(--orange) }
+.brlogo { max-height: 30px; max-width: 70px; object-fit: contain; margin-left: auto; border-radius: 4px } .sb.co .brlogo { display: none }
+.brandpv { display: flex; align-items: center; gap: 12px; padding: 14px; border-radius: 12px; background: #171717; color: #fff } .brandpv img { max-height: 36px; max-width: 80px; object-fit: contain } .brandpv b { letter-spacing: .2em; display: block } .brandpv small { opacity: .6 }
+.sbr { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--bd) } .sbi svg { width: 20px; height: 20px }

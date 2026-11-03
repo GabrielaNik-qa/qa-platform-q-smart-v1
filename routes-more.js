@@ -18,7 +18,9 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     aireg: { read: ADMIN1, write: ADMIN1 }, ainotices: { read: ADMIN1, write: ADMIN1 }, breaches: { read: ADMIN1, write: ADMIN1 }, a11y: { read: ADMIN1, write: ADMIN1 },
     // Help Center (read by everybody, written by staff), pins (an agent sees their own) and reviewer checks (3 November)
     faq: { read: ALL, write: EDIT }, gloss: { read: ALL, write: EDIT }, videos: { read: ALL, write: EDIT }, tours: { read: ALL, write: EDIT },
-    pins: { read: ALL, write: EDIT, mine: (u, x) => x.agent === u.username }, revqa: { read: EDIT, write: ['admin', 'qa', 'lead'] }
+    pins: { read: ALL, write: EDIT, mine: (u, x) => x.agent === u.username }, revqa: { read: EDIT, write: ['admin', 'qa', 'lead'] },
+    // call scripts (staff write), announcements (admins write), feature requests (everybody writes their own, an admin sets the status) (3 November)
+    scripts: { read: ALL, write: EDIT }, announce: { read: ALL, write: ADMIN1 }, ideas: { read: ALL, write: ALL, ownOnly: true }
   };
   // cleans whatever the browser sends: only text, numbers, yes/no, lists and small objects are kept
   const clean = (v, depth = 0) => {
@@ -75,11 +77,11 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   });
 
   // ---------------------------------------------------------------- settings that admins (and for the planner QA) change on their own pages
-  const KEYS = { planner: ['admin', 'qa'], perm: ['admin'], permu: ['admin'], permtpl: ['admin'], integ: ['admin'], notifOff: ['admin'], mailtpl: ['admin'] };
+  const KEYS = { planner: ['admin', 'qa'], perm: ['admin'], permu: ['admin'], permtpl: ['admin'], sidebar: ['admin'], brand: ['admin'], region: ['admin'], integ: ['admin'], notifOff: ['admin'], mailtpl: ['admin'] };
   app.put('/api/settings/x/:key', need(), (req, res) => {
     const k = req.params.key, u = req.session.user; if (!KEYS[k]) return res.status(404).json({ error: 'unknown setting' }); if (!KEYS[k].includes(u.role)) return res.status(403).json({ error: 'not allowed' });
     // the permissions have their own checks below (more than 60 pages, and a template keeps its id and date)
-    let v = ['perm', 'permu', 'permtpl'].includes(k) ? (req.body || {}).value : clean((req.body || {}).value);
+    let v = ['perm', 'permu', 'permtpl', 'sidebar', 'brand'].includes(k) ? (req.body || {}).value : clean((req.body || {}).value);
     if (k === 'integ') {                                          // the integration links are shown to everybody as links: only https:// addresses (R-13)
       if (!v || typeof v !== 'object' || Array.isArray(v)) return bad(res, 'Links must start with https://');
       const out = {};
@@ -94,7 +96,21 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     if (k === 'perm') v = permOf(v);
     // saved permission templates: a name, when, and the roles and per-person access at that moment (30 at most)
     if (k === 'permtpl') v = (Array.isArray(v) ? v : []).slice(0, 30).filter(plain).map((t, i) => ({ id: String(t.id || '').replace(/[^\w-]/g, '').slice(0, 40) || 'pt' + Date.now() + i, name: String(t.name || '').trim().slice(0, 60) || 'Template', at: String(t.at || '').replace(/[^\dT:.Z-]/g, '').slice(0, 30), perm: permOf(t.perm), permu: permuOf(t.permu) }));
+    // the sidebar (Admin › Setup › Sidebar settings): lists of group ids and app names only; saved views per role
+    const ids = (l, n = 100) => (Array.isArray(l) ? l : []).filter(okKey).slice(0, n);
+    const lay = o => ({ hide: ids(o.hide), order: ids(o.order), compact: ids(o.compact), apps: ids(o.apps, 10) });
+    if (k === 'sidebar') { const o = plain(v) ? v : {}; v = { ...lay(o), views: (Array.isArray(o.views) ? o.views : []).slice(0, 20).filter(plain).map((x, i) => ({ id: String(x.id || '').replace(/[^\w-]/g, '').slice(0, 30) || 'v' + Date.now() + i, name: String(x.name || '').trim().slice(0, 40) || 'View', roles: ids(x.roles, 5).filter(r => ['admin', 'qa', 'lead', 'trainer', 'agent'].includes(r)), ...lay(x) })) }; }
+    // branding: a name, a colour and a small logo (PNG, JPG or WEBP only, under about 150 KB)
+    if (k === 'brand') { const o = plain(v) ? v : {}, logo = typeof o.logo === 'string' && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(o.logo) && o.logo.length <= 210000 ? o.logo : '';
+      if (o.logo && !logo) return bad(res, 'The logo must be a PNG, JPG or WEBP picture smaller than 150 KB');
+      v = { name: String(o.name || '').trim().slice(0, 40), color: /^#[0-9a-f]{6}$/i.test(o.color || '') ? o.color : '', logo }; }
+    if (k === 'region') { const o = plain(v) ? v : {}; v = { date: ['auto', 'dmy.', 'dmy/', 'mdy', 'ymd'].includes(o.date) ? o.date : 'auto', time: ['auto', '24', '12'].includes(o.time) ? o.time : 'auto' }; }
     const db = load(); db.settings = { ...db.settings, [k]: v }; save(db); res.json(setOut(db, u));
+  });
+  // a vote for a feature request: one per person, a second click takes it back
+  app.post('/api/ideas/:id/vote', need(), (req, res) => {
+    const db = load(), u = req.session.user, x = coll(db, 'ideas').find(r => r.id === req.params.id); if (!x) return res.status(404).json({ error: 'not found' });
+    const v = new Set(Array.isArray(x.votes) ? x.votes : []); if (v.has(u.username)) v.delete(u.username); else v.add(u.username); x.votes = [...v]; save(db); res.json(x);
   });
 
   // ---------------------------------------------------------------- export centre: every Excel file that was made, ready to download again

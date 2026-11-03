@@ -57,3 +57,25 @@ test('Help Center: everybody reads, staff write; pins: an agent sees only their 
   assert.equal((await b1.get('/api/c/revqa')).status, 403); assert.equal((await tr1.post('/api/c/revqa', { rid: 'r1' })).status, 403, 'a trainer reads the checks but does not write them');
   assert.equal((await a.post('/api/c/revqa', { rid: 'r1', fair: 'yes', follows: 'no' })).status, 200);
 });
+
+// Tools & settings (3 November): sidebar, branding and regional settings for admins only and checked; feature requests with one vote each
+test('sidebar, branding and regional settings: admins only, odd values dropped; feature requests: one vote per person; announcements: admins write', async () => {
+  const a = await client(app.base, 'f.admin'), b1 = await client(app.base, 'f.b1'), qa = await client(app.base, 'f.qa1');
+  assert.equal((await qa.put('/api/settings/x/sidebar', { value: { hide: ['home'] } })).status, 403);
+  const s = await a.put('/api/settings/x/sidebar', { value: { hide: ['planning', '<img>'], order: ['coaching', 'home'], compact: ['app:tr'], apps: ['tr', 'qi'], views: [{ name: 'Agents', roles: ['agent', 'boss'], hide: ['reports'] }] } });
+  assert.equal(s.status, 200); assert.deepEqual(s.json.sidebar.hide, ['planning']); assert.deepEqual(s.json.sidebar.views[0].roles, ['agent']); assert.ok(s.json.sidebar.views[0].id);
+  assert.deepEqual((await b1.get('/api/settings')).json.sidebar.views[0].hide, ['reports'], 'everybody receives the layout');
+  assert.equal((await a.put('/api/settings/x/brand', { value: { name: 'Acme', color: '#3b82f6', logo: 'data:image/svg+xml;base64,PHN2Zz4=' } })).status, 400, 'no SVG logos');
+  const br = await a.put('/api/settings/x/brand', { value: { name: 'Acme', color: 'red', logo: 'data:image/png;base64,iVBORw0KGgo=' } });
+  assert.deepEqual(br.json.brand, { name: 'Acme', color: '', logo: 'data:image/png;base64,iVBORw0KGgo=' });
+  assert.deepEqual((await a.put('/api/settings/x/region', { value: { date: 'ymd', time: '99' } })).json.region, { date: 'ymd', time: 'auto' });
+  const idea = (await b1.post('/api/c/ideas', { title: 'Dark mode for the reports' })).json;
+  assert.deepEqual((await qa.post('/api/ideas/' + idea.id + '/vote')).json.votes, ['f.qa1']);
+  assert.deepEqual((await a.post('/api/ideas/' + idea.id + '/vote')).json.votes, ['f.qa1', 'f.admin']);
+  assert.deepEqual((await qa.post('/api/ideas/' + idea.id + '/vote')).json.votes, ['f.admin'], 'a second click takes the vote back');
+  assert.equal((await qa.put('/api/c/ideas/' + idea.id, { title: 'Changed' })).status, 403, 'only its author or an admin changes an idea');
+  assert.equal((await a.put('/api/c/ideas/' + idea.id, { status: 'planned' })).json.status, 'planned');
+  assert.equal((await qa.post('/api/c/announce', { text: 'x' })).status, 403); assert.equal((await a.post('/api/c/announce', { text: 'Training on Friday' })).status, 200);
+  assert.equal((await b1.get('/api/c/announce')).json[0].text, 'Training on Friday');
+  await a.put('/api/settings/x/sidebar', { value: {} }); await a.put('/api/settings/x/brand', { value: {} }); await a.put('/api/settings/x/region', { value: {} });
+});

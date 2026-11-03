@@ -97,7 +97,7 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   // coming soon (29 October): Quality > Conversations, Q-Intelligence > Spotlight, and five Tools in the Learning panel (greyed)
   await go(a.page, 'cs_conv'); await expect(a.page.locator('#m h1')).toHaveText(/Conversations/i);
   await go(a.page, 'cs_spot'); await expect(a.page.locator('#m h1')).toHaveText(/Spotlight/i);
-  await go(a.page, 'cs_redact'); await expect(a.page.locator('#n .spt')).toHaveText('Learning'); await expect(a.page.locator('#n .grp.g-tools')).toHaveClass(/soon/);
+  await go(a.page, 'cs_redact'); await expect(a.page.locator('#n .spt')).toHaveText('Learning'); await expect(a.page.locator('#n .grp.g-tools')).not.toHaveClass(/soon/);   // four tools are built (3 November); only the Translator waits for the AI
   await go(a.page, 'dash');
   await a.page.locator('.usr button[title="Admin"]').click();
   await expect(a.page.locator('#n .sech.sec-account')).toHaveCount(1); await expect(a.page.locator('#n .spt'), 'no ADMIN title').toHaveCount(0);
@@ -109,7 +109,7 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   // five places in every row: the icons sit in the same columns as GOVERNANCE, a shorter row leaves the last place empty
   const cols = await a.page.locator('#n .appsr').evaluateAll(l => l.map(r => [...r.children].map(b => Math.round(b.getBoundingClientRect().left))));
   for (const r of cols) expect(r).toEqual(cols[3].slice(0, r.length));
-  expect(await a.page.locator('#n .appi.soon').evaluateAll(l => l.map(b => b.title))).toEqual(['Billing', 'Support', 'AI', 'Sidebar settings', 'Sandbox', 'Features']);   // AI Act, Security and Accessibility were built on 3 November
+  expect(await a.page.locator('#n .appi.soon').evaluateAll(l => l.map(b => b.title))).toEqual(['Billing', 'AI', 'Sandbox', 'Features']);   // AI Act, Security, Accessibility, Support and Sidebar settings were built on 3 November
   await a.page.locator('.sech.sec-account').click();
   expect((await a.page.locator('#n .gh span').allInnerTexts()).slice(1)).toEqual(['My account', 'Company', 'Billing', 'Support']);
   await expect(a.page.locator('#n .grp.open'), 'the panel\'s groups start folded too').toHaveCount(0);

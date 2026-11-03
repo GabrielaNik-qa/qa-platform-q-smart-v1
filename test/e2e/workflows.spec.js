@@ -203,3 +203,35 @@ test('help and coaching: a FAQ, the glossary, a guided tour, getting started, a 
   await go(g.page, 'cs_pins'); await expect(g.page.locator('#m')).toContainText('Listen to the greeting together');
   expect(g.errors).toEqual([]); await g.ctx.close();
 });
+
+// Tools & settings (3 November)
+test('tools and settings: redaction, the score simulator, an announcement, a feature request, the sidebar, branding, dates, and a pin from a review', async ({ browser }) => {
+  const a = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 900 } });
+  await go(a.page, 'cs_redact'); await a.page.locator('#redin').fill('Card 4111 1111 1111 1111, mail ana@example.com, phone +359 88 123 4567.');
+  await a.page.getByRole('button', { name: 'Take out personal data' }).click();
+  await expect(a.page.locator('#m textarea[readonly]')).toHaveValue('Card [CARD], mail [EMAIL], phone [PHONE].');
+  await go(a.page, 'cs_scoresim'); await expect(a.page.locator('#m')).toContainText('100%');
+  await a.page.locator('#m .sg button', { hasText: 'No' }).first().click(); await expect(a.page.locator('#m')).not.toContainText('100%');
+  await go(a.page, 'cs_sample'); await expect(a.page.locator('#m .big')).toHaveText('78');                     // 400 conversations, 95% sure, ± 10 points
+  await go(a.page, 'cs_announce'); await a.page.getByRole('button', { name: 'Add' }).click(); await a.page.locator('.md textarea').first().fill('Team meeting on Friday at 10');
+  await a.page.getByRole('button', { name: 'Save', exact: true }).click(); await go(a.page, 'dash');
+  await expect(a.page.locator('.annb')).toContainText('Team meeting on Friday at 10'); await a.page.locator('.annb button').click(); await expect(a.page.locator('.annb')).toHaveCount(0);
+  await go(a.page, 'cs_ideas'); await a.page.getByRole('button', { name: 'New idea' }).click(); await a.page.getByLabel('Your idea').fill('Export the coaching notes');
+  await a.page.getByRole('button', { name: 'Save', exact: true }).click(); await a.page.locator('#m .idv').first().click(); await expect(a.page.locator('#m .idv').first()).toContainText('1');
+  // the sidebar: Planning hidden for everybody
+  await go(a.page, 'cs_sbfull'); await a.page.locator('#m .sbr', { hasText: 'Planning' }).locator('input[type=checkbox]').uncheck();
+  await a.page.getByRole('button', { name: 'Save', exact: true }).click(); await expect.poll(() => a.page.evaluate(() => groupsFor().some(g => g.id === 'planning'))).toBe(false);
+  await a.page.evaluate(() => setX('sidebar', {}));
+  // branding and dates
+  await go(a.page, 'cs_brand'); await a.page.getByLabel('Company name in the menu').fill('Acme Support'); await a.page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(a.page.locator('#br .brand small')).toHaveText('Acme Support');
+  await go(a.page, 'cs_region'); await a.page.locator('#m select').first().selectOption('ymd'); await expect(a.page.locator('#m .mono')).toContainText('2026-12-31');
+  await a.page.getByRole('button', { name: 'Save', exact: true }).click(); await expect.poll(() => a.page.evaluate(() => f(new Date(2026, 0, 5)))).toBe('2026-01-05');
+  await a.page.evaluate(() => Promise.all([setX('brand', {}), setX('region', {})]));
+  // a pin straight from a review
+  const rid = await a.page.evaluate(() => EV[0].rid); await a.page.evaluate(r => om('view', r), rid);
+  await a.page.getByRole('button', { name: 'Pin a moment' }).click(); await a.page.getByLabel('What to talk about').fill('The closing question');
+  await a.page.locator('.md').last().getByRole('button', { name: 'Save', exact: true }).click();   // the pin form, over the review
+  await expect.poll(async () => (await api(a.page, '/api/c/pins')).json.some(x => x.rid === rid && x.note === 'The closing question')).toBe(true);
+  expect(a.errors).toEqual([]); await a.ctx.close();
+});

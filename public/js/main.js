@@ -128,7 +128,7 @@ const NAVH = () => { const sp = curSpace(), all = groupsFor();
   const row = g => { const act = groupOf(route) === g.id, one = g.items.length === 1, open = !one && gOpen(g), sys = '', soon = isSoonG(g);   // System settings is a page of Quality set-up now
   // the icon AND the name open the group's first page; only the small arrow opens or closes the list without leaving the page
   return `<div class="grp g-${g.id} ${soon ? 'soon' : ''} ${open ? 'open' : ''} ${act ? 'act' : ''}" onmouseenter="flyHover('${g.id}',this)" onmouseleave="flyLeave()"><button class=gh onclick="gGo('${g.id}',event)" title="${'Open ' + g.items[0][1]}"><i>${IC[g.icon]}</i><span>${g.name}</span>${one ? '' : `<em onclick="event.stopPropagation();tgG('${g.id}',event)" title="Show / hide">›</em>`}</button>${open ? `<div class=sub>${g.items.map(subA).join('')}${sys}</div>` : ''}${COL && !one && FLY === g.id ? `<div class=fly style="--fy:${FLYY}px"><b>${g.name}</b>${g.items.map(subA).join('')}${sys}</div>` : ''}</div>`; };
-  const mine = all.filter(g => (g.space || 'main') === sp);
+  const mine = all.filter(g => (g.space || 'main') === sp && !(COL && sp === 'main' && (sbLayout().compact || []).includes(g.id)));
   // the section headings (folded: one row of icons that open the first page); the icons-only menu has a line between the sections
   const secs = (SECS[sp] || []).map(([k, n]) => [k, n, mine.filter(g => g.sec === k)]).filter(x => x[2].length);
   const grp = !secs.length ? mine.map(row).join('') : secs.map(([k, n, l], i) => COL ? (i ? '<div class=spsep></div>' : '') + l.map(row).join('')
@@ -138,7 +138,8 @@ const NAVH = () => { const sp = curSpace(), all = groupsFor();
   const back = srch + (sp === 'main' ? '' : `<div class="grp spb"><button class=gh onclick="spBack(event)" title="Back to the main menu"><i>${IC.back}</i><span>Back to the main menu</span></button></div>${sp === 'admin' ? '' : `<div class=spt>${spName(sp)}</div>`}`);   // the Admin panel has no title (Gabriela, 29 October)
   // the panels under the line ("APPS"): each row ends with ↗ (it opens its own panel). In the full menu the heading folds them
   // into one row of icons (remembered); the icons-only menu always shows the line and the icons (Gabriela, 28 October)
-  const apps = sp !== 'main' ? [] : ['qi', 'ai', 'learn', 'aiag', 'tr'].filter(x => all.some(g => g.space === x));
+  const L = sbLayout(), cmp = L.compact || [];   // the order of the apps and the icons-only menu as an admin arranged them
+  const apps = sp !== 'main' ? [] : ['qi', 'ai', 'learn', 'aiag', 'tr'].filter(x => all.some(g => g.space === x) && !(COL && cmp.includes('app:' + x))).sort((a, b) => { const o = L.apps || [], i = o.indexOf(a), j = o.indexOf(b); return (i < 0 ? 9 : i) - (j < 0 ? 9 : j); });
   if (!apps.length) return back + grp;
   const rows = apps.map(x => `<div class="grp spc sp-${x}"><button class=gh onclick="spGo('${x}',event)" title="${spName(x)}"><i>${IC[SPIC[x]]}</i><span>${spName(x)}</span><em>↗</em></button></div>`).join('');
   if (COL) return back + grp + `<div class=spsep></div>${rows}`;
@@ -162,8 +163,8 @@ function render() {
   const fk = focusKey();
   if (!ME) { $('#m').innerHTML = LG(); $('#n').innerHTML = ''; $('#br').innerHTML = ''; $('#fz').innerHTML = ''; refocus(fk); return; }
   applySb();
-  $('#m').innerHTML = (Object.hasOwn(PG, route) && typeof PG[route] === 'function' ? PG[route] : PG.dash)() + overlays();   // a link such as #constructor shows the dashboard
-  $('#br').innerHTML = `<div class=brand onclick="brandGo(event)" title="${curSpace() === 'main' ? 'Go to Home' : 'Back to the main menu'}">${mark('mg2', 36)}<div><b>Q-SMART</b><small>Customer Service Analytics</small></div></div>`;
+  $('#m').innerHTML = (typeof annBar === 'function' ? annBar() : '') + (Object.hasOwn(PG, route) && typeof PG[route] === 'function' ? PG[route] : PG.dash)() + overlays();   // announcements on top   // a link such as #constructor shows the dashboard
+  $('#br').innerHTML = `<div class=brand onclick="brandGo(event)" title="${curSpace() === 'main' ? 'Go to Home' : 'Back to the main menu'}">${mark('mg2', 36)}<div><b>Q-SMART</b><small>${esc((SET.brand || {}).name || 'Customer Service Analytics')}</small></div>${(SET.brand || {}).logo ? `<img class=brlogo src="${esc(SET.brand.logo)}" alt="">` : ''}</div>`; if (typeof brandApply === 'function') brandApply();
   navOnly();
   $('#fz').innerHTML = FOOT();
   $$('.chat').forEach(c => { c.scrollTop = c.scrollHeight; });

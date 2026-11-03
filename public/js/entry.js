@@ -14,9 +14,10 @@ const entDirty = () => !!ENT && JSON.stringify(ENT) !== ENT0;
 
 // the same rules as the server:  N/A is left out of the possible points;
 // critical item = No -> its category scores 0;  critical category = any No -> the whole review is 0%
-const entS = () => {
+// the score of answered categories (also used by Tools › Score simulator)
+const scoreCats = cats => {
   let zero = false;
-  const cs = ENT.cats.map(c => {
+  const cs = cats.map(c => {
     let e = 0, m = 0, cf = false, no = false;
     c.it.forEach(i => { if (i.a !== 'na') { m += i.p; if (i.a === 'y') e += i.p; } if (i.a === 'n') { no = true; if (i.k) cf = true; } });
     if (cf) e = 0; if (c.k && no) zero = true;
@@ -26,6 +27,7 @@ const entS = () => {
   const E = cs.reduce((a, c) => a + c.e, 0), M = cs.reduce((a, c) => a + c.m, 0);
   return { cs, zero, pc: zero ? 0 : (M ? E / M * 100 : 0) };
 };
+const entS = () => scoreCats(ENT.cats);
 const PV = () => {
   const s = entS(), pc = s.pc, thr = ENT.team ? PT(ENT.team) : PASSG(), ok = pc >= thr, C = 326.7;
   const clr = ok ? 'var(--ok)' : pc >= Math.min(70, thr) ? 'var(--wn)' : 'var(--bad)';
