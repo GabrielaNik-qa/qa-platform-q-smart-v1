@@ -308,6 +308,12 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     db.simulations.unshift(x); save(db); res.json(x);
   });
 
+  // a practice call can be deleted by an admin (Call Simulator › Dashboard › Sessions)
+  app.delete('/api/simulations/:id', need('admin'), (req, res) => {
+    const db = load(), n = db.simulations.length; db.simulations = db.simulations.filter(x => x.id !== req.params.id);
+    if (db.simulations.length === n) return res.status(404).json({ error: 'not found' }); save(db); res.json({ ok: 1 });
+  });
+
   // ---------------------------------------------------------------- calibration sessions (QA, team leads and trainers compare impressions and decide together)
   const decisions = v => (Array.isArray(v) ? v : []).slice(0, 30).map(d => ({ t: str(d.t, 250), owner: str(d.owner, 40), due: DAY.test(d.due || '') ? d.due : '', done: !!d.done })).filter(d => d.t);
   // blind scoring: until a participant has scored a review, they do not see the others' scores of it (the owner and admins always do,

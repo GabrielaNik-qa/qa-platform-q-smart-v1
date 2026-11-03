@@ -63,7 +63,7 @@ const gOpen = g => !COL && (g.space ? SPO.includes(g.id) : OG === null ? groupOf
 let SPV = null, LASTMAIN = 'dash';                                    // SPV = a panel opened by hand, until the next page opens
 const spaceOf = r => (GROUPS.find(g => g.items.some(([k]) => k === r)) || {}).space || 'main';
 const curSpace = () => SPV || spaceOf(route);
-const spName = s => ({ learn: 'Learning', ai: 'AI Simulator', qi: 'Q-Intelligence', aiag: 'AI agents', tr: 'Transcripts' })[s] || (ME.role === 'admin' ? 'Admin' : 'Settings');
+const spName = s => ({ learn: 'Learning', ai: 'Call Simulator', qi: 'Q-Intelligence', aiag: 'AI agents', tr: 'Transcripts' })[s] || (ME.role === 'admin' ? 'Admin' : 'Settings');
 // APPS folded (one row of icons) or open (one row per panel), remembered on this computer
 let APPSF = LS.get('qa_apps', true);
 function appsTog(ev) { ev.stopPropagation(); APPSF = !APPSF; LS.set('qa_apps', APPSF); render(); }

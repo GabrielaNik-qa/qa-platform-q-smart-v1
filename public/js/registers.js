@@ -45,7 +45,7 @@ const GOVR = {
       ['AutoQA scoring', 'The AI scores conversations in parallel with the reviewers, to compare (accuracy rate) and for training', 'Home › AutoQA', 'limited', 'all', 'It is not used to evaluate agents. If it ever were, it would be a high-risk use (EU AI Act, annex III, employment)'],
       ['Ask Quinn', 'Answers questions about the quality of the teams from your numbers', 'Q-Intelligence › Ask Quinn', 'limited', 'some', ''],
       ['AI insights', 'Finds patterns in the reviews', 'Q-Intelligence › AI insights', 'limited', 'some', ''],
-      ['AI Simulator', 'An AI customer for practice calls, with a score', 'AI Simulator', 'limited', 'some', ''],
+      ['Call Simulator', 'An AI customer for practice calls, with a score', 'Call Simulator', 'limited', 'some', ''],
       ['AI agents', 'AI helpers that do a task in the app', 'AI agents', 'limited', 'some', '']
     ].map(([name, purpose, where, risk, human, note]) => ({ name, purpose: note ? purpose + '. ' + note : purpose, where, risk, provider: (typeof AIS !== 'undefined' && AIS.model) || '', human, told: 'no', owner: '', review: '' })) },
   cs_ainotice: { c: 'ainotices', what: 'notice', t: 'AI notices', s: 'The texts that tell agents and customers when AI scored or answered them (EU AI Act, transparency)', name: 'feature',

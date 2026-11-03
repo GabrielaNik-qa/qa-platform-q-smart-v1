@@ -22,7 +22,7 @@ const GROUPS = [
   { id: 'learning', name: 'Learning', icon: 'g_learning', space: 'learn', items: [['acad', 'My Learning'], ['kb', 'Knowledge Base'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },   // the Knowledge Base is back in Learning (Gabriela, 3 November)
   // Tools in the Learning panel: five tools to come (Gabriela's yes, 29 October)
   { id: 'tools', name: 'Tools', icon: 'g_tools', space: 'learn', items: [['cs_redact', 'Redaction'], ['cs_transl', 'Translator'], ['cs_sample', 'Sample calculator'], ['cs_scoresim', 'Score simulator'], ['cs_script', 'Script builder']] },
-  { id: 'aisim', name: 'AI Simulator', icon: 'g_aisim', space: 'ai', items: [['sim', 'Practice a call'], ['simres', 'Results'], ['simsc', 'Scenarios']] },
+  { id: 'aisim', name: 'Call Simulator', icon: 'g_aisim', space: 'ai', items: [['simres', 'Dashboard'], ['sim', 'New simulation'], ['simsc', 'Scenarios']] },
   { id: 'qintel', name: 'Q-Intelligence', icon: 'g_qi', space: 'qi', items: [['qask', 'Ask Quinn'], ['qins', 'AI insights'], ['cs_spot', 'Spotlight'], ['qknow', 'Knowledge']] },
   // two more apps (Gabriela, 29 October): AI agents (the AI roles that do a job in the app; more comes later) and Transcripts (was Learning > Tools)
   { id: 'aiagents', name: 'AI agents', icon: 'g_robot', space: 'aiag', items: [['qagents', 'AI agents']] },
@@ -149,24 +149,4 @@ const PG = {
       L = [['Agent', 'Good afternoon, thank you for calling. How can I help you today?', 'Greeting'], ['Customer', 'I received a quote last week but I am not sure it is worth the price.', ''], ['Agent', 'I understand. Let me show you what is included and how it compares.', 'Objection handling'], ['Customer', 'Okay, that sounds reasonable. What are the next steps?', ''], ['Agent', 'I will send the contract now and note everything in your file.', 'Closing']];
     return head('Transcripts', 'Read and annotate calls') + `<div class="g g2"><div>${card('Select a call', EV.slice(0, 6).map((x, i) => `<div class="row li" style="cursor:pointer;${i === TI ? 'font-weight:600' : ''}" onclick="TI=${i};render()"><span class=mono>${esc(x.id)}</span>${sp(x.sc, x.tm)}</div>`).join(''))}</div><div>${card('Lead ' + esc(e.id) + ' · ' + esc(agn(e)), L.map(l => `<div class="msg ${l[0] === 'Agent' ? 'me' : ''}"><small style="color:inherit;opacity:.7">${l[0]}</small><br>${l[1]}${l[2] ? `<br>${pill(l[2], 'ok')}` : ''}</div>`).join(''))}</div></div>`;
   },
-  sim: () => AIRP.on ? aiSimPage() : head('Practice a call', 'Practice objection handling with a virtual customer') + card('Scenario: price objection', CH.map(m => `<div class="msg ${m[0] === 'u' ? 'me' : ''}">${esc(m[1])}</div>`).join('') + `<div class=row style="margin-top:10px"><input id=si style="flex:1" placeholder="Type your reply…" onkeydown='if(event.key=="Enter")snd()'><button class=btn onclick=snd()>Send</button></div>${voxBar('snd')}<div class=row style="margin-top:12px"><small class=mu>When you are done, save the result: it appears on your Agents page (tab Simulations).</small><button class=pb onclick=simFinish()>Finish &amp; save score</button></div>`)
 };
-let SIMT = 0;
-const SIM_GOOD = 'Coach: good, you acknowledged the concern.', SIM_TIP = 'Coach tip: empathise first, then ask a question.';   // kept in English, translated on screen
-function snd() {
-  const t = $('#si').value.trim(); if (!t) return;
-  if (!SIMT) SIMT = Date.now();
-  const g = /understand|value|include|\?/i.test(t);
-  const said = RP[Math.min(CH.filter(m => m[0] === 'u').length, 2)];
-  CH.push(['u', t], ['c', said], ['c', g ? SIM_GOOD : SIM_TIP]); render(); voxSay(tr(said));
-}
-
-// the practice call is scored by how many of your replies the coach liked, then saved for the Agents page
-async function simFinish() {
-  const you = CH.filter(m => m[0] === 'u').length; if (!you) return toast('Write at least one reply first', true);
-  const good = CH.filter(m => m[0] === 'c' && m[1] === SIM_GOOD).length, tips = [...new Set(CH.filter(m => m[0] === 'c' && m[1] === SIM_TIP).map(m => m[1]))];
-  const score = Math.round(good / you * 100);
-  const r = await api('/api/simulations', { scenario: 'Price objection', persona: 'Price-sensitive customer', score, minutes: Math.ceil((Date.now() - SIMT) / 60000), result: score >= 85 ? 'winner' : 'keep practising', tips });
-  if (!r.ok) return toast(await errOf(r, 'Could not save the result'), true);
-  CH = [CH[0]]; SIMT = 0; render(); toast('Saved: you scored ' + score + '%');
-}

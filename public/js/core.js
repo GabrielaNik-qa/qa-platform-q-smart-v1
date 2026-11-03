@@ -49,8 +49,6 @@ let AUD = [], TASKS = [], TPLS = [], SESS = [], CALS = [], KB = { folders: [], a
 let COLP = LS.get('qa_col', false), COL = COLP || innerWidth <= 1100;
 let TI = 0, SND = LS.get('qa_sound', 'on') === 'on', SNDS = LS.get('qa_snd_style', 'beep'), VOL = LS.get('qa_vol', 50);
 let THM = LS.get('qa_theme', 'system');
-let CH = [['c', "Hi, I'm interested, but honestly your price is too high."]];
-const RP = ["I need to think about it.", "Your competitor is cheaper.", "Okay, what happens next?"];
 
 // ---------------------------------------------------------------- pass rate thresholds (set in System Settings)
 const PASSG = () => +SET.pass || 85;

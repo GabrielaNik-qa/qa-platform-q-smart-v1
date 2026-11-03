@@ -4,6 +4,7 @@
 // the page only sees whether it is set and its last 4 characters.
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const ai = require('./ai');
+const SIM = require('./sim');                                   // the Call Simulator: segments, levels, written customers, indicators, outcomes
 
 module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited, hex, iso, str, notify }) => {
   const KEYFILE = path.join(path.dirname(path.resolve(FILE)), '.qsmart-key');
@@ -264,30 +265,32 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     { id: 'tech', name: 'Technical problem', who: 'Confused customer', persona: 'a confused, non-technical customer', brief: 'The app keeps logging you out. You do not know your app version and need simple step-by-step help.', open: "The app keeps logging me out and I don't know what to do." },
     { id: 'ident', name: 'Identity check', who: 'Customer in a hurry', persona: 'a customer in a hurry', brief: 'You want your delivery address changed right now and find security questions annoying, but you answer them when the agent explains why.', open: "Just change my address, I don't have time for questions." }
   ];
+  const BUILT = [...SCEN, ...SIM.REACT];                           // the customer-service calls above and the reactivation calls of sim.js
   const rpOn = db => !!conf(db).rolePlay && ai.enabled();
   // the scenarios to practise: the built-in ones a trainer or admin did not switch off, and the ones they wrote (AI Simulator › Scenarios)
-  const scenList = db => { const off = (db.settings && db.settings.scenOff) || []; return [...SCEN.filter(s => !off.includes(s.id)), ...(db.simScen || []).filter(s => s.active !== false)]; };
+  const scenList = db => { const off = (db.settings && db.settings.scenOff) || []; return [...BUILT.filter(s => !off.includes(s.id)), ...(db.simScen || []).filter(s => s.active !== false)].map(SIM.full); };
   const scOf = (db, id) => scenList(db).find(s => s.id === id);
   const SCW = ['admin', 'trainer'];
   const scBody = b => {
     const name = str(b.name, 80); if (!name) throw new Error('Give the scenario a name');
     const open = str(b.open, 400); if (!open) throw new Error('Write the first sentence of the customer');
     const who = str(b.who, 60) || 'Customer';
-    return { name, who, persona: str(b.persona, 120) || who.toLowerCase(), brief: str(b.brief, 1200), open };
+    return { name, who, persona: str(b.persona, 120) || who.toLowerCase(), brief: str(b.brief, 1200), open, ...SIM.extraBody(b) };
   };
   const msgsOf = v => (Array.isArray(v) ? v : []).slice(0, 60).map(m => ({ r: m && m.r === 'a' ? 'a' : 'c', t: str(m && m.t, 600) })).filter(m => m.t);
-  app.get('/api/ai/roleplay', need(), (req, res) => res.json({ on: rpOn(load()), scenarios: scenList(load()).map(({ id, name, who, open }) => ({ id, name, who, open })) }));
+  // the practice list for everybody: not the situation the customer knows, nor the right outcome (those would give the answers away)
+  app.get('/api/ai/roleplay', need(), (req, res) => res.json({ on: rpOn(load()), langs: SIM.LANGS, scenarios: scenList(load()).map(({ id, name, who, open, seg, level, lines, inds, outcomes }) => ({ id, name, who, open, seg, level, lines, inds, outcomes })) }));
   app.get('/api/ai/scenarios', need(...SCW), (req, res) => {
     const db = load(), off = (db.settings && db.settings.scenOff) || [];
-    res.json({ builtin: SCEN.map(({ id, name, who, brief, open }) => ({ id, name, who, brief, open, off: off.includes(id) })), custom: db.simScen });
+    res.json({ builtin: BUILT.map(SIM.full).map(({ id, name, who, brief, open, seg, level, lines, inds, outcomes, correct }) => ({ id, name, who, brief, open, seg, level, lines, inds, outcomes, correct, off: off.includes(id) })), custom: db.simScen.map(SIM.full) });
   });
   app.post('/api/ai/scenarios', need(...SCW), (req, res) => {
     const db = load(); try { const s = { id: 'sc' + hex(4), ...scBody(req.body || {}), active: true, by: req.session.user.username, created: iso() }; db.simScen.push(s); save(db); res.json(s); } catch (e) { bad(res, e.message); }
   });
   app.put('/api/ai/scenarios/:id', need(...SCW), (req, res) => {
     const db = load(), b = req.body || {}, id = req.params.id;
-    if (SCEN.some(s => s.id === id)) {                                   // a built-in scenario is only switched on or off
-      const off = new Set((db.settings.scenOff || []).filter(x => SCEN.some(s => s.id === x))); if (b.off) off.add(id); else off.delete(id);
+    if (BUILT.some(s => s.id === id)) {                                   // a built-in scenario is only switched on or off
+      const off = new Set((db.settings.scenOff || []).filter(x => BUILT.some(s => s.id === x))); if (b.off) off.add(id); else off.delete(id);
       db.settings.scenOff = [...off]; save(db); return res.json({ ok: 1 });
     }
     const s = db.simScen.find(x => x.id === id); if (!s) return res.status(404).json({ error: 'not found' });
@@ -302,7 +305,8 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     if (!sc || !msgs.length || msgs[msgs.length - 1].r !== 'a') return bad(res, 'Write your reply first');
     if (msgs.filter(m => m.r === 'a').length > 25) return bad(res, 'This practice call is long enough: finish it to get your score.');
     if (limited('ai-rp:' + req.session.user.username, 150, 36e5)) return res.status(429).json({ error: 'Too many practice messages in one hour. Try again later.' });
-    try { res.json(await ai.roleCustomer(sc, msgs, play(db))); } catch (e) { bad(res, e.message); }
+    const lang = SIM.LANGS[b.lang], who = lang ? { ...sc, brief: sc.brief + ' Speak only ' + lang + '.' } : sc;
+    try { res.json(await ai.roleCustomer(who, msgs, play(db))); } catch (e) { bad(res, e.message); }
   });
   app.post('/api/ai/roleplay/finish', need(), async (req, res) => {
     const db0 = load(), b = req.body || {}, sc = scOf(db0, b.sc), msgs = msgsOf(b.msgs), me = req.session.user;
@@ -310,8 +314,21 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     if (!sc || !msgs.some(m => m.r === 'a')) return bad(res, 'Write at least one reply first');
     if (limited('ai-rpf:' + me.username, 30, 36e5)) return res.status(429).json({ error: 'Too many practice calls in one hour. Try again later.' });
     let r; try { r = await ai.roleScore(sc, msgs, play(db0)); } catch (e) { return bad(res, e.message); }
-    const db = load(), x = { id: 'm' + hex(5), agent: me.username, scenario: sc.name, persona: sc.who, score: r.score, minutes: Math.max(1, Math.min(240, Math.round(Number(b.minutes) || 1))),
-      result: r.score >= 85 ? 'winner' : 'keep practising', tips: r.tips, good: r.good, ai: true, tx: ai.talk(msgs).slice(0, 8000), date: iso() };
+    const db = load(), g = SIM.grade(sc, msgs, outOf(sc, b)), x = simRec(db, me, sc, msgs, b, g, { score: r.score, tips: r.tips, good: r.good, ai: true });
+    db.simulations = [x, ...(db.simulations || [])]; save(db); res.json(x);
+  });
+  // ---- the Call Simulator with the written customer (no AI needed): the agent answers the lines of the scenario, the indicators
+  // and the outcome the agent chose give the score (sim.js). It is checked again here: the page cannot send its own score.
+  const outOf = (sc, b) => (sc.outcomes || []).includes(b.outcome) ? b.outcome : '';
+  const simRec = (db, me, sc, msgs, b, g, more) => { const u = db.users.find(x => x.username === me.username) || {}, secs = Math.max(1, Math.min(14400, Math.round(Number(b.secs) || Number(b.minutes) * 60 || 60)));
+    return { id: 'm' + hex(5), agent: me.username, team: u.team || '', sc: sc.id, scenario: sc.name, persona: sc.who, seg: sc.seg, level: sc.level, score: g.score, minutes: Math.max(1, Math.ceil(secs / 60)), secs,
+      turns: msgs.filter(m => m.r === 'a').length, mode: b.mode === 'voice' ? 'voice' : 'text', lang: SIM.LANGS[b.lang] ? b.lang : 'en', outcome: outOf(sc, b), right: g.right, best: sc.correct || '', inds: g.inds, fb: g.fb,
+      good: g.good, tips: g.tips, ai: false, ...more, result: (more.score ?? g.score) >= 85 ? 'winner' : 'keep practising', tx: ai.talk(msgs).slice(0, 8000), date: iso() }; };
+  app.post('/api/sim/finish', need(), (req, res) => {
+    const db = load(), b = req.body || {}, sc = scOf(db, b.sc), msgs = msgsOf(b.msgs), me = req.session.user;
+    if (!sc || !msgs.some(m => m.r === 'a')) return bad(res, 'Write at least one reply first');
+    if (limited('sim-f:' + me.username, 60, 36e5)) return res.status(429).json({ error: 'Too many practice calls in one hour. Try again later.' });
+    const x = simRec(db, me, sc, msgs, b, SIM.grade(sc, msgs, outOf(sc, b)), {});
     db.simulations = [x, ...(db.simulations || [])]; save(db); res.json(x);
   });
   function needsOf(db, see) {

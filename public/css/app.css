@@ -1192,3 +1192,32 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 
 /* Help Center website editor (3 November): one block per section */
 .hcsec { border-top: 1px solid var(--bd); padding: 12px 0 } .hcsec:first-of-type { border-top: 0 } .hcsec .row { margin-bottom: 6px }
+
+/* Call Simulator (3 November): like the one of converst-qa.web.app */
+.cskick { display: block; font: 600 11px var(--font); letter-spacing: .12em; text-transform: uppercase; color: var(--mu) }
+.cshero { text-align: center; padding: 34px 24px; border-top: 3px solid var(--orange) } .cshero h2 { margin: 8px 0 4px; font-size: 26px }
+.cswave { display: inline-flex; gap: 4px; align-items: center; height: 46px } .cswave i { width: 5px; border-radius: 3px; background: linear-gradient(var(--orange), #14b8a6); height: 40% }
+.cswave i:nth-child(2n) { height: 75% } .cswave i:nth-child(3n) { height: 100% } .cswave i:nth-child(4n) { height: 55% }
+.cssteps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 22px auto; max-width: 720px } .cssteps div { display: grid; gap: 4px; justify-items: center; padding: 14px 8px; border-radius: 12px; background: var(--sunk) }
+.cssteps span svg { width: 22px; height: 22px; color: var(--orange) } .cssteps small { color: var(--mu) } .cssteps b { font-size: 13.5px }
+.cslang, .cssegs { margin-bottom: 12px; display: grid; gap: 8px } .cslang .chips { display: flex; gap: 6px; flex-wrap: wrap } .cslang .ib.on { border-color: var(--orange); background: color-mix(in srgb, var(--orange) 12%, var(--pn)) }
+.cscards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px }
+.cscard { display: grid; gap: 6px; text-align: left; cursor: pointer; font: inherit; color: var(--tx); margin: 0; border: 1px solid var(--bd); transition: border-color .15s } .cscard:hover { border-color: var(--orange) } .cscard .row { margin-top: 4px }
+.cslvl { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px } .cslvl i { width: 4px; border-radius: 1px; background: var(--bd) } .cslvl i:nth-child(1) { height: 5px } .cslvl i:nth-child(2) { height: 7px } .cslvl i:nth-child(3) { height: 9px } .cslvl i:nth-child(4) { height: 11px } .cslvl i:nth-child(5) { height: 14px } .cslvl i.on { background: #0ea5e9 }
+.cscall { display: grid; grid-template-columns: 1fr 300px; gap: 14px; align-items: start } .csconv { margin: 0 } .csside { margin: 0; position: sticky; top: 14px }
+.csmsgs { display: grid; gap: 4px; margin-top: 10px; max-height: 52vh; overflow: auto } .csmsgs .msg small { display: block; font-size: 11px; color: var(--mu); margin-bottom: 2px }
+.csind { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px } .csind li { color: var(--mu) } .csind li.ok { color: var(--ok); font-weight: 600 }
+.csouts { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px } .csouts .ib { padding: 14px; height: auto; justify-content: flex-start; text-align: left; white-space: normal } .csouts .ib.on { border-color: var(--orange); background: color-mix(in srgb, var(--orange) 12%, var(--pn)); font-weight: 600 }
+.csresh { display: flex; gap: 16px; align-items: center; flex-wrap: wrap }
+.csbig { display: flex; align-items: baseline; gap: 2px; padding: 10px 16px; border-radius: 14px; background: color-mix(in srgb, var(--c) 14%, var(--pn)) } .csbig b { font-size: 40px; color: var(--c); line-height: 1 } .csbig small { color: var(--mu) }
+.csres { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; align-items: start } .csres .card { margin: 0 } .csv { display: grid; gap: 6px } .csv.ok b { color: var(--ok) } .csv.bad b { color: var(--bad) }
+.csfb { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px }
+.cstx { margin-top: 8px; padding: 12px; border-radius: 10px; background: var(--sunk); line-height: 1.6; font-size: 13.5px } .cstx .csa { color: var(--orange) } .cstx .csc { color: #0ea5e9 }
+.cstabs { margin-bottom: 12px } .csk { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 14px } .csk .ktv small { font-size: 14px; color: var(--mu) }
+.csbar { height: 6px; border-radius: 3px; background: var(--sunk); overflow: hidden; margin-top: 8px; flex: 1 } .csbar i { display: block; height: 100% }
+.csdist { display: grid; grid-template-columns: 150px 1fr 40px; gap: 10px; align-items: center; padding: 6px 0 } .csdist .csbar { margin: 0 }
+.csk2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px } .csk2 div { display: grid; gap: 2px } .csk2 b { font-size: 22px }
+.csrank { display: grid; grid-template-columns: 34px 1fr 90px 90px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--bd) } .csrank:last-child { border: 0 } .csrank.clk { cursor: pointer } .csrank.clk:hover { background: var(--sunk) }
+.csbadge { display: inline-grid; place-items: center; min-width: 44px; height: 38px; padding: 0 6px; border-radius: 10px; font: 700 17px var(--mono, monospace); color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--pn)) }
+.cssess { margin-bottom: 10px } .cschips { display: flex; gap: 6px; flex-wrap: wrap }
+@media (max-width: 1100px) { .cscall { grid-template-columns: 1fr } .csside { position: static } .cssteps { grid-template-columns: 1fr 1fr } }
