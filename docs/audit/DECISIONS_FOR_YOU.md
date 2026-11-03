@@ -1085,3 +1085,7 @@ The app already sends its e-mails through any SMTP service. For Brevo, start the
 | MAIL_FROM | the sender address, checked in Brevo (Senders & domains) |
 
 Brevo's free plan sends up to 300 e-mails a day. With your own domain, add the SPF and DKIM records Brevo shows, so the e-mails do not land in spam.
+
+### Firebase (3 November)
+- Start the Firebase version **only when you say so**.
+- It will be a **separate repository**; this version of the app stays and keeps working.
