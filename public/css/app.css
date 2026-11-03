@@ -1221,3 +1221,10 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .csbadge { display: inline-grid; place-items: center; min-width: 44px; height: 38px; padding: 0 6px; border-radius: 10px; font: 700 17px var(--mono, monospace); color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--pn)) }
 .cssess { margin-bottom: 10px } .cschips { display: flex; gap: 6px; flex-wrap: wrap }
 @media (max-width: 1100px) { .cscall { grid-template-columns: 1fr } .csside { position: static } .cssteps { grid-template-columns: 1fr 1fr } }
+
+/* Sandbox, Import data, Beta features (3 November) */
+.sbxbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; color: #431407; background: repeating-linear-gradient(135deg, #fdba74 0 14px, #fed7aa 14px 28px); border: 1px solid #fb923c }
+.sbxbar span { flex: 1; min-width: 200px } .sbxbar .ib { background: #fff7ed; color: #431407; border-color: #fb923c }
+.sbxopt { display: flex; flex-direction: column; gap: 6px; margin: 0 } .sbxopt p { flex: 1; margin: 0 0 8px } .sbxopt button { align-self: flex-start }
+.sbxl { margin: 0; padding-left: 18px; display: grid; gap: 6px }
+small.beta { font: 600 10px var(--font); letter-spacing: .06em; text-transform: uppercase; padding: 1px 6px; border-radius: 999px; color: #7c3aed; background: color-mix(in srgb, #7c3aed 14%, transparent); margin-left: 6px; vertical-align: middle }

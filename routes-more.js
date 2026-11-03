@@ -77,7 +77,7 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   });
 
   // ---------------------------------------------------------------- settings that admins (and for the planner QA) change on their own pages
-  const KEYS = { planner: ['admin', 'qa'], perm: ['admin'], permu: ['admin'], permtpl: ['admin'], sidebar: ['admin'], brand: ['admin'], region: ['admin'], integ: ['admin'], notifOff: ['admin'], mailtpl: ['admin'] };
+  const KEYS = { planner: ['admin', 'qa'], perm: ['admin'], permu: ['admin'], permtpl: ['admin'], sidebar: ['admin'], brand: ['admin'], region: ['admin'], beta: ['admin'], integ: ['admin'], notifOff: ['admin'], mailtpl: ['admin'] };
   app.put('/api/settings/x/:key', need(), (req, res) => {
     const k = req.params.key, u = req.session.user; if (!KEYS[k]) return res.status(404).json({ error: 'unknown setting' }); if (!KEYS[k].includes(u.role)) return res.status(403).json({ error: 'not allowed' });
     // the permissions have their own checks below (more than 60 pages, and a template keeps its id and date)
@@ -105,6 +105,8 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
       if (o.logo && !logo) return bad(res, 'The logo must be a PNG, JPG or WEBP picture smaller than 150 KB');
       v = { name: String(o.name || '').trim().slice(0, 40), color: /^#[0-9a-f]{6}$/i.test(o.color || '') ? o.color : '', logo }; }
     if (k === 'region') { const o = plain(v) ? v : {}; v = { date: ['auto', 'dmy.', 'dmy/', 'mdy', 'ymd'].includes(o.date) ? o.date : 'auto', time: ['auto', '24', '12'].includes(o.time) ? o.time : 'auto' }; }
+    // Beta features: the features an admin switched off (true = on, false = off; a feature not listed is on)
+    if (k === 'beta') { const o = plain(v) ? v : {}; v = Object.fromEntries(Object.entries(o).filter(([x, on]) => /^[a-z0-9_]{1,30}$/.test(x) && typeof on === 'boolean').slice(0, 40)); }
     const db = load(); db.settings = { ...db.settings, [k]: v }; save(db); res.json(setOut(db, u));
   });
   // a vote for a feature request: one per person, a second click takes it back

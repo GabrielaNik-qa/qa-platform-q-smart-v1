@@ -12,3 +12,5 @@ data.json.tmp
 .qsmart-key
 ai-usage.json
 support-files/
+sandbox.json
+sandbox.json.tmp

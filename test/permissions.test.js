@@ -168,3 +168,57 @@ test('Call Simulator: scenarios by segment and level; the server scores a writte
   const g = await b1.post('/api/sim/finish', { sc: s.json.id, msgs: [{ r: 'c', t: 'x' }, { r: 'a', t: 'I am so sorry.' }], outcome: 'Refunded' }); assert.equal(g.json.score, 100);
   assert.equal((await b1.del('/api/simulations/' + f.json.id)).status, 403); assert.equal((await a.del('/api/simulations/' + f.json.id)).status, 200);
 });
+
+// The sandbox (3 November): an admin makes it and enters it; inside, everything reads and writes sandbox.json, never the real data
+test('sandbox: only admins; inside it the data is the made-up company, changes stay there, the dangerous tools are off', async () => {
+  const a = await client(app.base, 'f.admin'), qa = await client(app.base, 'f.qa1'), a2 = await client(app.base, 'f.admin');
+  assert.equal((await qa.post('/api/sandbox', {})).status, 403);
+  const realN = app.db().evaluations.length;
+  const s = await a.post('/api/sandbox', { from: 'demo' }); assert.equal(s.status, 200, s.text); assert.equal(s.json.on, true); assert.equal(s.json.reviews, 180);
+  const inside = (await a.get('/api/evaluations')).json; assert.ok(inside.length >= 100 && inside.every(e => e.agent.startsWith('sb.')), 'made-up people only');
+  assert.equal((await a.get('/api/settings')).json.sandbox, true);
+  assert.ok(!(await a2.get('/api/evaluations')).json.some(e => e.agent.startsWith('sb.')), 'another sign-in of the same admin still sees the real data');
+  // a change inside stays inside
+  const t = await a.post('/api/teams', { name: 'Practice team', lead: 'sb.lara' }); assert.equal(t.status, 200);
+  assert.ok(!app.db().teams.some(x => x.name === 'Practice team'), 'the real data has no new team'); assert.equal(app.db().evaluations.length, realN);
+  for (const [m, u] of [['post', '/api/backups'], ['get', '/api/backups/current/download'], ['post', '/api/demo/reset'], ['post', '/api/seed/refresh'], ['post', '/api/org/purge'], ['put', '/api/ai/settings']])
+    assert.equal((await a[m](u, {})).status, 403, u + ' is off in the sandbox');
+  assert.equal((await a.post('/api/sandbox/leave', {})).json.on, false);
+  assert.ok(!(await a.get('/api/evaluations')).json.some(e => e.agent.startsWith('sb.')), 'back on the real data');
+  // a copy of the data has no AI keys; Enter goes back in; Delete removes it
+  const c = await a.post('/api/sandbox', { from: 'copy' }); assert.equal(c.json.from, 'copy'); assert.equal(c.json.reviews, realN);
+  await a.post('/api/sandbox/leave', {}); assert.equal((await a.post('/api/sandbox/enter', {})).json.on, true);
+  assert.equal((await a.del('/api/sandbox')).json.exists, false); assert.equal((await a.get('/api/settings')).json.sandbox, false);
+  assert.equal((await a.post('/api/sandbox/enter', {})).status, 400, 'nothing to enter');
+});
+
+// Import data (3 November): CSV or Excel, a preview row by row that changes nothing, then the import
+test('import data: users, teams and reviews from CSV; the preview changes nothing; bad rows are skipped with the reason', async () => {
+  const a = await client(app.base, 'f.admin'), qa = await client(app.base, 'f.qa1');
+  const file = (name, rows) => ({ name, data: Buffer.from('﻿' + rows.join('\r\n')).toString('base64') });
+  assert.equal((await qa.post('/api/import/preview', { kind: 'teams', file: file('t.csv', ['Name', 'X']) })).status, 403);
+  const tf = file('teams.csv', ['Name;Lead', 'Import team;f.lead1', 'B2B;', ';']);
+  const p = await a.post('/api/import/preview', { kind: 'teams', file: tf }); assert.equal(p.status, 200, p.text);
+  assert.deepEqual([p.json.add, p.json.skip], [1, 1], 'an empty row is dropped; B2B is already there'); assert.match(p.json.rows[1].why, /already exists/);
+  assert.ok(!app.db().teams.some(t => t.name === 'Import team'), 'the preview saves nothing');
+  assert.equal((await a.post('/api/import', { kind: 'teams', file: tf })).json.add, 1); assert.ok(app.db().teams.some(t => t.name === 'Import team' && t.lead === 'f.lead1'));
+  const uf = file('users.csv', ['Name,Email,Role,Team', 'Maria Ivanova,maria@example.com,agent,Import team', '"Ivo, Jr Petrov",ivo@example.com,Team Lead,', 'Solo,solo@example.com,agent,B2B', 'Nora Stein,nora@example.com,pilot,B2B']);
+  const u = await a.post('/api/import', { kind: 'users', file: uf }); assert.deepEqual([u.json.add, u.json.skip], [2, 2], 'no last name; unknown role');
+  const m = app.db().users.find(x => x.email === 'maria@example.com'); assert.equal(m.mustChange, true); assert.ok(app.db().teams.find(t => t.id === m.team).name === 'Import team');
+  assert.equal(app.db().users.find(x => x.email === 'ivo@example.com').role, 'lead');
+  const rf = file('reviews.csv', ['Date,Agent,Lead ID,Score,Channel,Reviewer', '2026-11-02,f.b1,L-1,92,chat,Quinn QA', '03.11.2026,Agent B2,L-2,78%,call,', '2026-11-02,f.b1,L-1,92,chat,', 'yesterday,f.b1,L-3,50,,', '2026-11-02,f.qa1,L-4,50,,', '2026-11-02,f.b1,L-5,150,,']);
+  const r = await a.post('/api/import', { kind: 'reviews', file: rf }); assert.deepEqual([r.json.add, r.json.skip], [2, 4]);
+  const e = app.db().evaluations.find(x => x.id === 'L-2'); assert.deepEqual([e.agent, e.sc, e.ch, e.scn, String(e.d).slice(0, 10)], ['f.b2', 78, 'call', 'Imported', '2026-11-03']);
+  assert.equal((await a.post('/api/import/preview', { kind: 'reviews', file: file('x.csv', ['Agent', 'f.b1']) })).status, 400, 'the needed columns are named');
+  assert.equal((await a.post('/api/import/preview', { kind: 'users', file: { name: 'x.exe', data: 'AAAA' } })).status, 400);
+  assert.equal((await a.get('/api/import/template/users')).status, 200);
+});
+
+// Beta features (3 November): admins switch a feature off for everybody; the Help Center website then answers as if it did not exist
+test('beta features: only admins switch them; only yes / no values; the Help Center website can be switched off', async () => {
+  const a = await client(app.base, 'f.admin'), qa = await client(app.base, 'f.qa1'), anon = await client(app.base);
+  assert.equal((await qa.put('/api/settings/x/beta', { value: { hcsite: false } })).status, 403);
+  const r = await a.put('/api/settings/x/beta', { value: { hcsite: false, callsim: 'no', 'bad key!': false } }); assert.deepEqual(r.json.beta, { hcsite: false });
+  assert.equal((await anon.get('/api/hc')).status, 404); assert.equal((await qa.get('/api/settings')).json.beta.hcsite, false);
+  await a.put('/api/settings/x/beta', { value: {} }); assert.equal((await anon.get('/api/hc')).status, 200);
+});

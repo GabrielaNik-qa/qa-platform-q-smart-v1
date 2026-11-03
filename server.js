@@ -3,9 +3,14 @@ const bcrypt = require('bcryptjs'), fs = require('fs'), path = require('path');
 const crypto = require('crypto'), nodemailer = require('nodemailer'), ExcelJS = require('exceljs');
 const { DEFAULT_SC, build } = require('./scorecard');
 const { ensureBootstrap, uname, ADMIN_TEAM } = require('./bootstrap');
-const wfm = require('./wf');                                    // workforce rules: work calendars, shifts, the rota
+const wfm = require('./wf');
+const { AsyncLocalStorage } = require('async_hooks');                                    // workforce rules: work calendars, shifts, the rota
 
 const FILE = process.env.DATA_FILE ? path.resolve(process.env.DATA_FILE) : path.join(__dirname, 'data.json');   // <- this file IS the database (DATA_FILE = use another copy, e.g. for the tests)
+// the sandbox (Admin › Sandbox): a second data file next to data.json. While an admin is inside it, every load() and save() of their
+// requests uses sandbox.json (SBX remembers it for the whole request, also across await); everybody else, and the timers, use data.json.
+const SBOX_FILE = path.join(path.dirname(FILE), 'sandbox.json'), SBX = new AsyncLocalStorage();
+const cur = () => (SBX.getStore() || {}).file || FILE;
 const DEFAULT_PASSWORD = 'password';                       // every user created in the app starts with this and must change it at first login
 const ROLES = ['admin', 'qa', 'lead', 'trainer', 'agent'];
 const STAFF = ['admin', 'qa', 'lead', 'trainer'];          // everyone who is not an agent
@@ -17,13 +22,14 @@ const iso = () => new Date().toISOString();
 
 // ------------------------------------------------------------------ database
 function save(db) {                                       // write a copy first, then swap it in: a crash half-way never leaves a broken data.json
-  const s = JSON.stringify(db, null, 2), tmp = FILE + '.tmp';
-  try { fs.writeFileSync(tmp, s); fs.renameSync(tmp, FILE); }
-  catch (e) { fs.writeFileSync(FILE, s); try { fs.unlinkSync(tmp); } catch (x) { /* nothing left to clean */ } }   // e.g. OneDrive briefly locks the file
+  const F = cur(), s = JSON.stringify(db, null, 2), tmp = F + '.tmp';
+  try { fs.writeFileSync(tmp, s); fs.renameSync(tmp, F); }
+  catch (e) { fs.writeFileSync(F, s); try { fs.unlinkSync(tmp); } catch (x) { /* nothing left to clean */ } }   // e.g. OneDrive briefly locks the file
 }
 function load() {
-  if (!fs.existsSync(FILE)) require('./seed').restore();      // a new folder starts with the data saved in seed.js
-  const db = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : { users: [], evaluations: [] };
+  const F = cur();
+  if (F === FILE && !fs.existsSync(FILE)) require('./seed').restore();      // a new folder starts with the data saved in seed.js
+  const db = fs.existsSync(F) ? JSON.parse(fs.readFileSync(F, 'utf8')) : { users: [], evaluations: [] };
   let dirty = false;
   if (!Array.isArray(db.scorecards) || !db.scorecards.length) db.scorecards = [DEFAULT_SC];
   for (const k of ['notifications', 'registrations', 'tasks', 'taskTpl', 'taskSeq', 'taskRuns', 'simScen', 'o2oTpl', 'sessions', 'calibrations', 'kbFolders', 'kbArticles', 'newsletters', 'quizzes', 'attempts', 'simulations', 'qflags'])
@@ -74,7 +80,7 @@ const mailer = process.env.SMTP_HOST ? nodemailer.createTransport({
   host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT) || 587, secure: Number(process.env.SMTP_PORT) === 465,
   auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } }) : null;
 async function mail(to, subject, text, key, vars = {}, html) {
-  if (!to) return;
+  if (!to || SBX.getStore()) return;   // the sandbox never sends e-mails to real people
   const t = key && ((load().settings || {}).mailtpl || {})[key], fill = s => String(s).replace(/\{(\w+)\}/g, (m, k) => vars[k] != null ? vars[k] : m);
   if (t && (t.subject || t.body)) { if (t.subject) subject = fill(t.subject); if (t.body) text = fill(t.body); }
   try {
@@ -215,11 +221,19 @@ app.use((req, res, next) => { const u = req.session && req.session.user; (!u ? s
 // no real page sends data nested more than a few levels deep; thousands of levels would crash whatever reads it next (it is checked without recursion)
 const tooDeep = (v, max = 64) => { const st = [[v, 0]]; while (st.length) { const [x, d] = st.pop(); if (x && typeof x === 'object') { if (d >= max) return true; for (const k in x) st.push([x[k], d + 1]); } } return false; };
 app.use((req, res, next) => req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body) && tooDeep(req.body) ? res.status(400).json({ error: 'The request could not be read' }) : next());
+// inside the sandbox: only for an admin who entered it, and only while the file exists; what could reach the real data, real people
+// or real money is switched off there (backups and restores, the developer tools, purge, recordings, AI settings)
+app.use((req, res, next) => { const u = req.session && req.session.user;
+  if (!(req.session && req.session.sandbox && u && u.role === 'admin' && fs.existsSync(SBOX_FILE))) return next();
+  req.sandbox = true; SBX.run({ file: SBOX_FILE }, next); });
+const SBNO = /^\/api\/(backups|seed|demo|org\/purge|evaluations\/[^/]+\/recording|ai\/(settings|keys|test|usage))/;
+app.use((req, res, next) => req.sandbox && SBNO.test(req.path) && (req.method !== 'GET' || /^\/api\/backups/.test(req.path)) ? res.status(403).json({ error: 'This is switched off in the sandbox' }) : next());
 const AUDIT = require('./audit');
-app.use(AUDIT.middleware);
+app.use((req, res, next) => req.sandbox ? next() : AUDIT.middleware(req, res, next));   // the sandbox is practice: it is not written in the audit log
 // the account as it is saved right now (re-read only when data.json changed), so a deactivated user or a changed role takes effect at once, not at the next login
 let UC = { key: null, users: null };
-function liveUser(username) {
+function liveUser(username) { return SBX.exit(() => liveUser0(username)); }
+function liveUser0(username) {
   let key = ''; try { const s = fs.statSync(FILE); key = s.mtimeMs + ':' + s.size; } catch (e) {}
   if (key !== UC.key || !UC.users) UC = { key, users: new Map(load().users.map(u => [u.username, u])) };
   return UC.users.get(username);
@@ -254,8 +268,8 @@ app.post('/api/demo/reset', need('admin'), devOnly, (req, res) => {
   catch (e) { res.status(500).json({ error: 'The reset failed - run "node seed.js" in the terminal to see why' }); }
 });
 // what the browser receives of the system settings: e-mail templates and notification rules are only for admins
-const setOut = (db, u) => { const s = { ...db.settings, oldTeams: db.oldTeams, wf: wfm.settingsOf(db.settings.wf, wfm.localDay()) }; delete s.ai; if (u.role !== 'admin') { delete s.mailtpl; delete s.notifOff; delete s.permtpl; s.permu = Object.fromEntries(Object.entries(s.permu || {}).filter(([, m]) => m && Object.hasOwn(m, u.username)).map(([p, m]) => [p, { [u.username]: m[u.username] }])); } return s; };   // a person only gets their own per-person access
-const ctx = { newEval, FILE, DIR: __dirname, app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, limited, setOut,
+const setOut = (db, u) => { const s = { ...db.settings, oldTeams: db.oldTeams, wf: wfm.settingsOf(db.settings.wf, wfm.localDay()), sandbox: !!SBX.getStore() }; delete s.ai; if (u.role !== 'admin') { delete s.mailtpl; delete s.notifOff; delete s.permtpl; s.permu = Object.fromEntries(Object.entries(s.permu || {}).filter(([, m]) => m && Object.hasOwn(m, u.username)).map(([p, m]) => [p, { [u.username]: m[u.username] }])); } return s; };   // a person only gets their own per-person access
+const ctx = { newEval, addUser, addTeam, DEFAULT_PASSWORD, FILE, SBOX_FILE, SBX, DIR: __dirname, app, load, save, need, authed, bad, hex, iso, str, list, pick, notify, userBy, staffUsers, mail, BASE, ROLES, STAFF, express, ADMIN_TEAM, pub, limited, setOut,
   scopeOf: (db, u) => scopeOf(db, u), seesUser: (db, u, username, team) => seesUser(db, u, username, team) };
 // a password version: changing or resetting a password ends the sign-ins made with the old one (see refreshSession)
 const newPw = (u, pw) => { u.hash = bcrypt.hashSync(String(pw), 10); u.pwv = (u.pwv || 0) + 1; };
@@ -422,11 +436,13 @@ const teamBody = (b, db, cur) => {
   if (!lu || lu.active === false || !['lead', 'admin', 'qa', 'trainer'].includes(lu.role)) throw new Error('Every team needs a team lead. Choose one.');
   return { name, desc: str(b.desc, 600), lead, languages: pick(b.languages, db.languages), skills: pick(b.skills, db.skills), region: str(b.region, 80), hours: str(b.hours, 60), channels: list(b.channels), notes: str(b.notes, 1000), color: /^#[0-9a-f]{6}$/i.test(b.color || '') ? b.color : '#2563eb' };
 };
+// a new team, in the workspace chosen (or the first one); throws the message to show when something is wrong
+function addTeam(db, b) { const t = { id: 't-' + hex(3), ...teamBody(b, db), created: iso() }; db.teams.push(t);
+  const ws = (db.workspaces || []).find(w => w.id === b.workspace) || (db.workspaces || [])[0]; if (ws) ws.teams.push(t.id); return t; }
 app.post('/api/teams', need('admin'), (req, res) => {
   const db = load(), b = req.body || {};
   try {
-    const t = { id: 't-' + hex(3), ...teamBody(b, db), created: iso() }; db.teams.push(t);
-    const ws = db.workspaces.find(w => w.id === b.workspace) || db.workspaces[0]; if (ws) ws.teams.push(t.id);
+    const t = addTeam(db, b);
     save(db); res.json(t);
   } catch (e) { bad(res, e.message); }
 });
@@ -478,15 +494,19 @@ const setStaffWs = (db, username, role, ids) => {                          // st
   const want = (Array.isArray(ids) ? ids : []).filter(id => db.workspaces.some(w => w.id === id)); if (!want.length && db.workspaces[0]) want.push(db.workspaces[0].id);
   want.forEach(id => db.workspaces.find(w => w.id === id).staff.push(username));
 };
+// a new account with the first password (it must be changed at the first sign-in); throws the message to show when something is wrong
+function addUser(db, b, hash) {
+  let username = str(b.username, 30).toLowerCase() || uname(nameParts(b).name);
+  if (!/^[a-z0-9._-]{3,30}$/.test(username)) throw new Error('Username: 3-30 characters, letters, numbers, dots, dashes or underscores');
+  if (db.users.some(u => u.username === username)) { if (b.username) throw new Error('That username already exists'); let n = 2; while (db.users.some(u => u.username === username + n)) n++; username += n; }
+  const u = { username, ...userBody(b, db), hash: hash || bcrypt.hashSync(DEFAULT_PASSWORD, 10), mustChange: true, teamHistory: [] };
+  db.users.push(u); setStaffWs(db, username, u.role, b.workspaces); return u;
+}
 const leadsTeam = (db, username) => db.teams.find(t => t.lead === username);
 app.post('/api/users', need('admin'), (req, res) => {
   const db = load(), b = req.body || {};
   try {
-    let username = str(b.username, 30).toLowerCase() || uname(nameParts(b).name);
-    if (!/^[a-z0-9._-]{3,30}$/.test(username)) throw new Error('Username: 3-30 characters, letters, numbers, dots, dashes or underscores');
-    if (db.users.some(u => u.username === username)) { if (b.username) throw new Error('That username already exists'); let n = 2; while (db.users.some(u => u.username === username + n)) n++; username += n; }
-    const u = { username, ...userBody(b, db), hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), mustChange: true, teamHistory: [] };
-    db.users.push(u); setStaffWs(db, username, u.role, b.workspaces); save(db); res.json({ ok: 1, username });
+    const u = addUser(db, b), username = u.username; save(db); res.json({ ok: 1, username });
     mail(u.email, 'Your account has been created', `Hi ${u.name},\n\nAn account was created for you.\n\nAddress: ${BASE}\nUsername: ${username}\nTemporary password: ${DEFAULT_PASSWORD}\n\nYou will be asked to choose a new password the first time you log in.\n`, 'account', { name: u.name, link: BASE, username, password: DEFAULT_PASSWORD });
   } catch (e) { bad(res, e.message); }
 });
@@ -893,7 +913,8 @@ require('./routes-wf')(ctx);          // Workforce: work calendars, shifts and p
 const att = require('./routes-att')(ctx);   // Workforce: check-ins, the status of every day, corrections, time off and balances
 require('./routes-today')({ ...ctx, att });   // Workforce: Team today, the morning brief, the Bradford score, attendance reports
 require('./routes-cap')({ ...ctx, att });     // Workforce: Capacity planning, the fair split of the leads of every campaign among the agents
-require('./routes-hc')(ctx);          // the Help Center website (public, at /hc): categories, sections and articles about Q-smart
+require('./routes-hc')(ctx);
+require('./routes-platform')(ctx);    // Admin › Platform: the sandbox, Import data, Beta features          // the Help Center website (public, at /hc): categories, sections and articles about Q-smart
 
 // the font files never change (a new font gets a new file name), so the browser keeps them for a year instead of asking every time
 app.use('/fonts', express.static(path.join(__dirname, 'public', 'fonts'), { maxAge: '365d', immutable: true }));

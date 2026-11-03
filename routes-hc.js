@@ -5,6 +5,8 @@ const fresh = require('./hc-default');
 module.exports = ({ app, load, save, need, bad, hex, iso, str, list }) => {
   // the website as it is now: the starting articles until an admin saves the first change (reading never writes data.json)
   const hcOf = db => db.hc || fresh();
+  // an admin can switch the whole website off (Admin › Features › Beta features): then it answers as if it did not exist
+  app.use('/api/hc', (req, res, next) => ((load().settings || {}).beta || {}).hcsite === false && req.method === 'GET' ? res.status(404).json({ error: 'The Help Center is switched off' }) : next());
   const own = db => { if (!db.hc) db.hc = fresh(); return db.hc; };
   const isAdm = req => !!(req.session && req.session.user && req.session.user.role === 'admin' && !req.session.user.mustChange);
   const plainText = s => String(s || '').replace(/```[\s\S]*?```/g, ' ').replace(/[#>*`_-]+/g, ' ').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/\s+/g, ' ').trim();

@@ -110,15 +110,18 @@ delete SOON.cs_contact;
 ['cs_start'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
 // built on 3 November (hcedit.js): the editor of the public Help Center website, for admins
 RR.cs_hcsite = ['admin'];
+// built on 3 November (platform.js): Sandbox, Import data and Beta features, for admins
+['cs_sandbox', 'cs_import', 'cs_beta'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
 // built on 3 November (registers.js): no longer coming soon, still for admins only
 ['cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
 Object.keys(SOON).forEach(k => { RR[k] = ['admin']; });
 Object.keys(ROLE).forEach(r => { RR['perm_' + r] = ['admin']; });   // the page of each role in Roles & permissions
 const ADMINP = ['perm_agent', 'perm_trainer', 'perm_lead', 'perm_qa', 'perm_admin', 'users', 'teams', 'wsp', 'skills', 'perms', 'integ', 'notifs', 'backup', 'mailtpl', 'audit', 'wcal', 'shifts', 'ltypes', 'attrules'];
-ADMINP.push('cs_hcsite', 'cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp');   // the registers and logs built on 3 November
+ADMINP.push('cs_sandbox', 'cs_import', 'cs_beta', 'cs_hcsite', 'cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp');   // the registers and logs built on 3 November
 const own = (o, k) => o && Object.hasOwn(o, k) ? o[k] : undefined;   // only the object's own entries (a link such as #constructor is not a page)
 // a person's own choice (Roles & permissions) comes before their role's
-const canRoute = k => { if (ME.role === 'admin' && ADMINP.includes(k)) return true; const m = own(SET.permu, k); if (m && Object.hasOwn(m, ME.username)) return m[ME.username] === true; const p = own(SET.perm, k) || own(RR, k); return !Array.isArray(p) || p.includes(ME.role); };
+const canRoute = k => { if (typeof betaOff === 'function' && betaOff(k)) return false;   // a beta feature an admin switched off (Admin › Beta features) is hidden from everybody
+  if (ME.role === 'admin' && ADMINP.includes(k)) return true; const m = own(SET.permu, k); if (m && Object.hasOwn(m, ME.username)) return m[ME.username] === true; const p = own(SET.perm, k) || own(RR, k); return !Array.isArray(p) || p.includes(ME.role); };
 // the sidebar as an admin arranged it (Admin › Setup › Sidebar settings): hidden groups and their order; a view saved for the person's role wins
 const sbLayout = () => { const s = SET.sidebar || {}; return (ME && (s.views || []).find(v => (v.roles || []).includes(ME.role))) || s; };
 const groupsFor = () => { const L = sbLayout(), hide = L.hide || [], ord = L.order || [];

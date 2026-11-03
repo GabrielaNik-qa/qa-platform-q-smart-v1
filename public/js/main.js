@@ -107,7 +107,7 @@ function gGo(id, ev) {
 function tgG(id, ev) { if (COL) { const first = groupsFor().find(g => g.id === id).items[0][0]; FLY = id; FLYY = ev.currentTarget.getBoundingClientRect().top; if (first !== route) { location.hash = first; return; } } else if ((GROUPS.find(g => g.id === id) || {}).space) { SPO = SPO.includes(id) ? SPO.filter(x => x !== id) : [...SPO, id]; } else OG = (gOpen({ id }) ? '' : id); render(); }
 // a coming-soon page (SOON) is greyed with a small Soon; a group with only such pages has a greyed icon
 const isSoonG = g => g.items.every(([k]) => Object.hasOwn(SOON, k));
-const subA = ([k, n]) => Object.hasOwn(SOON, k) ? `<a href="#${k}" class="soon ${k === route ? 'on' : ''}">${n}<small>${tr('Soon')}</small></a>` : `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}</a>`;
+const subA = ([k, n]) => Object.hasOwn(SOON, k) ? `<a href="#${k}" class="soon ${k === route ? 'on' : ''}">${n}<small>${tr('Soon')}</small></a>` : `<a href="#${k}" class="${k === route ? 'on' : ''}">${n}${typeof betaOf === 'function' && betaOf(k) ? `<small class=beta>${tr('Beta')}</small>` : ''}</a>`;
 // the search at the top of every menu: people type in it and the matches drop down under it (pages by their name in any language,
 // not agents or lead IDs); Enter or a click opens the first or chosen one. The icons-only menu shows the magnifier, which opens the menu
 // and puts the cursor in the box (Gabriela, 29 October: no pop-up)
@@ -164,7 +164,7 @@ function render() {
   const fk = focusKey();
   if (!ME) { $('#m').innerHTML = LG(); $('#n').innerHTML = ''; $('#br').innerHTML = ''; $('#fz').innerHTML = ''; refocus(fk); return; }
   applySb();
-  $('#m').innerHTML = (typeof annBar === 'function' ? annBar() : '') + (Object.hasOwn(PG, route) && typeof PG[route] === 'function' ? PG[route] : PG.dash)() + overlays();   // announcements on top   // a link such as #constructor shows the dashboard
+  $('#m').innerHTML = (typeof sbxBar === 'function' ? sbxBar() : '') + (typeof annBar === 'function' ? annBar() : '') + (Object.hasOwn(PG, route) && typeof PG[route] === 'function' ? PG[route] : PG.dash)() + overlays();   // announcements on top   // a link such as #constructor shows the dashboard
   $('#br').innerHTML = `<div class=brand onclick="brandGo(event)" title="${curSpace() === 'main' ? 'Go to Home' : 'Back to the main menu'}">${mark('mg2', 36)}<div><b>Q-SMART</b><small>${esc((SET.brand || {}).name || 'Customer Service Analytics')}</small></div>${(SET.brand || {}).logo ? `<img class=brlogo src="${esc(SET.brand.logo)}" alt="">` : ''}</div>`; if (typeof brandApply === 'function') brandApply();
   navOnly();
   $('#fz').innerHTML = FOOT();
