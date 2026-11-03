@@ -42,7 +42,7 @@ const GOVR = {
     cols: [['AI system', x => `<b>${esc(x.name)}</b>${x.where ? `<br><small class=mu>${esc(x.where)}</small>` : ''}`], ['Risk', x => regPill(regOpt('cs_aireg', 'risk', x.risk), x.risk === 'high' || x.risk === 'banned' ? 'bad' : x.risk === 'limited' ? 'wn' : 'ok')], ['Human check', x => esc(regOpt('cs_aireg', 'human', x.human))], ['People told', x => x.told === 'yes' ? regPill('Yes', 'ok') : regPill('No', 'bad')], ['Responsible', x => esc(x.owner || '—')], ['Next review', x => x.review ? (x.review < todayS() ? regPill(x.review, 'bad') : esc(x.review)) : '—']],
     seed: () => [
       ['AutoQA scoring', 'The AI scores conversations against the scorecard', 'Home › AutoQA', 'high', 'all', 'Scoring the work of agents is a high-risk use (EU AI Act, annex III, employment)'],
-      ['Ask Q', 'Answers questions about the quality of the teams from your numbers', 'Q-Intelligence › Ask Q', 'limited', 'some', ''],
+      ['Ask Quinn', 'Answers questions about the quality of the teams from your numbers', 'Q-Intelligence › Ask Quinn', 'limited', 'some', ''],
       ['AI insights', 'Finds patterns in the reviews', 'Q-Intelligence › AI insights', 'limited', 'some', ''],
       ['AI Simulator', 'An AI customer for practice calls, with a score', 'AI Simulator', 'limited', 'some', ''],
       ['AI agents', 'AI helpers that do a task in the app', 'AI agents', 'limited', 'some', '']

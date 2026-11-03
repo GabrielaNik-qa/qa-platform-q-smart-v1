@@ -80,6 +80,7 @@ const SPIC = { aiag: 'g_robot', tr: 'g_tr', learn: 'g_learning', ai: 'g_aisim', 
 const spTop = () => { const n = $('#n'); if (n) n.scrollTop = 0; };   // a panel always opens at its top (where "Back" is)
 // the Admin (Settings) panel always opens the same way: every section folded into its row of icons, whatever was open last time (Gabriela, 29 October)
 function foldPanel(s) { (SECS[s] || []).forEach(([k]) => { SECF[k] = true; LS.set('qa_sec_' + k, true); }); SPO = SPO.filter(id => (GROUPS.find(g => g.id === id) || {}).space !== s); }
+function appGo(s, ev) { const first = (groupsFor().find(g => g.space === s) || { items: [] }).items[0]; spGo(s, ev); if (first && spaceOf(route) !== s) location.hash = first[0]; }   // APPS: open the app's first page (Gabriela, 3 November)
 function spGo(s, ev) { ev.stopPropagation(); foldPanel(s); const one = groupsFor().filter(g => g.space === s).flatMap(g => g.items); if (one.length === 1) { SPV = null; FLY = null; UMN = false; if (route !== one[0][0]) location.hash = one[0][0]; else render(); return; }   // an app with only one page opens it
   if (s === 'ai' || s === 'qi') { qlShow('sonar', s === 'ai' ? 'AI' : 'Q'); qlHide(1300); } else { qlShow('draw', qlLetter(s)); qlHide(1100); } SPV = s; OG = null; FLY = null; UMN = false; render(); spTop(); }
 function brandGo(ev) { if (curSpace() !== 'main') spBack(ev); else location.hash = 'dash'; }
@@ -111,8 +112,8 @@ const subA = ([k, n]) => Object.hasOwn(SOON, k) ? `<a href="#${k}" class="soon $
 // not agents or lead IDs); Enter or a click opens the first or chosen one. The icons-only menu shows the magnifier, which opens the menu
 // and puts the cursor in the box (Gabriela, 29 October: no pop-up)
 let SBQ = '', SBI = 0;
-const sbBox = () => COL ? `<button class=sbs onclick="sbOpen()" title="Search the menu (Ctrl K)" aria-label="Search the menu">${IC.search}</button>`
-  : `<div class=sbw><div class=sbs onclick="$('#sbq').focus()">${IC.search}<input id=sbq placeholder="Search the menu…" aria-label="Search the menu" autocomplete=off value="${esc(SBQ)}" oninput="SBQ=this.value;SBI=0;sbList()" onkeydown="sbKey(event)" onfocus="sbList()" onblur="setTimeout(sbHide,150)"><kbd>Ctrl K</kbd></div><div id=sbl class=sbl role=listbox></div></div>`;
+const sbBox = () => COL ? `<button class=sbs onclick="sbOpen()" title="Search the menu" aria-label="Search the menu">${IC.search}</button>`
+  : `<div class=sbw><div class=sbs onclick="$('#sbq').focus()">${IC.search}<input id=sbq placeholder="Search the menu…" aria-label="Search the menu" autocomplete=off value="${esc(SBQ)}" oninput="SBQ=this.value;SBI=0;sbList()" onkeydown="sbKey(event)" onfocus="sbList()" onblur="setTimeout(sbHide,150)"></div><div id=sbl class=sbl role=listbox></div></div>`;
 function sbOpen() { if (COL) toggleSb(); setTimeout(() => { const i = $('#sbq'); if (i) i.focus(); }, 30); }
 const sbRes = () => SBQ.trim() ? palItems(SBQ, true).slice(0, 8) : [];   // only the names of the menu's pages (Gabriela, 29 October)
 function sbList() { const l = $('#sbl'); if (!l) return; const r = sbRes(); if (SBI >= r.length) SBI = 0;
@@ -141,10 +142,10 @@ const NAVH = () => { const sp = curSpace(), all = groupsFor();
   const L = sbLayout(), cmp = L.compact || [];   // the order of the apps and the icons-only menu as an admin arranged them
   const apps = sp !== 'main' ? [] : ['qi', 'ai', 'learn', 'aiag', 'tr'].filter(x => all.some(g => g.space === x) && !(COL && cmp.includes('app:' + x))).sort((a, b) => { const o = L.apps || [], i = o.indexOf(a), j = o.indexOf(b); return (i < 0 ? 9 : i) - (j < 0 ? 9 : j); });
   if (!apps.length) return back + grp;
-  const rows = apps.map(x => `<div class="grp spc sp-${x}"><button class=gh onclick="spGo('${x}',event)" title="${spName(x)}"><i>${IC[SPIC[x]]}</i><span>${spName(x)}</span><em>↗</em></button></div>`).join('');
+  const rows = apps.map(x => `<div class="grp spc sp-${x}"><button class=gh onclick="appGo('${x}',event)" title="${spName(x)}"><i>${IC[SPIC[x]]}</i><span>${spName(x)}</span><em>↗</em></button></div>`).join('');
   if (COL) return back + grp + `<div class=spsep></div>${rows}`;
   const head = `<button class=apph onclick="appsTog(event)" aria-expanded="${!APPSF}" title="Show / hide"><span>Apps</span><em>${APPSF ? '›' : '⌄'}</em></button>`;
-  return back + grp + head + (APPSF ? `<div class=appsr>${apps.map(x => `<button class="appi sp-${x}" onclick="spGo('${x}',event)" title="${spName(x)}" aria-label="${spName(x)}">${IC[SPIC[x]]}</button>`).join('')}</div>` : rows);
+  return back + grp + head + (APPSF ? `<div class=appsr>${apps.map(x => `<button class="appi sp-${x}" onclick="appGo('${x}',event)" title="${spName(x)}" aria-label="${spName(x)}">${IC[SPIC[x]]}</button>`).join('')}</div>` : rows);
 };
 document.addEventListener('click', e => { if ((FLY || UMN) && !e.target.closest('.fly,.gh,.av2')) { FLY = null; UMN = false; render(); } });
 let UMN = false;                                           // the small "me" menu of the compact sidebar
@@ -296,18 +297,26 @@ async function onHash() {
 addEventListener('hashchange', onHash);
 // ---------------------------------------------------------------- quick jump (Ctrl+K or the search box in any header): pages, agents, leads and actions in one list
 let PAL = null;
-function palOpen(q = '') { if (!ME) return; PAL = { q, i: 0 }; render(); setTimeout(() => { const i = $('#palq'); if (i) { i.focus(); i.setSelectionRange(99, 99); } }, 20); }
+// what the app search looks in, fetched when it opens (tasks, articles, FAQ, glossary, scripts), so it finds them from any page
+async function palLoad() { const get = async u => { try { const r = await api(u); return r.ok ? r.json() : null; } catch (e) { return null; } };
+  const [t, k, fq, gl, sc] = await Promise.all([get('/api/tasks'), get('/api/kb'), get('/api/c/faq'), get('/api/c/gloss'), get('/api/c/scripts')]);
+  if (t) TASKS = t; if (k) KB = k; if (fq) CO.faq = fq; if (gl) CO.gloss = gl; if (sc) CO.scripts = sc; if (PAL) palRt(); }
+function palOpen(q = '') { if (!ME) return; PAL = { q, i: 0 }; palLoad(); render(); setTimeout(() => { const i = $('#palq'); if (i) { i.focus(); i.setSelectionRange(99, 99); } }, 20); }
 function palItems(qs = PAL ? PAL.q : '', menuOnly = false) {
   const q = qs.trim().toLowerCase(), hit = s => !q || s.toLowerCase().includes(q), out = [];
   // every result opens with a function, never with code written as text (the security rules of the page block that)
   const acts = [staff() && ['New evaluation', 'Score a call', () => goPage('entry')], isStaffR() && ['New quick flag', 'Red or green flag without a review', () => { goPage('flags'); setTimeout(() => qfNew({ type: 'red' }), 300); }], isStaffR() && ['New task', 'Give a task to agents', () => { TV.tab = 'my'; goPage('tasks'); setTimeout(() => newTask(), 300); }], isStaffR() && ['New one-to-one', 'Document a one-to-one', () => goPage('o2o')]].filter(Boolean);
   if (!menuOnly) acts.forEach(([t, s, go]) => hit(t) && out.push({ ic: IC.plus, t, s, go }));
+  // the menu's own search (left) finds the pages; the app search (right, Ctrl K) finds everything else (Gabriela, 3 November)
   // the pages that exist come before the coming-soon ones ("trans": Transcripts, then Translator)
-  groupsFor().flatMap(g => g.items.map(([k, n]) => [k, n, g])).sort((x, y) => Object.hasOwn(SOON, x[0]) - Object.hasOwn(SOON, y[0]))
+  if (menuOnly) groupsFor().flatMap(g => g.items.map(([k, n]) => [k, n, g])).sort((x, y) => Object.hasOwn(SOON, x[0]) - Object.hasOwn(SOON, y[0]))
     .forEach(([k, n, g]) => hit(n + ' ' + g.name + ' ' + tr(n) + ' ' + tr(g.name)) && out.push({ ic: IC[g.icon], t: n, s: g.name, go: () => goPage(k) }));
   if (q && !menuOnly) {
     AGENTS().filter(a => hit(a.name) || hit(a.username)).slice(0, 6).forEach(a => out.push({ ic: `<span class=av style="margin:0;width:24px;height:24px;font-size:9px">${esc(ini(a.name))}</span>`, t: a.name, s: 'Agent · ' + tn(a.team), go: ME.role === 'agent' ? () => goPage('agents') : () => openAgent(a.username) }));
     EV.filter(e => String(e.id).toLowerCase().includes(q)).slice(0, 6).forEach(e => out.push({ ic: IC.eye, t: 'Lead ' + e.id, s: `${agn(e)} · ${f(e.d)} · ${Math.round(e.sc)}%`, go: () => om('view', e.rid) }));
+    TASKS.filter(t => !t.archived && hit(t.title)).slice(0, 4).forEach(t => out.push({ ic: IC.list || IC.check, t: t.title, s: tr('Task') + ' · ' + (an(t.assignee) || t.assignee), go: () => { goPage('tasks'); setTimeout(() => { TKV = t.id; render(); }, 300); } }));
+    (KB.articles || []).filter(a => hit(a.title + ' ' + (a.topics || []).join(' '))).slice(0, 4).forEach(a => out.push({ ic: IC.g_learning, t: a.title, s: tr('Knowledge Base'), go: () => kbOpen(a.id) }));
+    [['faq', 'q', 'cs_faq', 'FAQ'], ['gloss', 'term', 'cs_gloss', 'Glossary'], ['scripts', 'title', 'cs_script', 'Script builder']].forEach(([c, k, pg, n]) => (CO[c] || []).filter(x => hit(String(x[k] || ''))).slice(0, 3).forEach(x => out.push({ ic: IC.g_help, t: x[k], s: tr(n), go: () => { HPQ.q = x[k]; goPage(pg); } })));
     const sq = qs.trim();   // a function, not code made from the typed text: names such as O'Brien work, and nothing typed can run as code
     out.push({ ic: IC.search, t: `Search Call Reviews for "${sq}"`, s: 'Lead ID, agent or campaign', go: () => { Q = sq; KQ = true; if (location.hash === '#calls') render(); else location.hash = 'calls'; } });
   }
@@ -315,11 +324,11 @@ function palItems(qs = PAL ? PAL.q : '', menuOnly = false) {
 }
 function palGo(k) { const it = palItems()[k]; PAL = null; render(); if (it) it.go(); }
 const PALM = () => { const l = palItems(); if (PAL.i >= l.length) PAL.i = 0;
-  return OVL(`<div class=pal><div class=sx><span>${IC.search}</span><input id=palq placeholder="Go to a page, an agent or a lead ID…" value="${esc(PAL.q)}" oninput="PAL.q=this.value;PAL.i=0;palRt()" onkeydown="palKey(event)"><kbd class=kb>Esc</kbd></div><div id=pall>${palList(l)}</div><small class=mu>↑ ↓ to choose · Enter to open</small></div>`, 'PAL=null;render()', 620, 99); };
+  return OVL(`<div class=pal><div class=sx><span>${IC.search}</span><input id=palq placeholder="Search agents, lead IDs, tasks, articles…" value="${esc(PAL.q)}" oninput="PAL.q=this.value;PAL.i=0;palRt()" onkeydown="palKey(event)"><kbd class=kb>Esc</kbd></div><div id=pall>${palList(l)}</div><small class=mu>↑ ↓ to choose · Enter to open</small></div>`, 'PAL=null;render()', 620, 99); };
 const palList = l => l.map((it, k) => `<button class="palr ${k === PAL.i ? 'on' : ''}" onclick="palGo(${k})"><span class=pali>${it.ic}</span><span><b>${esc(it.t)}</b><small>${esc(it.s)}</small></span></button>`).join('') || '<p class=mu style="padding:14px">Nothing found</p>';
 const palRt = () => { const b = $('#pall'); if (b) b.innerHTML = palList(palItems()); };
 function palKey(e) { const n = palItems().length; if (e.key === 'Escape') { PAL = null; render(); } else if (e.key === 'ArrowDown') { e.preventDefault(); PAL.i = (PAL.i + 1) % Math.max(n, 1); palRt(); } else if (e.key === 'ArrowUp') { e.preventDefault(); PAL.i = (PAL.i - 1 + n) % Math.max(n, 1); palRt(); } else if (e.key === 'Enter') { e.preventDefault(); palGo(PAL.i); } }
-addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); const i = $('#sbq'); if (i && i.offsetParent) i.focus(); else palOpen(); } });
+addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); palOpen(); } });   // Ctrl K = the app search (the menu has its own box)
 // every header search box opens the quick jump too (typing goes straight into it)
 document.addEventListener('focusin', e => { if (e.target.classList && e.target.classList.contains('qi') && route !== 'calls') { const v = e.target.value; e.target.blur(); palOpen(v); } });
 addEventListener('beforeunload', e => { if (entDirty() || kbDirty()) { e.preventDefault(); e.returnValue = ''; } });

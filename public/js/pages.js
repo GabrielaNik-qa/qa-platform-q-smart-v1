@@ -23,7 +23,7 @@ const GROUPS = [
   // Tools in the Learning panel: five tools to come (Gabriela's yes, 29 October)
   { id: 'tools', name: 'Tools', icon: 'g_tools', space: 'learn', items: [['cs_redact', 'Redaction'], ['cs_transl', 'Translator'], ['cs_sample', 'Sample calculator'], ['cs_scoresim', 'Score simulator'], ['cs_script', 'Script builder']] },
   { id: 'aisim', name: 'AI Simulator', icon: 'g_aisim', space: 'ai', items: [['sim', 'Practice a call'], ['simres', 'Results'], ['simsc', 'Scenarios']] },
-  { id: 'qintel', name: 'Q-Intelligence', icon: 'g_qi', space: 'qi', items: [['qask', 'Ask Q'], ['qins', 'AI insights'], ['cs_spot', 'Spotlight'], ['qknow', 'Knowledge']] },
+  { id: 'qintel', name: 'Q-Intelligence', icon: 'g_qi', space: 'qi', items: [['qask', 'Ask Quinn'], ['qins', 'AI insights'], ['cs_spot', 'Spotlight'], ['qknow', 'Knowledge']] },
   // two more apps (Gabriela, 29 October): AI agents (the AI roles that do a job in the app; more comes later) and Transcripts (was Learning > Tools)
   { id: 'aiagents', name: 'AI agents', icon: 'g_robot', space: 'aiag', items: [['qagents', 'AI agents']] },
   { id: 'transcripts', name: 'Transcripts', icon: 'g_tr', space: 'tr', items: [['tr', 'Transcripts']] },

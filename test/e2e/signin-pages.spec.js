@@ -210,3 +210,17 @@ test('Home has a language button next to the bell: it shows the language in use 
   expect(errors).toEqual([]);
   await ctx.close();
 });
+
+// 3 November: an app opens its first page with one click; Ctrl K is the app search (everything but the menu); the assistant is Quinn
+test('apps open their first page at once; the app search finds people and tasks but no menu names; Ask Quinn', async ({ browser }) => {
+  const { page, ctx, errors } = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 900 } });
+  await go(page, 'dash');
+  await page.locator('#n .appi.sp-learn, #n .grp.sp-learn .gh').first().click();
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe('#acad');                   // Learning › My Learning, no second click
+  await go(page, 'dash'); await page.keyboard.press('Control+k'); await expect(page.locator('#palq')).toBeVisible();
+  await page.locator('#palq').fill('agent c'); await expect(page.locator('#pall')).toContainText('Agent C1');
+  await page.locator('#palq').fill('transcripts'); await expect(page.locator('#pall .palr').first()).not.toContainText(/^Transcripts/);   // the menu has its own search
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => GROUPS.find(g => g.id === 'qintel').items[0][1])).toBe('Ask Quinn');
+  expect(errors).toEqual([]); await ctx.close();
+});

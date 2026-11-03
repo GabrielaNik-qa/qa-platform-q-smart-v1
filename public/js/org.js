@@ -2,7 +2,7 @@
 // Organization (admins): the company profile, data protection (how long each kind of data is kept before it is deleted by itself;
 // a person's data downloaded on request; what agents may see), sign-in rules, and business words (call types, topics tracked in
 // conversations, custom vocabulary that fixes misspelled words in transcripts).
-// Q-Intelligence (staff): Ask Q (questions about your teams' quality), AI agents run on one review or one agent, AI insights
+// Q-Intelligence (staff): Ask Quinn (questions about your teams' quality), AI agents run on one review or one agent, AI insights
 // (objections, competitors, product feedback in what customers and reviewers wrote; topics are counted without the AI), and the
 // knowledge files the AI reads with every answer. It needs the AI connected in Admin › Integrations (your API key).
 let QI = { know: [], ins: [], top: null, ask: [], busy: false, out: null, kind: 'summary', rid: '', ag: '', days: 30, team: '', per: '30' };
@@ -56,7 +56,7 @@ const wordsSave = () => { const lines = id => $('#' + id).value.split('\n').map(
 const vocabFix = t => (SET.words && SET.words.vocab || []).reduce((s, v) => v.wrong.reduce((x, w) => x.replace(new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), v.term), s), String(t || ''));
 
 // ---- AI Hub (in MANAGE): for now a place-holder that links to the AI tools already in the app; more comes later (Gabriela, 29 October)
-const AIHUB = [['qask', 'g_qi', 'Ask Q', 'Questions about your teams, answered from your numbers.'], ['qins', 'g_qi', 'AI insights', 'What the AI noticed in your reviews.'],
+const AIHUB = [['qask', 'g_qi', 'Ask Quinn', 'Questions about your teams, answered from your numbers.'], ['qins', 'g_qi', 'AI insights', 'What the AI noticed in your reviews.'],
   ['qagents', 'g_qi', 'AI agents', 'Helpers that do a task for you.'], ['sim', 'g_aisim', 'Practice a call', 'Talk to an AI customer and get a score.'], ['autoqa', 'g_home', 'AutoQA', 'Reviews the AI scores for you.']];
 PG.aihub = function () {
   const l = AIHUB.filter(([k]) => canRoute(k));
@@ -68,10 +68,10 @@ PG.aihub = function () {
 // ---- Q-Intelligence
 const qiOff = () => AIS.enabled ? '' : `<div class="card tip" style="margin-bottom:14px">${tr('Q-Intelligence needs the AI. An admin connects it in Admin › Integrations with your API key.')}</div>`;
 const qiMd = t => typeof md === 'function' ? `<div class=prose>${md(String(t || ''))}</div>` : `<p style="white-space:pre-wrap;margin:0">${esc(t)}</p>`;   // AI text: Markdown, kept in its own language
-// Ask Q: questions about the quality of your teams, answered from your numbers (and the knowledge files)
+// Ask Quinn (the assistant was named Quinn on 3 November): questions about the quality of your teams, answered from your numbers (and the knowledge files)
 PG.qask = function () {
   const ex = ['Which category should we train next month?', 'Who improved the most this month, and why?', 'What do our lowest-scoring calls have in common?', 'Write a short update for my manager.'];
-  return head('Ask Q', 'Ask anything about the quality of your teams. Q answers from your reviews and numbers, and follows your knowledge files.', bellBtn()) + qiOff()
+  return head('Ask Quinn', 'Ask anything about the quality of your teams. Quinn, your AI assistant, answers from your reviews and numbers, and follows your knowledge files.', bellBtn()) + qiOff()
     + `<section class="card qchat">${QI.ask.length ? QI.ask.map(m => `<div class="qm ${m.me ? 'me' : ''}">${m.me ? esc(m.t) : qiMd(m.t)}</div>`).join('') : `<div class=qhi><b>${tr('What can I do for you?')}</b><div class=tkchips>${ex.map(q => `<button class=tkcp onclick="qiAsk(${esc(jsq(tr(q)))})">${tr(q)}</button>`).join('')}</div></div>`}${QI.busy ? `<div class="qm">${tr('Thinking…')}</div>` : ''}</section>`
     + `<div class=row style="gap:8px;margin-top:10px;flex-wrap:wrap"><select style="width:auto" onchange="QI.team=this.value"><option value="">${tr('All teams')}</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${esc(t.id)}" ${QI.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select><select style="width:auto" onchange="QI.per=this.value">${[['7', 'Last 7 days'], ['30', 'Last 30 days'], ['90', 'Last 90 days']].map(([k, n]) => `<option value=${k} ${QI.per === k ? 'selected' : ''}>${tr(n)}</option>`).join('')}</select><input id=qiq style="flex:1;min-width:240px" placeholder="${esc(tr('Ask Q a question…'))}" onkeydown="if(event.key==='Enter')qiAsk(this.value)"><button class=btn ${QI.busy ? 'disabled' : ''} onclick="qiAsk($('#qiq').value)">${tr('Ask')}</button></div>`;
 };
@@ -111,7 +111,7 @@ async function qiIns(kind) { QI.busy = kind; render(); const r = await api('/api
 // Knowledge: playbooks and documents the AI reads with every answer
 PG.qknow = function () {
   const ed = ['admin', 'qa', 'trainer'].includes(ME.role);
-  return head('Knowledge', 'Your playbooks and documents: the AI reads them with every answer (Ask Q, AI agents, AI insights, AI reviewer and the others)', `<div style="display:flex;gap:8px">${bellBtn()}${ed ? `<label class="btn ibx" style="cursor:pointer">${IC.up} ${tr('Add files')}<input type=file accept=".md,.txt,text/plain,text/markdown" multiple style="display:none" onchange="qiUp(this.files)"></label>` : ''}</div>`)
+  return head('Knowledge', 'Your playbooks and documents: the AI reads them with every answer (Ask Quinn, AI agents, AI insights, AI reviewer and the others)', `<div style="display:flex;gap:8px">${bellBtn()}${ed ? `<label class="btn ibx" style="cursor:pointer">${IC.up} ${tr('Add files')}<input type=file accept=".md,.txt,text/plain,text/markdown" multiple style="display:none" onchange="qiUp(this.files)"></label>` : ''}</div>`)
     + `<p class=mu style="margin:0 0 12px">${tr('Plain text (.txt) and Markdown (.md) files, up to 300 KB each. The AI reads the first part of them with every request.')}</p>`
     + (QI.know.length ? `<div class=qkl>${QI.know.map(f => `<div class=card><div class=row><b>${esc(f.name)}</b>${ed ? `<button class=ic title="${esc(tr('Delete'))}" aria-label="${esc(tr('Delete'))}" onclick="qiDel('${f.id}')">${IC.bin}</button>` : ''}</div><small class=mu>${Math.round(f.size / 1024 * 10) / 10} KB · ${fdt(f.at)}</small><p class=qkp>${esc(f.preview)}</p></div>`).join('')}</div>` : `<div class=agem>${tr('No knowledge files yet. Add your playbook, product guide or scripts.')}</div>`);
 };
