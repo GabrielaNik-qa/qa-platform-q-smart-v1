@@ -47,7 +47,6 @@ const teamOpts = blank => [...(blank ? [['', blank]] : []), ...workTeams().map(t
 const chips = l => (l || []).map(x => `<span class=tg>${esc(x)}</span>`).join(' ') || '<small class=mu>—</small>';
 const leadName = id => { const t = TEAMS.find(x => x.id === id), u = t && ROSTER.find(r => r.username === t.lead); return u ? u.name : '—'; };
 const wsOf = teamId => WSP.filter(w => w.teams.includes(teamId)).map(w => w.name).join(', ') || '—';
-const mkTog = k => `<div style="display:flex;gap:8px;flex-wrap:wrap">${vwBtn(k)}</div>`;
 
 // ---------- teams
 const TEAM_FIELDS = isNew => [

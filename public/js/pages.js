@@ -130,9 +130,6 @@ const groupsFor = () => { const L = sbLayout(), hide = L.hide || [], ord = L.ord
 const groupOf = r => ({ aqlist: 'home', aqgaps: 'home' })[r] || (GROUPS.find(g => g.items.some(([k]) => k === r)) || {}).id;
 
 // ---- dashboard
-const dashD = () => EV.filter(e => (!T || e.tm === T) && (P === 'all' || (P === 'custom'
-  ? e.d >= new Date(DF + 'T00:00:00') && e.d <= new Date(DT + 'T23:59:59')
-  : (Date.now() - e.d) / 864e5 <= { week: 7, month: 30, year: 365 }[P])));
 // stats per agent (current agents, all their reviews inside the list d)
 const agS = d => AGENTS().map(u => { const x = d.filter(e => e.agent === u.username); return { u: u.username, n: u.name, team: u.team, k: x.length, a: avg(x.map(e => e.sc)), p: x.length ? x.filter(isPass).length / x.length * 100 : 0 }; });
 const lead = e => `<b class=mono style="color:var(--ac)">${esc(e.id)}</b> <small>(${esc(agn(e))})</small><br><small>${f(e.d)} · ${esc(tn(e.tm))}</small>`;

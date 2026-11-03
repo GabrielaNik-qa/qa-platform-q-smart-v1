@@ -28,7 +28,7 @@ const ini = n => String(n || '?').split(' ').map(x => x[0]).join('').slice(0, 2)
 // ---------------------------------------------------------------- state
 const EV = [];                                   // call reviews (agents only receive their own)
 let ME = null, SCS = [], USR = [], REG = [], NF = [], SET = { pass: 85, teams: {} };
-let ERR = '', MSG = '', AUTH = new URLSearchParams(location.search).has('reset') ? 'reset' : '';
+let MSG = '', AUTH = new URLSearchParams(location.search).has('reset') ? 'reset' : '';
 let route = location.hash.slice(1) || 'dash';
 // dashboard filters (T = team id, '' = all teams)
 let P = 'all', T = '', DF = ds(-30), DT = ds(0);
@@ -451,7 +451,6 @@ const CHS = ['call', 'chat', 'email', 'other'];
 const CHN = { call: 'Call', chat: 'Chat', email: 'Email', other: 'Other' }, CHP = { call: 'Calls', chat: 'Chats', email: 'Emails', other: 'Other' };
 const CHC = { call: 'var(--ac)', chat: '#8b5cf6', email: '#f59e0b', other: '#14b8a6' };
 const chOf = e => (e && e.ch) || 'call';
-const scChs = s => (s && s.chs && s.chs.length) ? s.chs : ['call'];
 // a scorecard's tags (free words such as Calls, Chats, B2C, Retention): they show what it is made for and filter the list, but any scorecard
 // can score any review. Older scorecards without tags show the review types they were made for.
 const scTags = s => s && Array.isArray(s.tags) && s.tags.length ? s.tags : (s && s.chs && s.chs.length ? s.chs : []).map(k => CHP[k]);

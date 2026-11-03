@@ -1,3 +1,5 @@
+// Q-smart server: the start-up, the security of every request (headers, sign-in, CSRF, limits), the data file (data.json, or sandbox.json
+// inside the sandbox), e-mail and notifications, and the shared helpers. The routes are in the routes-*.js files (see docs/ARCHITECTURE.md).
 const express = require('express'), session = require('express-session');
 const bcrypt = require('bcryptjs'), fs = require('fs'), path = require('path');
 const crypto = require('crypto'), nodemailer = require('nodemailer'), ExcelJS = require('exceljs');
@@ -275,144 +277,6 @@ const ctx = { newEval, addUser, addTeam, DEFAULT_PASSWORD, FILE, SBOX_FILE, SBX,
 const newPw = (u, pw) => { u.hash = bcrypt.hashSync(String(pw), 10); u.pwv = (u.pwv || 0) + 1; };
 const DUMMY = bcrypt.hashSync(hex(8), 10);   // checked when the account does not exist, so a wrong username takes as long as a wrong password
 
-// ------------------------------------------------------------------ login / account
-app.post('/api/login', (req, res) => {
-  if (limited('login:' + req.ip, 30, 9e5)) return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });
-  const { username, password } = req.body || {};
-  const id = String(username || '').trim().toLowerCase(), db = load();
-  const u = db.users.find(x => x.username === id || (x.email || '').toLowerCase() === id);   // username OR email
-  const fail = 'fail:' + (u ? u.username : id);                                               // wrong passwords are also counted per account, whatever the address
-  res.locals.loginAs = u ? u.username : '';   // the audit log keeps the account of a failed sign-in, never the typed text (it may be a password typed in the wrong box)
-  if (recent(fail, 9e5) >= (((db.settings || {}).signin || {}).lockAfter || 10)) return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });
-  if (u && u.active !== false && bcrypt.compareSync(String(password || ''), u.hash)) {   // a fresh session id at every sign-in (an id planted before the sign-in is useless)
-    delete hits[fail]; u.lastIn = iso(); save(db);                                         // last sign-in, shown in Admin › Users
-    return req.session.regenerate(err => { if (err) return res.status(500).json({ error: 'Could not sign in, try again' }); req.session.user = pub(u); req.session.pwv = u.pwv || 0; res.json(req.session.user); });
-  }
-  if (!u) bcrypt.compareSync(String(password || ''), DUMMY);
-  if (u && u.active === false && bcrypt.compareSync(String(password || ''), u.hash)) return res.status(403).json({ error: 'This account is deactivated. Please contact the administrator.' });
-  const r = db.registrations.find(x => (x.username === id || x.email === id) && x.status !== 'approved' && bcrypt.compareSync(String(password || ''), x.hash));
-  if (r) return res.status(403).json({ error: r.status === 'pending'
-    ? 'Your registration is still pending approval by an administrator.'
-    : 'Your registration was declined. Please contact the administrator of the application.' });
-  limited(fail, 10, 9e5);
-  res.status(401).json({ error: 'Wrong username/email or password' });
-});
-app.post('/api/logout', (req, res) => req.session.destroy(() => res.json({ ok: 1 })));
-app.get('/api/me', authed, (req, res) => {
-  const u = load().users.find(x => x.username === req.session.user.username);
-  if (!u || u.active === false) return req.session.destroy(() => res.status(401).json({ error: 'login required' }));
-  req.session.user = pub(u); res.json(req.session.user);
-});
-app.put('/api/profile', need(), (req, res) => {
-  const db = load(), u = userBy(db, req.session.user.username), b = req.body || {};
-  const np = nameParts(b), email = str(b.email, 120).toLowerCase();
-  if (!np.firstName) return bad(res, 'Enter your first name');
-  if (!np.lastName) return bad(res, 'Enter your last name');
-  if (email && !validEmail(email)) return bad(res, 'Enter a valid email address');
-  if (email && db.users.some(x => x !== u && (x.email || '').toLowerCase() === email)) return bad(res, 'That email is already used by another account');
-  Object.assign(u, np); u.email = email;
-  if (b.desc !== undefined) u.desc = str(b.desc, 600);
-  if (b.languages !== undefined) u.languages = list(b.languages);
-  if (b.skills !== undefined) u.skills = list(b.skills);
-  if (b.phone !== undefined) u.phone = str(b.phone, 40);
-  if (b.birthday !== undefined) u.birthday = DAY.test(b.birthday || '') ? b.birthday : '';
-  if (b.showBday !== undefined) u.showBday = b.showBday === true;
-  if (b.ecName !== undefined) u.ecName = str(b.ecName, 80);
-  if (b.ecPhone !== undefined) u.ecPhone = str(b.ecPhone, 40);
-  if (b.ecRel !== undefined) u.ecRel = str(b.ecRel, 40);
-  save(db); req.session.user = pub(u); res.json(req.session.user);
-});
-// a new password ends the person's other sign-ins (someone else may be using one); the sign-in that changed it stays
-app.post('/api/password', need(), (req, res) => {
-  const { current, next } = req.body || {};
-  const db = load(), u = userBy(db, req.session.user.username), key = 'pw:' + req.session.user.username;
-  if (recent(key, 9e5) >= 10) return res.status(429).json({ error: 'Too many attempts. Try again in a few minutes.' });   // the current password cannot be guessed here either
-  if (!u || !bcrypt.compareSync(String(current || ''), u.hash)) { limited(key, 10, 9e5); return bad(res, 'Your current password is wrong'); }
-  const pe = pwBad(next); if (pe) return bad(res, pe);
-  if (bcrypt.compareSync(String(next), u.hash)) return bad(res, 'The new password cannot be the same as your current password');
-  delete hits[key]; newPw(u, next); u.mustChange = false; save(db); req.session.pwv = u.pwv; res.json({ ok: 1 });
-});
-app.post('/api/password/first', authed, (req, res) => {   // the pop-up every new user sees at their first login
-  if (!req.session.user.mustChange) return bad(res, 'Your password was already changed');
-  const next = (req.body || {}).next, pe = pwBad(next); if (pe) return bad(res, pe);
-  const db = load(), u = userBy(db, req.session.user.username);
-  if (bcrypt.compareSync(String(next), u.hash)) return bad(res, 'Please choose a different password than the temporary one');
-  newPw(u, next); u.mustChange = false; save(db);
-  req.session.pwv = u.pwv; req.session.user = pub(u); res.json(req.session.user);
-});
-// My account > Notifications & Confirmations. Only ever changes the person who is signed in.
-//   { info: true|false }      welcome messages and tips on / off       { confirm: true|false }  routine confirmations on / off
-//   { dismiss: ['tip.roots'] } "Don't show me this again"               { restore: ['tip.roots'] } show one again
-//   { clear: true }            show every dismissed message again        { defaults: true }         everything back to the start
-//   { cols: { page: 'calls', keys: ['id', 'ag', 'sc'] } }  the columns shown in a table, in that order (keys: null = the standard columns)
-app.put('/api/prefs', need(), (req, res) => {
-  const db = load(), u = userBy(db, req.session.user.username), b = req.body || {};
-  if (!u) return res.status(401).json({ error: 'login required' });
-  const p = b.defaults ? cleanPrefs({ lang: (u.prefs || {}).lang }) : cleanPrefs(u.prefs);   // "Restore default settings" keeps the chosen language
-  if (b.lang !== undefined) { if (!LANGS.includes(b.lang)) return bad(res, 'Unknown language'); p.lang = b.lang; }
-  if (typeof b.info === 'boolean') p.info = b.info;
-  if (typeof b.confirm === 'boolean') p.confirm = b.confirm;
-  if (b.clear) p.off = {};
-  for (const id of list(b.restore, 30, 40)) delete p.off[id];
-  for (const id of list(b.dismiss, 30, 40)) { if (!PREF_ID.test(id)) return bad(res, 'Unknown message'); p.off[id] = iso(); }
-  if (Object.keys(p.off).length > 100) return bad(res, 'Too many dismissed messages');
-  if (b.cols !== undefined) {                                     // { cols: { page: 'calls', keys: ['id', 'ag'] } } — keys null = the standard columns again
-    const c = b.cols || {}, page = String(c.page || '');
-    if (!/^[a-z]{1,20}$/.test(page) || (c.keys !== null && !Array.isArray(c.keys))) return bad(res, 'Unknown table');
-    const all = { ...(p.cols || {}) }; if (c.keys === null) delete all[page]; else all[page] = c.keys;
-    const cols = cleanPrefs({ cols: all }).cols; if (cols) p.cols = cols; else delete p.cols;
-  }
-  u.prefs = p; save(db); req.session.user = pub(u); res.json(req.session.user);
-});
-
-// ------------------------------------------------------------------ registration (needs admin approval)
-app.post('/api/register', (req, res) => {
-  if (limited('reg:' + req.ip, 6, 36e5)) return res.status(429).json({ error: 'Too many registrations from this connection. Try again later.' });
-  const b = req.body || {}, db = load();
-  const first = str(b.firstName, 40), last = str(b.lastName, 40), email = str(b.email, 120).toLowerCase();
-  if (!first) return bad(res, 'Enter your first name');
-  if (!last) return bad(res, 'Enter your last name');
-  if (!validEmail(email)) return bad(res, 'Enter a valid email address');
-  const name = first + ' ' + last, username = makeUsername(first, last);   // e.g. Gabriela Pencheva -> g.pencheva
-  if (!/^[a-z0-9._-]{3,30}$/.test(username)) return bad(res, 'Your first and last name must contain letters or numbers so a username can be made');
-  if (db.users.some(u => u.username.toLowerCase() === username) || db.registrations.some(r => r.status === 'pending' && r.username === username))
-    return res.status(409).json({ error: 'The username ' + username + ' already exists. Please contact the administrator.' });
-  if (db.users.some(u => (u.email || '').toLowerCase() === email) || db.registrations.some(r => r.status === 'pending' && r.email === email))
-    return res.status(409).json({ error: 'That email address is already registered' });
-  const reg = { id: 'g' + hex(5), username, name, firstName: first, lastName: last, email, hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), at: iso(), status: 'pending' };
-  db.registrations.push(reg);
-  db.users.filter(u => u.role === 'admin').forEach(a => notify(db, a.username, 'reg', `${name} (@${username}) has requested access to the platform`, { reg: reg.id }));
-  save(db); res.json({ ok: 1 });
-  mail(email, 'Your registration is pending approval',
-    `Hi ${name},\n\nThank you for registering. Your registration is pending approval by an administrator.\nYou will receive another email as soon as it has been reviewed.\n`);
-});
-app.get('/api/registrations', need('admin'), (req, res) =>
-  res.json(load().registrations.filter(r => r.status === 'pending').map(({ hash, ...r }) => r).reverse()));
-app.post('/api/registrations/:id/approve', need('admin'), (req, res) => {
-  const db = load(), r = db.registrations.find(x => x.id === req.params.id && x.status === 'pending'), b = req.body || {};
-  if (!r) return res.status(404).json({ error: 'not found' });
-  if (db.users.some(u => u.username === r.username)) return res.status(409).json({ error: 'That username is already taken' });
-  const role = ROLES.includes(b.role) ? b.role : 'agent';
-  const team = role === 'agent' ? b.team : ADMIN_TEAM;
-  if (!db.teams.some(t => t.id === team && (role !== 'agent' ? true : t.id !== ADMIN_TEAM))) return bad(res, 'Choose the team of this agent first');
-  db.users.push({ username: r.username, name: r.name, firstName: r.firstName || nameParts(r).firstName, lastName: r.lastName || nameParts(r).lastName, email: r.email, role, team, title: '', desc: '', languages: [], skills: [], phone: '', start: '', active: true, hash: bcrypt.hashSync(DEFAULT_PASSWORD, 10), mustChange: true });
-  if (role !== 'agent' && role !== 'admin' && db.workspaces[0]) db.workspaces[0].staff.push(r.username);
-  r.status = 'approved'; r.by = req.session.user.username; r.decided = iso();
-  db.notifications = db.notifications.filter(n => !(n.type === 'reg' && n.reg === r.id));
-  save(db); res.json({ ok: 1 });
-  mail(r.email, 'Your registration has been approved',
-    `Hi ${r.name},\n\nGood news - your registration has been approved. You can now log in:\n${BASE}\n\nUsername: ${r.username}\nInitial password: ${DEFAULT_PASSWORD}\n\nYou will be asked to choose a new password the first time you log in.\n`, 'approved', { name: r.name, link: BASE, username: r.username });
-});
-app.post('/api/registrations/:id/decline', need('admin'), (req, res) => {
-  const db = load(), r = db.registrations.find(x => x.id === req.params.id && x.status === 'pending');
-  if (!r) return res.status(404).json({ error: 'not found' });
-  r.status = 'declined'; r.by = req.session.user.username; r.decided = iso();
-  db.notifications = db.notifications.filter(n => !(n.type === 'reg' && n.reg === r.id));
-  save(db); res.json({ ok: 1 });
-  mail(r.email, 'Your registration was declined',
-    `Hi ${r.name},\n\nUnfortunately your registration has been declined. Please contact the administrator of the application if you have any questions.\n`);
-});
-
 // ------------------------------------------------------------------ workspace scope: admins see everything, everybody else only their workspace
 function scopeOf(db, u) {
   if (u.role === 'admin' || !(db.workspaces || []).length) return null;
@@ -426,9 +290,7 @@ const inScope = (db, u, ev) => { const s = scopeOf(db, u); if (!s) return true; 
 // a record about one person (flag, task, session ...) is in this person's workspace; team = the team saved on the record, for people who were deleted
 const seesUser = (db, u, username, team) => { const s = scopeOf(db, u); if (!s) return true; const x = userBy(db, username); return s.teams.has(x ? x.team : team || ''); };
 
-// ------------------------------------------------------------------ teams (admin) and the roster everybody can read
-app.get('/api/roster', need(), (req, res) => { const db = load(), s = scopeOf(db, req.session.user); res.json(db.users.filter(u => !s || s.teams.has(u.team)).map(rosterPub)); });
-app.get('/api/teams', need(), (req, res) => { const db = load(), s = scopeOf(db, req.session.user); res.json(db.teams.filter(t => !s || s.teams.has(t.id))); });
+// ------------------------------------------------------------------ teams and users: the checks and helpers (their routes are in routes-people.js)
 const teamBody = (b, db, cur) => {
   const name = str(b.name, 60); if (!name) throw new Error('Give the team a name');
   if (db.teams.some(t => t !== cur && t.name.toLowerCase() === name.toLowerCase())) throw new Error('A team with this name already exists');
@@ -439,30 +301,7 @@ const teamBody = (b, db, cur) => {
 // a new team, in the workspace chosen (or the first one); throws the message to show when something is wrong
 function addTeam(db, b) { const t = { id: 't-' + hex(3), ...teamBody(b, db), created: iso() }; db.teams.push(t);
   const ws = (db.workspaces || []).find(w => w.id === b.workspace) || (db.workspaces || [])[0]; if (ws) ws.teams.push(t.id); return t; }
-app.post('/api/teams', need('admin'), (req, res) => {
-  const db = load(), b = req.body || {};
-  try {
-    const t = addTeam(db, b);
-    save(db); res.json(t);
-  } catch (e) { bad(res, e.message); }
-});
-app.put('/api/teams/:id', need('admin'), (req, res) => {
-  const db = load(), t = db.teams.find(x => x.id === req.params.id);
-  if (!t) return res.status(404).json({ error: 'not found' });
-  try { Object.assign(t, teamBody(req.body || {}, db, t)); save(db); res.json(t); } catch (e) { bad(res, e.message); }
-});
-app.delete('/api/teams/:id', need('admin'), (req, res) => {
-  const db = load(), t = db.teams.find(x => x.id === req.params.id);
-  if (!t) return res.status(404).json({ error: 'not found' });
-  if (t.system) return bad(res, 'The Administration team is built in and cannot be deleted');
-  if (db.users.some(u => u.team === t.id)) return bad(res, 'Move the members of this team to another team first');
-  if (db.teams.filter(x => !x.system).length <= 1) return bad(res, 'At least one working team is required');
-  db.oldTeams[t.id] = t.name; db.workspaces.forEach(w => { w.teams = w.teams.filter(x => x !== t.id); });
-  db.teams = db.teams.filter(x => x !== t); delete db.settings.teams[t.id]; save(db); res.json({ ok: 1 });
-});
 
-// ------------------------------------------------------------------ users (admin)
-app.get('/api/users', need('admin'), (req, res) => { const db = load(); res.json(db.users.map(({ hash, reset, pwv, ...u }) => ({ ...u, workspaces: u.role === 'agent' ? db.workspaces.filter(w => w.teams.includes(u.team)).map(w => w.id) : db.workspaces.filter(w => (w.staff || []).includes(u.username)).map(w => w.id) }))); });
 const userBody = (b, db, cur) => {
   const np = nameParts(b); if (!np.firstName) throw new Error('Enter the first name'); if (!np.lastName) throw new Error('Enter the last name');
   const email = str(b.email, 120).toLowerCase();
@@ -503,43 +342,6 @@ function addUser(db, b, hash) {
   db.users.push(u); setStaffWs(db, username, u.role, b.workspaces); return u;
 }
 const leadsTeam = (db, username) => db.teams.find(t => t.lead === username);
-app.post('/api/users', need('admin'), (req, res) => {
-  const db = load(), b = req.body || {};
-  try {
-    const u = addUser(db, b), username = u.username; save(db); res.json({ ok: 1, username });
-    mail(u.email, 'Your account has been created', `Hi ${u.name},\n\nAn account was created for you.\n\nAddress: ${BASE}\nUsername: ${username}\nTemporary password: ${DEFAULT_PASSWORD}\n\nYou will be asked to choose a new password the first time you log in.\n`, 'account', { name: u.name, link: BASE, username, password: DEFAULT_PASSWORD });
-  } catch (e) { bad(res, e.message); }
-});
-app.put('/api/users/:username', need('admin'), (req, res) => {
-  const db = load(), u = userBy(db, req.params.username), b = req.body || {};
-  if (!u) return res.status(404).json({ error: 'not found' });
-  try {
-    const nb = userBody({ ...u, ...b }, db, u);
-    if (u.role === 'admin' && nb.role !== 'admin' && db.users.filter(x => x.role === 'admin' && x.active !== false).length < 2) throw new Error('There must be at least one admin');
-    if (u.username === req.session.user.username && nb.active === false) throw new Error('You cannot deactivate your own account');
-    const lt = leadsTeam(db, u.username);
-    if (lt && (nb.active === false || nb.role === 'agent')) throw new Error(`${u.name} is the team lead of ${lt.name}. Choose another team lead for it first.`);
-    if (nb.team !== (u.team || '')) { (u.teamHistory = u.teamHistory || []).push({ from: u.team || '', to: nb.team, at: iso(), by: req.session.user.name }); }
-    Object.assign(u, nb); setStaffWs(db, u.username, u.role, b.workspaces !== undefined ? b.workspaces : db.workspaces.filter(w => (w.staff || []).includes(u.username)).map(w => w.id)); save(db);
-    if (req.session.user.username === u.username) req.session.user = pub(u);
-    res.json({ ok: 1 });
-  } catch (e) { bad(res, e.message); }
-});
-app.delete('/api/users/:username', need('admin'), (req, res) => {
-  const db = load(), u = userBy(db, req.params.username);
-  if (!u) return res.status(404).json({ error: 'not found' });
-  if (u.username === req.session.user.username) return bad(res, 'You cannot delete your own account');
-  if (u.role === 'admin' && db.users.filter(x => x.role === 'admin').length < 2) return bad(res, 'There must be at least one admin');
-  const lt = leadsTeam(db, u.username); if (lt) return bad(res, `${u.name} is the team lead of ${lt.name}. Choose another team lead for it first.`);
-  db.users = db.users.filter(x => x !== u); db.workspaces.forEach(w => { w.staff = (w.staff || []).filter(x => x !== u.username); });
-  db.notifications = db.notifications.filter(n => n.to !== u.username);
-  save(db); res.json({ ok: 1 });
-});
-app.post('/api/users/:username/reset', need('admin'), (req, res) => {   // the person is signed out everywhere and chooses a new password at the next sign-in
-  const db = load(), u = userBy(db, req.params.username);
-  if (!u) return res.status(404).json({ error: 'not found' });
-  newPw(u, DEFAULT_PASSWORD); u.mustChange = true; save(db); res.json({ ok: 1 });
-});
 
 // ------------------------------------------------------------------ dashboard layouts: every role has a default view (set by admins), everybody can personalise their own
 // a page name is a short simple word (dash, autoqa): never a name every JavaScript object already has (__proto__, constructor ...),
@@ -626,7 +428,7 @@ app.post('/api/notifications/sample', need(), (req, res) => {
   save(db); res.json({ ok: 1, count: S.length });
 });
 
-// ------------------------------------------------------------------ evaluations
+// ------------------------------------------------------------------ evaluations: the helpers (the routes are in routes-reviews.js)
 const lday = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const evDate = dt => dt === lday(new Date()) ? new Date().toISOString() : new Date(dt + 'T12:00:00').toISOString();
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -646,8 +448,6 @@ const forAgent = (db, u, e) => { if (u.role !== 'agent') return e; const p = (db
   return x; };
 // the recordings folder is read once per request (not once per review) to mark the reviews whose file is gone
 const recFiles = () => { try { return new Set(fs.readdirSync(REC)); } catch (e) { return new Set(); } };
-app.get('/api/evaluations', need(), (req, res) => { const db = load(), u = req.session.user, l = db.evaluations.filter(e => canSee(u, e) && inScope(db, u, e)), have = l.some(e => e.rec) ? recFiles() : null;
-  res.json(l.map(e => forAgent(db, u, e.rec && !have.has(path.basename(e.rec)) ? { ...e, recMissing: true } : e))); });
 
 // a new review (QA Entry, or an AI draft approved by a person): checks everything, scores it and tells the agent; the caller saves
 function newEval(db, user, b) {
@@ -670,105 +470,8 @@ function newEval(db, user, b) {
   notify(db, au.username, 'review', `You received a new ${CHN[ch]} review for Lead #${id} (score ${r.sc}%)`, { rid: ev.rid, lead: id });
   return { ev };
 }
-app.post('/api/evaluations', need('admin', 'qa'), (req, res) => { const db = load(), r = newEval(db, req.session.user, req.body || {}); if (r.err) return bad(res, r.err); save(db); res.json(r.ev); });
 
-app.put('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
-  const db = load(), ev = evOf(db, req.session.user, req.params.rid), b = req.body || {};
-  if (!ev) return res.status(404).json({ error: 'not found' });
-  const oldSc = ev.sc;
-  if (b.a !== undefined) {
-    if (!ev.cs.some(c => c.it.length)) return bad(res, 'This older record has no item answers, so its scores cannot be edited');
-    try {
-      const r = build({ cats: ev.cs.map(c => ({ n: c.n, k: c.k, it: c.it.map(i => ({ t: i.t, p: i.p, k: i.k, cp: i.cp })) })) }, b.a);
-      ev.cs = r.cs; ev.sc = r.sc;
-    } catch (err) { return bad(res, 'The answers do not match the scorecard'); }
-  }
-  if (b.id !== undefined) { const id = leadId(b.id); if (!id || id.length > 60) return bad(res, 'Enter the lead ID (up to 60 characters)'); ev.id = id; }
-  if (b.agent !== undefined && b.agent !== ev.agent) {
-    const au = db.users.find(x => x.username === b.agent && x.role === 'agent');
-    if (!au || !agentInScope(db, req.session.user, au)) return bad(res, 'Choose an agent');
-    ev.agent = au.username; ev.agn = au.name; ev.tid = au.team;
-  }
-  if (b.dt !== undefined) {
-    if (!DAY.test(b.dt)) return bad(res, 'Choose the date');
-    if (lday(new Date(ev.d)) !== b.dt) ev.d = evDate(b.dt);
-  }
-  if (b.fl !== undefined) ev.fl = FLAGS.includes(b.fl) ? b.fl : '';
-  if (b.cp !== undefined) ev.cp = str(b.cp, 80);
-  if (b.cm !== undefined) ev.cm = str(b.cm, 1000);
-  if (b.lk !== undefined) ev.lk = link(b.lk);
-  if (b.rl !== undefined) ev.rl = link(b.rl);
-  if (b.ch !== undefined) { ev.ch = chOf(b.ch); Object.assign(ev, chFields(b, ev.ch)); if (ev.ch !== 'call') ev.rl = ''; }
-  if (ev.sc !== oldSc) notify(db, ev.agent, 'review', `Your review for Lead #${ev.id} was updated (score ${ev.sc}%)`, { rid: ev.rid, lead: ev.id });
-  save(db); res.json(ev);
-});
-
-app.delete('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {
-  const db = load(), ev = evOf(db, req.session.user, req.params.rid);
-  if (!ev) return res.status(404).json({ error: 'not found' });
-  db.evaluations = db.evaluations.filter(e => e !== ev);
-  db.notifications = db.notifications.filter(n => n.rid !== ev.rid);
-  save(db);
-  if (ev.rec) try { fs.unlinkSync(path.join(REC, path.basename(ev.rec))); } catch (e) {}
-  res.json({ ok: 1 });
-});
-
-app.post('/api/evaluations/:rid/seen', need('agent'), (req, res) => {           // the agent opening the review marks it as seen
-  const db = load(), ev = findEv(db, req.params.rid);
-  if (!ev || !isOwner(req.session.user, ev)) return res.status(404).json({ error: 'not found' });
-  if (!ev.seen) { ev.seen = iso(); save(db); }
-  res.json({ seen: ev.seen });
-});
-app.post('/api/evaluations/:rid/remind', need('admin', 'qa'), (req, res) => {   // QA reminds the agent to open the review
-  const db = load(), ev = evOf(db, req.session.user, req.params.rid);
-  if (!ev) return res.status(404).json({ error: 'not found' });
-  if (ev.seen) return bad(res, 'The agent has already seen this review');
-  const u = userBy(db, ev.agent);
-  if (!u || u.active === false) return bad(res, 'This agent no longer has an active account, so there is nobody to remind');
-  if (ev.rm && Date.now() - new Date(ev.rm) < 6e5) return bad(res, 'A reminder was already sent a moment ago');
-  notify(db, u.username, 'remind', `Reminder: please open your call review for Lead #${ev.id}`, { rid: ev.rid, lead: ev.id });
-  mail(u.email, 'Reminder: you have a call review waiting', `Hi ${u.name},\n\nPlease open your call review for Lead #${ev.id}:\n${BASE}\n`, 'reminder', { name: u.name, link: BASE, lead: ev.id });
-  ev.rm = iso(); save(db); res.json({ ok: 1 });
-});
-
-// ---- disputes: the agent disagrees, QA and the agent talk in a thread, QA resolves it
-app.post('/api/evaluations/:rid/dispute', need('agent'), (req, res) => {
-  const db = load(), ev = findEv(db, req.params.rid), u = req.session.user;
-  if (!ev || !isOwner(u, ev)) return res.status(404).json({ error: 'not found' });
-  if (ev.dp) return bad(res, 'This review has already been disputed');
-  const text = str((req.body || {}).text, 1000);
-  if (!text) return bad(res, 'Write the reason for your dispute');
-  ev.dp = { status: 'open', at: iso(), msgs: [{ u: u.username, n: u.name, r: 'agent', t: text, at: iso() }] };
-  ev.st = 'disputed';
-  staffUsers(db).forEach(s => notify(db, s.username, 'dispute', `${u.name} has disputed the review for Lead #${ev.id}`, { rid: ev.rid, lead: ev.id }));
-  save(db); res.json(ev);
-});
-app.post('/api/evaluations/:rid/dispute/msg', need(), (req, res) => {
-  const db = load(), u = req.session.user, ev = evOf(db, u, req.params.rid);
-  if (!ev || !ev.dp) return res.status(404).json({ error: 'not found' });
-  const staff = u.role === 'admin' || u.role === 'qa';
-  if (!staff && !isOwner(u, ev)) return res.status(403).json({ error: 'not allowed' });
-  if (ev.dp.status !== 'open') return bad(res, 'This dispute is already resolved');
-  const text = str((req.body || {}).text, 1000);
-  if (!text) return bad(res, 'Write a message first');
-  ev.dp.msgs.push({ u: u.username, n: u.name, r: u.role, t: text, at: iso() });
-  const to = staff ? [userBy(db, ev.agent)].filter(Boolean) : staffUsers(db);
-  to.forEach(x => { if (x.username !== u.username) notify(db, x.username, 'msg', `${u.name} wrote in the dispute for Lead #${ev.id}: "${text.slice(0, 70)}"`, { rid: ev.rid, lead: ev.id }); });
-  save(db); res.json(ev);
-});
-app.post('/api/evaluations/:rid/dispute/resolve', need('admin', 'qa'), (req, res) => {
-  const db = load(), u = req.session.user, ev = evOf(db, u, req.params.rid), b = req.body || {};
-  if (!ev || !ev.dp) return res.status(404).json({ error: 'not found' });
-  if (ev.dp.status !== 'open') return bad(res, 'This dispute is already resolved');
-  const outcome = ['changed', 'partly'].includes(b.outcome) ? b.outcome : 'kept', note = str(b.note, 500), ow = { kept: 'kept', changed: 'changed', partly: 'partly changed' }[outcome];   // partly = the agent was partly right
-  ev.dp.status = 'resolved'; ev.dp.res = { outcome, note, by: u.name, at: iso() };
-  ev.dp.msgs.push({ u: u.username, n: u.name, r: u.role, sys: 1, t: `Dispute resolved - score ${ow}${note ? ': ' + note : ''}`, at: iso() });
-  ev.st = 'ok';
-  notify(db, ev.agent, 'resolved', `Your dispute for Lead #${ev.id} was resolved: score ${ow}`, { rid: ev.rid, lead: ev.id });
-  save(db); res.json(ev);
-});
-
-// ------------------------------------------------------------------ scorecards (everyone reads, only admins change)
+// ------------------------------------------------------------------ scorecards: the checks (the routes are in routes-reviews.js; everyone reads, only admins change)
 const cleanSC = b => {
   const name = str(b.name, 80);
   if (!name) throw new Error('Give the scorecard a name');
@@ -792,75 +495,12 @@ const cleanSC = b => {
   const chs = (Array.isArray(b.chs) ? b.chs : []).filter(c => CHANNELS.includes(c));     // older scorecards: the review types they were first made for (kept, shown as tags while they have none)
   return { name, desc: str(b.desc, 200), tags, chs: [...new Set(chs)], cats };
 };
-app.get('/api/scorecards', need(), (req, res) => { const db = load(), s = scopeOf(db, req.session.user); res.json(db.scorecards.filter(c => !s || s.sc.has(c.id))); });
-app.post('/api/scorecards', need('admin'), (req, res) => {
-  try { const db = load(), s = cleanSC(req.body || {}); s.id = 'sc-' + hex(4); db.scorecards.push(s); const ws = db.workspaces.find(w => w.id === (req.body || {}).workspace) || db.workspaces[0]; if (ws) ws.scorecards.push(s.id); save(db); res.json(s); } catch (err) { bad(res, err.message); }
-});
-app.put('/api/scorecards/:id', need('admin'), (req, res) => {
-  const db = load(), cur = db.scorecards.find(s => s.id === req.params.id);
-  if (!cur) return res.status(404).json({ error: 'not found' });
-  try { Object.assign(cur, cleanSC(req.body || {})); save(db); res.json(cur); } catch (err) { bad(res, err.message); }
-});
-app.delete('/api/scorecards/:id', need('admin'), (req, res) => {
-  const db = load();
-  if (db.scorecards.length <= 1) return bad(res, 'At least one scorecard is required');
-  if (!db.scorecards.some(s => s.id === req.params.id)) return res.status(404).json({ error: 'not found' });
-  db.scorecards = db.scorecards.filter(s => s.id !== req.params.id); db.workspaces.forEach(w => { w.scorecards = w.scorecards.filter(x => x !== req.params.id); }); save(db); res.json({ ok: 1 });
-});
 
-// ------------------------------------------------------------------ Excel export: the page sends the rows it is showing, we return a real .xlsx file
+// ------------------------------------------------------------------ Excel export: the cells of the file (the route is in routes-reviews.js: the page sends the rows it shows, we return a real .xlsx file)
 // only plain text, numbers and yes/no become cells: an object could be turned into a formula or a link inside Excel (spreadsheet injection)
 const cellOf = v => typeof v === 'number' ? (Number.isFinite(v) ? v : null) : typeof v === 'boolean' ? v : v == null || typeof v === 'object' ? null : String(v).slice(0, 32000);
-// dc = the column that holds the dates (Call Reviews: 1, Quick Flags: 2, reports: none = -1); only a real YYYY-MM-DD value in it becomes an Excel date
-app.post('/api/export/call-reviews', need(), async (req, res) => {
-  const b = req.body || {}, raw = b.rows, pf = Number(b.pf), pt = Number(b.pt), dc = b.dc === undefined ? 1 : Number(b.dc), name = str(b.name, 30) || 'Call Reviews', u = req.session.user;
-  if (!Array.isArray(raw) || !raw.length || raw.length > 20000) return res.status(400).json({ error: 'bad rows' });
-  const rows = raw.map(r => (Array.isArray(r) ? r : []).slice(0, 200).map(cellOf));
-  if (!b.again && STAFF.includes(u.role)) {   // the Export centre (staff only) keeps a copy, but never a big one inside the data file
-    const db = load(), keep = rows.length <= 5001 && JSON.stringify(rows).length <= 2e6; db.exports = Array.isArray(db.exports) ? db.exports : [];
-    db.exports.unshift({ id: 'x' + hex(5), name, n: rows.length - 1, pf, pt, dc, by: u.username, byName: u.name, at: iso(), rows: keep ? rows : null }); db.exports = db.exports.slice(0, 200); save(db);
-  }
-  const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet(name.replace(/[\\/?*[\]:]/g, ' '));
-  rows.forEach((r, i) => ws.addRow(r.map((v, j) => (i && j === dc && typeof v === 'string' && DAY.test(v)) ? new Date(v + 'T12:00:00') : v)));
-  ws.eachRow((row, n) => row.eachCell((c, j) => {
-    c.font = { name: 'Calibri', size: 12, bold: n === 1 };
-    if (n > 1 && j - 1 === dc && c.value instanceof Date) c.numFmt = 'mm/dd/yyyy';
-    if (n > 1 && j - 1 >= pf && j - 1 <= pt && typeof c.value === 'number') c.numFmt = 'General"%"';
-  }));
-  const nC = rows[0].length, wide = { 5: 34, [nC - 2]: 30, [nC - 1]: 40, [nC]: 40 };
-  ws.columns.forEach((col, i) => { col.width = wide[i + 1] || Math.min(34, Math.max(11, String(rows[0][i]).length + 4)); });
-  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename="Export.xlsx"');
-  await wb.xlsx.write(res); res.end();
-});
 
-// ------------------------------------------------------------------ forgot / reset password (we only email a one-time link, never a password)
-app.post('/api/forgot', async (req, res) => {
-  const now = Date.now();
-  if (limited('forgot:' + req.ip, 5, 9e5)) return res.status(429).json({ error: 'Too many requests, try again later' });
-  const id = str((req.body || {}).identifier, 120).toLowerCase();
-  const db = load(), u = id && db.users.find(x => x.username === id || (x.email || '').toLowerCase() === id);
-  if (u && u.email && limited('forgot-acct:' + u.username, 3, 36e5)) console.log('Reset requested again for ' + u.username + ': no new e-mail (at most 3 per hour)');   // nobody can flood a mailbox
-  else if (u && u.email) {
-    const token = crypto.randomBytes(32).toString('hex');
-    u.reset = { h: sha(token), exp: now + 36e5 }; save(db);          // link is valid for 1 hour
-    const url = `${BASE}/?reset=${token}&u=${encodeURIComponent(u.username)}`;
-    await mail(u.email, 'Reset your password', `Hi ${u.name},\n\nChoose a new password here (valid for 1 hour):\n${url}\n\nIf you did not ask for this, ignore this email.`, 'reset', { name: u.name, link: url });
-  } else console.log('Reset requested, but no account with an email address matched');   // the typed text is not printed (it may be a password)
-  res.json({ ok: 1 });   // same answer whether or not the account exists
-});
-app.post('/api/reset', (req, res) => {
-  const { username, token, password } = req.body || {};
-  const db = load(), u = userBy(db, String(username || '').toLowerCase());
-  const ok = u && u.reset && u.reset.exp > Date.now() && typeof token === 'string' &&
-    crypto.timingSafeEqual(Buffer.from(sha(token)), Buffer.from(u.reset.h));
-  if (!ok) return bad(res, 'This reset link is invalid or has expired');
-  const pe = pwBad(password); if (pe) return bad(res, pe);
-  if (bcrypt.compareSync(String(password), u.hash)) return bad(res, 'For security, the new password cannot be the same as your current password');
-  newPw(u, password); u.mustChange = false; delete u.reset; save(db); res.json({ ok: 1 });   // every sign-in made before the reset ends
-});
-
-// ------------------------------------------------------------------ call recordings
+// ------------------------------------------------------------------ call recordings: where they are kept (the routes are in routes-reviews.js)
 // The audio files live in ONE folder outside the project (Documents\Q-smart recordings), so every copy of the project plays the same files.
 // Set RECORDINGS_DIR to use another folder (REC_DIR is used by the tests). Files from an old "recordings" folder inside the project are copied there once.
 const REC = path.resolve(process.env.REC_DIR || process.env.RECORDINGS_DIR || path.join(require('os').homedir(), 'Documents', 'Q-smart recordings'));
@@ -873,34 +513,13 @@ const isAudio = (b, ext) => {
   const at = (s, o = 0) => b.length >= o + s.length && b.toString('latin1', o, o + s.length) === s, sync = b.length > 1 && b[0] === 0xff && (b[1] & 0xe0) === 0xe0;
   return { mp3: at('ID3') || sync, wav: at('RIFF') && at('WAVE', 8), m4a: at('ftyp', 4), aac: sync || at('ADIF') || at('ftyp', 4), ogg: at('OggS'), webm: b.length > 3 && b.readUInt32BE(0) === 0x1a45dfa3 }[ext] || false;
 };
-app.post('/api/evaluations/:rid/recording', need('admin', 'qa'), express.raw({ type: () => true, limit: '100mb' }), (req, res) => {
-  const db = load(), ev = evOf(db, req.session.user, req.params.rid);
-  const q = String(req.query.ext || '').toLowerCase(), ext = EXT[String(req.headers['content-type']).split(';')[0]] || (EXTS.includes(q) ? q : '');   // some browsers send no audio type: the file name decides
-  if (!ev) return res.status(404).json({ error: 'evaluation not found' });
-  if (!ext) return res.status(415).json({ error: 'unsupported audio type' });
-  if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'empty file' });
-  if (!isAudio(req.body, ext)) return res.status(415).json({ error: 'This file is not a real audio recording' });
-  fs.mkdirSync(REC, { recursive: true });
-  const name = String(ev.rid).replace(/[^\w-]/g, '') + '-' + Date.now() + '.' + ext;   // only letters and numbers: the file always lands in the recordings folder
-  fs.writeFileSync(path.join(REC, name), req.body);
-  if (ev.rec) fs.rm(path.join(REC, path.basename(ev.rec)), () => {});      // the old file is replaced
-  ev.rec = name; save(db); res.json({ rec: name });
-});
-app.delete('/api/evaluations/:rid/recording', need('admin', 'qa'), (req, res) => {
-  const db = load(), ev = evOf(db, req.session.user, req.params.rid);
-  if (!ev) return res.status(404).json({ error: 'evaluation not found' });
-  if (ev.rec) fs.rm(path.join(REC, path.basename(ev.rec)), () => {});
-  ev.rec = ''; save(db); res.json({ ok: 1 });
-});
-app.get('/api/recordings/:file', need(), (req, res) => {
-  const db = load(), f = path.basename(req.params.file), ev = db.evaluations.find(e => e.rec === f);
-  if (!ev || !canSee(req.session.user, ev) || !inScope(db, req.session.user, ev)) return res.status(404).json({ error: 'not found' });
-  if (req.session.user.role === 'agent' && ((db.settings || {}).privacy || {}).agentsRec === false) return res.status(403).json({ error: 'Recordings are not shared with agents' });
-  if (!fs.existsSync(path.join(REC, f))) return res.status(404).json({ error: 'The recording file is missing' });
-  res.sendFile(path.join(REC, f), { dotfiles: 'allow' });   // the folder path may contain a "." folder (e.g. .claude); the file name itself was checked above
-});
 
 // ------------------------------------------------------------------ the other modules
+// the routes that were part of this file: the helpers they use are handed over by name
+const core = { ADMIN_TEAM, BASE, DAY, DEFAULT_PASSWORD, DUMMY, EXT, EXTS, ExcelJS, FLAGS, LANGS, PREF_ID, REC, ROLES, STAFF, addTeam, addUser, agentInScope, app, authed, bad, bcrypt, build, canSee, cellOf, chFields, chOf, cleanPrefs, cleanSC, crypto, cur, evDate, evOf, express, findEv, forAgent, fs, hex, hits, inScope, isAudio, isOwner, iso, lday, leadId, leadsTeam, limited, link, list, load, mail, makeUsername, nameParts, need, newEval, newPw, notify, path, pub, pwBad, recFiles, recent, rosterPub, save, scopeOf, setStaffWs, sha, staffUsers, str, teamBody, userBody, userBy, validEmail };
+require('./routes-account')(core);    // sign-in and accounts
+require('./routes-people')(core);     // people
+require('./routes-reviews')(core);    // reviews
 require('./routes-work')(ctx);
 app.locals.audit = AUDIT;
 require('./routes-org')(ctx);                                    // Admin › Organization and Q-Intelligence

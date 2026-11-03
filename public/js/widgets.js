@@ -193,7 +193,6 @@ function dashCtx(p, t, ch) {
 }
 const wt = (x, d) => esc(x && x.title || d);
 const catList = l => l.map(x => `<div class=clk onclick="goPage('cats')"><div class=row><span>${esc(x.c)}</span><b class=mono>${x.v.toFixed(1)}%</b></div>${bar(x.v, col(x.v))}</div>`).join('') || '<p class=mu style="text-align:center">✓ Nothing here</p>';
-const tTxt = c => c.t ? tn(c.t) : 'All teams';
 // a number tile: its name (the explanation on hover), the number, and the change against the period before (▲ ▼, green when it
 // is good news: good = 1 when up is good, -1 when down is good); ∅ = nothing to compare with
 const ktr = (cur, prev, good) => {
