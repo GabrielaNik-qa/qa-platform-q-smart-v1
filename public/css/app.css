@@ -1152,3 +1152,12 @@ th.tts { cursor: pointer; user-select: none } th.tts:hover { color: var(--tx) } 
 .lngb { position: relative } .lngb summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer } .lngb summary::-webkit-details-marker { display: none } .lngb summary svg { width: 16px; height: 16px } .lngb summary b { font-size: 12px; letter-spacing: .04em }
 .lngl { position: absolute; z-index: 30; top: calc(100% + 4px); right: 0; min-width: 150px; display: grid; padding: 4px; border: 1px solid var(--bd); border-radius: 10px; background: var(--pn); box-shadow: 0 10px 30px rgba(0,0,0,.18) }
 .lngl button { text-align: left; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--tx); font: inherit; cursor: pointer } .lngl button:hover { background: var(--bg) } .lngl button.on { font-weight: 700; color: var(--orange) }
+
+/* Help Center: FAQ questions that open, the glossary, video cards; the guided-tour bar; My activity (3 November) */
+.hpq { border-bottom: 1px solid var(--bd); padding: 10px 0 } .hpq summary { cursor: pointer; display: flex; justify-content: space-between; gap: 10px; list-style: none } .hpq summary::-webkit-details-marker { display: none } .hpq > div { margin-top: 8px; color: var(--mu) }
+.hpg dt { font-weight: 700; margin-top: 12px; display: flex; justify-content: space-between } .hpg dd { margin: 4px 0 0; color: var(--mu) }
+.hpv { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px } .hpvc { margin: 0; display: flex; flex-direction: column; gap: 6px; min-height: 130px }
+.tourb { position: fixed; z-index: 60; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(560px, calc(100vw - 32px)); display: grid; gap: 6px; padding: 14px 16px; border: 2px solid var(--orange); border-radius: 14px; background: var(--pn); box-shadow: 0 12px 40px rgba(0,0,0,.25) }
+.mya { display: grid; grid-template-columns: 220px 1fr; gap: 14px; align-items: start } .mynav { display: grid; gap: 2px; padding: 10px } .mynav .cap { margin: 10px 8px 4px } .mynav .cap:first-child { margin-top: 0 }
+.mynav button { display: flex; justify-content: space-between; padding: 8px 10px; border: 0; border-radius: 8px; background: none; color: var(--tx); font: inherit; cursor: pointer; text-align: left } .mynav button:hover { background: var(--bg) } .mynav button.on { background: var(--bg); font-weight: 700 } .mynav small { color: var(--mu) }
+@media(max-width:900px){ .mya { grid-template-columns: 1fr } }

@@ -15,7 +15,10 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     surveys: { read: ALL, write: ['admin', 'qa', 'lead'], mine: (u, x) => x.agent === u.username },
     // the registers of Admin › GOVERNANCE (GDPR, EU AI Act, data breaches, accessibility): admins only (3 November)
     ropa: { read: ADMIN1, write: ADMIN1 }, subproc: { read: ADMIN1, write: ADMIN1 }, dpas: { read: ADMIN1, write: ADMIN1 }, consents: { read: ADMIN1, write: ADMIN1 },
-    aireg: { read: ADMIN1, write: ADMIN1 }, ainotices: { read: ADMIN1, write: ADMIN1 }, breaches: { read: ADMIN1, write: ADMIN1 }, a11y: { read: ADMIN1, write: ADMIN1 }
+    aireg: { read: ADMIN1, write: ADMIN1 }, ainotices: { read: ADMIN1, write: ADMIN1 }, breaches: { read: ADMIN1, write: ADMIN1 }, a11y: { read: ADMIN1, write: ADMIN1 },
+    // Help Center (read by everybody, written by staff), pins (an agent sees their own) and reviewer checks (3 November)
+    faq: { read: ALL, write: EDIT }, gloss: { read: ALL, write: EDIT }, videos: { read: ALL, write: EDIT }, tours: { read: ALL, write: EDIT },
+    pins: { read: ALL, write: EDIT, mine: (u, x) => x.agent === u.username }, revqa: { read: EDIT, write: ['admin', 'qa', 'lead'] }
   };
   // cleans whatever the browser sends: only text, numbers, yes/no, lists and small objects are kept
   const clean = (v, depth = 0) => {
@@ -26,6 +29,7 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   };
   // the few records whose numbers feed reports are checked here too (the page checks first, but the server must not trust the page)
   const CHECK = { dpas: x => !x.link || /^https:\/\/[^\s"'<>`]+$/i.test(String(x.link)) ? '' : 'Links must start with https://', a11y: x => String(x.text || '').trim() ? '' : 'Write the statement',
+    videos: x => /^https:\/\/[^\s"'<>`]+$/i.test(String(x.link || '')) ? '' : 'Links must start with https://',
     surveys: x => Number.isInteger(x.score) && x.score >= 1 && x.score <= 5 && /^\d{4}-\d{2}-\d{2}$/.test(String(x.date || '')) ? '' : 'Each survey answer needs a date (YYYY-MM-DD) and a score from 1 to 5',
     // the pages count the goals of a plan, so anything but a list of goals would break them for everybody
     pips: x => x.goals == null || (Array.isArray(x.goals) && x.goals.every(g => g && typeof g === 'object' && !Array.isArray(g))) ? '' : 'The goals of an improvement plan must be a list' };

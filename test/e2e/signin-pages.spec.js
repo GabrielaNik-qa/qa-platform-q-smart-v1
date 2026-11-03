@@ -63,7 +63,7 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   await expect(a.page.locator('.grp.g-aihub .gh i')).toHaveCSS('color', 'rgb(255, 107, 0)');
   for (const [g, k, h] of [['activity', 'audit', /Activity Log/], ['help', 'kb', /Help Center/], ['aihub', 'aihub', /AI Hub/]]) {
     await a.page.locator(`#n .grp.g-${g} .gh`).click(); await expect(a.page.locator(`#n .grp.g-${g}`)).toHaveClass(/open/);
-    await expect(a.page.locator(`#n .grp.g-${g} .sub a.soon`).first(), 'coming-soon sub-pages, greyed').toBeVisible();
+    if (g === 'aihub') await expect(a.page.locator(`#n .grp.g-${g} .sub a.soon`).first(), 'coming-soon sub-pages, greyed').toBeVisible();   // Help Center and Activity Log are built (3 November)
     await a.page.locator(`#n .grp.g-${g} .sub a[href="#${k}"]`).click(); await expect(a.page.locator('#m h1')).toHaveText(h);
   }
   await a.page.locator('.sech.sec-manage').click();
@@ -129,7 +129,8 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   expect(a.errors).toEqual([]); await a.ctx.close();
   const g = await personPage(browser, 'f.c1', { viewport: { width: 1366, height: 800 } });
   expect(await g.page.locator('#n .gh span').allInnerTexts()).not.toContain('Activity Log');
-  await expect(g.page.locator('#n .g-help')).toHaveCount(1); await expect(g.page.locator('#n .g-aihub')).toHaveCount(1); await expect(g.page.locator('#n .g-activity')).toHaveCount(0);
+  await expect(g.page.locator('#n .g-help')).toHaveCount(1); await expect(g.page.locator('#n .g-aihub')).toHaveCount(1); await expect(g.page.locator('#n .g-activity')).toHaveCount(1);   // Activity Log: an agent sees only My activity (3 November)
+  expect(await g.page.evaluate(() => groupsFor().find(x => x.id === 'activity').items.map(i => i[0]))).toEqual(['cs_myact']);
   await expect(g.page.locator('.un b')).toHaveText('A.C1');                                      // "Agent C1": the initial and the last name
   await g.page.locator('.usr button[title="Settings"]').click();
   expect(await g.page.locator('#n .sech span').allInnerTexts(), 'an agent: My account, and Workforce (attendance, time off)').toEqual(['ACCOUNT', 'PEOPLE']);

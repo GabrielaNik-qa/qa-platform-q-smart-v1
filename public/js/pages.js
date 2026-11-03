@@ -98,6 +98,10 @@ const SOON = {
 const RR = { org: ['admin'], privacy: ['admin'], signin: ['admin'], words: ['admin'], qask: STAFFR, qagents: STAFFR, qins: STAFFR, qknow: STAFFR, simsc: ['admin', 'trainer'], entry: ['admin', 'qa'], flags: STAFFR, team: STAFFR, cats: STAFFR, coach: STAFFR, cal: STAFFR, sco: STAFFR, scat: ['admin', 'qa'], roots: ['admin', 'qa'], aqcats: ['admin', 'qa'], users: ['admin'], teams: ['admin'], wsp: ['admin'], skills: ['admin'], audit: ['admin'], wcal: ['admin'], shifts: ['admin'], ltypes: ['admin'], attrules: ['admin'], today: STAFFR };
 Object.assign(RR, { sysset: ['admin'], rbuild: STAFFR, rsaved: STAFFR, rexp: STAFFR, planner: ['admin', 'qa', 'lead'], workload: ['admin', 'qa', 'lead'], compliance: STAFFR, risks: STAFFR, complaints: STAFFR, csat: STAFFR, perms: ['admin'], integ: ['admin'], notifs: ['admin'], backup: ['admin'], mailtpl: ['admin'] });
 // an admin can change who sees which page (Admin > Roles & permissions); admins always keep the Admin pages
+// built on 3 November (help.js): Help Center, My activity and Pins for everybody, Reviewer QA and Topic dashboards for staff, Getting started for admins
+['cs_faq', 'cs_videos', 'cs_tours', 'cs_gloss', 'cs_myact', 'cs_pins'].forEach(k => { delete SOON[k]; });
+['cs_revqa', 'cs_dashes'].forEach(k => { delete SOON[k]; RR[k] = STAFFR; });
+['cs_start'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
 // built on 3 November (registers.js): no longer coming soon, still for admins only
 ['cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
 Object.keys(SOON).forEach(k => { RR[k] = ['admin']; });

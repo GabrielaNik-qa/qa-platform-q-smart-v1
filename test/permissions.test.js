@@ -44,3 +44,16 @@ test('the governance registers: only admins read and write them; links must be h
   assert.equal((await a.post('/api/c/dpas', { party: 'Supplier', link: 'https://files.example/dpa.pdf' })).status, 200);
   assert.equal((await a.post('/api/c/a11y', { status: 'partial', text: '  ' })).status, 400);
 });
+
+// Help Center, pins and reviewer checks (3 November)
+test('Help Center: everybody reads, staff write; pins: an agent sees only their own; reviewer checks: staff only; video links must be https://', async () => {
+  const a = await client(app.base, 'f.admin'), tr1 = await client(app.base, 'f.tr1'), b1 = await client(app.base, 'f.b1'), b2 = await client(app.base, 'f.b2');
+  for (const c of ['faq', 'gloss', 'videos', 'tours']) { assert.equal((await b1.get('/api/c/' + c)).status, 200, c); assert.equal((await b1.post('/api/c/' + c, { q: 'x' })).status, 403, c); }
+  assert.equal((await tr1.post('/api/c/faq', { q: 'How do I dispute a review?', a: 'Open it and press Dispute.' })).status, 200, 'a trainer writes the FAQ');
+  assert.equal((await a.post('/api/c/videos', { title: 'Tour', link: 'http://plain.example' })).status, 400);
+  await a.post('/api/c/pins', { rid: 'r1', agent: 'f.b1', note: 'The greeting at 00:10', status: 'todo' }); await a.post('/api/c/pins', { rid: 'r2', agent: 'f.b2', note: 'Another agent', status: 'todo' });
+  assert.deepEqual((await b1.get('/api/c/pins')).json.map(x => x.agent), ['f.b1']); assert.deepEqual((await b2.get('/api/c/pins')).json.map(x => x.agent), ['f.b2']);
+  assert.equal((await b1.post('/api/c/pins', { note: 'x' })).status, 403);
+  assert.equal((await b1.get('/api/c/revqa')).status, 403); assert.equal((await tr1.post('/api/c/revqa', { rid: 'r1' })).status, 403, 'a trainer reads the checks but does not write them');
+  assert.equal((await a.post('/api/c/revqa', { rid: 'r1', fair: 'yes', follows: 'no' })).status, 200);
+});

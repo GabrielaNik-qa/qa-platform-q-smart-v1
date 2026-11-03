@@ -174,3 +174,32 @@ test('governance: a data breach with its 72-hour clock, the record of processing
   await expect(a.page.locator('#m')).toContainText('What works: every page can be used with the keyboard');
   expect(a.errors).toEqual([]); await a.ctx.close();
 });
+
+// Help Center, Getting started, Reviewer QA, Pins, Topic dashboards and My activity (3 November)
+test('help and coaching: a FAQ, the glossary, a guided tour, getting started, a reviewer check, a pin, the dashboards and My activity', async ({ browser }) => {
+  const a = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 900 } });
+  await go(a.page, 'cs_faq'); await a.page.getByRole('button', { name: 'Add' }).click();
+  await a.page.getByLabel('Question').fill('How do I change the language?'); await a.page.getByLabel('Answer').fill('Use the EN button next to the bell on Home.');
+  await a.page.getByRole('button', { name: 'Save', exact: true }).click();
+  await a.page.locator('#m .hpq summary').first().click(); await expect(a.page.locator('#m .hpq')).toContainText('next to the bell');
+  await go(a.page, 'cs_gloss'); await a.page.getByRole('button', { name: "Start from Q-smart's own list" }).click(); await expect(a.page.locator('#m .hpg dt')).toHaveCount(12);
+  await go(a.page, 'cs_tours'); await a.page.getByRole('button', { name: "Start from Q-smart's own list" }).click();
+  await a.page.locator('#m .li', { hasText: 'First day as an agent' }).getByRole('button', { name: 'Start the tour' }).click();
+  await expect(a.page.locator('.tourb')).toContainText('Step 1 of 5'); await expect.poll(() => a.page.evaluate(() => location.hash)).toBe('#dash');
+  await a.page.locator('.tourb').getByRole('button', { name: 'Next' }).click(); await expect.poll(() => a.page.evaluate(() => location.hash)).toBe('#calls');
+  await a.page.locator('.tourb').getByRole('button', { name: 'Close the tour' }).click(); await expect(a.page.locator('.tourb')).toHaveCount(0);
+  await go(a.page, 'cs_start'); await expect(a.page.locator('#m')).toContainText(/of 7 done/);
+  const rid = await a.page.evaluate(() => (EV.find(e => e.by && e.by !== ME.username) || EV[0]).rid);
+  await go(a.page, 'cs_revqa'); await a.page.getByRole('button', { name: 'Check a review' }).click(); await a.page.locator('.md select').first().selectOption(rid);
+  await a.page.getByRole('button', { name: 'Save', exact: true }).click(); await expect(a.page.locator('#m')).toContainText('100%');
+  await go(a.page, 'cs_pins'); await a.page.getByRole('button', { name: 'Pin a moment' }).click(); await a.page.locator('.md select').first().selectOption(rid);
+  await a.page.getByLabel('What to talk about').fill('Listen to the greeting together'); await a.page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(a.page.locator('#m')).toContainText('Listen to the greeting together');
+  const pin = (await api(a.page, '/api/c/pins')).json[0]; expect(pin.agent).toBeTruthy();                // the agent comes from the review
+  await go(a.page, 'cs_dashes'); await expect(a.page.locator('#m')).toContainText('Disputes'); await expect(a.page.locator('#m')).toContainText('Pins to talk about');
+  expect(a.errors).toEqual([]); await a.ctx.close();
+  const g = await personPage(browser, pin.agent, { viewport: { width: 1366, height: 900 } });
+  await go(g.page, 'cs_myact'); await expect(g.page.locator('#m .mynav button.on small')).not.toHaveText('0');   // the agent's reviews
+  await go(g.page, 'cs_pins'); await expect(g.page.locator('#m')).toContainText('Listen to the greeting together');
+  expect(g.errors).toEqual([]); await g.ctx.close();
+});
