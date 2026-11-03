@@ -114,3 +114,32 @@ test('knowledge base: a folder for B2B only is hidden from B2C (pages, tests, ex
   await a.put('/api/kb/articles/' + art.id, { title: 'B2B pricing', folder: f.id, body: '# Prices\nTwo' });
   const v = (await a.get('/api/kb')).json.articles.find(x => x.id === art.id).versions; assert.equal(v.length, 1); assert.equal(v[0].body, '# Prices\nOne');
 });
+
+// The Help Center website (3 November): anybody reads the published articles without signing in; drafts and writing are for admins
+test('Help Center website: public reading, drafts for admins only, one helpful answer per visitor, empty categories and sections only are deleted', async () => {
+  const anon = await client(app.base), a = await client(app.base, 'f.admin'), qa = await client(app.base, 'f.qa1');
+  const h = await anon.get('/api/hc?all=1');
+  assert.equal(h.status, 200); assert.ok(h.json.cats.length >= 6 && h.json.arts.length >= 10, 'the starting articles about Q-smart'); assert.equal(h.json.editor, false);
+  assert.equal(h.json.arts[0].body, undefined, 'the list has a short text for the search, not the whole article');
+  for (const [m, u] of [['post', '/api/hc/arts'], ['put', '/api/hc/site'], ['del', '/api/hc/cats/c-start']]) { assert.equal((await qa[m](u, {})).status, 403, u); assert.equal((await anon[m](u, {})).status, 401, u); }
+  const d = await a.post('/api/hc/arts', { sec: 's-first', title: 'Secret plans', body: '## Soon\nNot yet', draft: true, labels: ['soon'] });
+  assert.equal(d.status, 200); assert.ok(d.json.author, 'the author is written down');
+  assert.ok(!(await anon.get('/api/hc?all=1')).json.arts.some(x => x.id === d.json.id), 'a draft is hidden from visitors');
+  assert.equal((await anon.get('/api/hc/a/' + d.json.id)).status, 404);
+  assert.ok((await a.get('/api/hc?all=1')).json.arts.some(x => x.id === d.json.id), 'admins see drafts');
+  assert.equal((await a.post('/api/hc/arts', { sec: 'nope', title: 'x' })).status, 400, 'an article needs a real section');
+  await a.put('/api/hc/arts/' + d.json.id, { sec: 's-first', title: 'Plans', body: 'Now public', draft: false });
+  const p = await anon.get('/api/hc/a/' + d.json.id); assert.equal(p.status, 200); assert.equal(p.json.body, 'Now public');
+  // "Was this article helpful?": one answer per visitor, which can be changed
+  assert.deepEqual((await anon.post('/api/hc/a/' + d.json.id + '/vote', { v: 'up' })).json, { up: 1, down: 0, mine: 'up' });
+  assert.deepEqual((await anon.post('/api/hc/a/' + d.json.id + '/vote', { v: 'up' })).json, { up: 1, down: 0, mine: 'up' }, 'a second yes is not counted');
+  assert.deepEqual((await anon.post('/api/hc/a/' + d.json.id + '/vote', { v: 'down' })).json, { up: 0, down: 1, mine: 'down' });
+  assert.equal((await anon.post('/api/hc/a/' + d.json.id + '/vote', { v: 'maybe' })).status, 400);
+  // a category or section with something in it is not deleted
+  assert.equal((await a.del('/api/hc/cats/c-start')).status, 400); assert.equal((await a.del('/api/hc/secs/s-first')).status, 400);
+  const c = await a.post('/api/hc/cats', { name: 'Empty', icon: '🧪' }); assert.equal((await a.del('/api/hc/cats/' + c.json.id)).status, 200);
+  assert.equal((await a.put('/api/hc/site', { name: 'Acme help', intro: 'Hello' })).json.name, 'Acme help');
+  assert.equal((await anon.get('/api/hc')).json.name, 'Acme help');
+  // the help.… address opens the Help Center (sent as the tunnel sends it)
+  const r = await fetch(app.base + '/', { redirect: 'manual', headers: { 'X-Forwarded-Host': 'help.example.com' } }); assert.equal(r.status, 302); assert.match(r.headers.get('location'), /\/hc\/$/);
+});

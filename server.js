@@ -151,6 +151,8 @@ const app = express();
 const TP = process.env.TRUST_PROXY;
 app.set('trust proxy', /^\d+$/.test(TP || '') ? Number(TP) : TP === 'true' ? true : TP || 'loopback');
 app.disable('x-powered-by');
+// the Help Center website has its own address (help.<your domain>): its home page is the Help Center, not the app
+app.use((req, res, next) => /^help\./i.test(req.hostname || '') && req.path === '/' ? res.redirect('/hc/') : next());
 // the Content-Security-Policy: the pages still use inline onclick="…" handlers (R-7), so scripts must allow 'unsafe-inline' for now,
 // but nothing can be loaded from or sent to another site (connect-src 'self'), no plug-ins, no <base> tricks, no framing by others.
 // Images and audio may come from https links (company logo, recording links); fonts only from the app itself (public/fonts, R-24).
@@ -891,6 +893,7 @@ require('./routes-wf')(ctx);          // Workforce: work calendars, shifts and p
 const att = require('./routes-att')(ctx);   // Workforce: check-ins, the status of every day, corrections, time off and balances
 require('./routes-today')({ ...ctx, att });   // Workforce: Team today, the morning brief, the Bradford score, attendance reports
 require('./routes-cap')({ ...ctx, att });     // Workforce: Capacity planning, the fair split of the leads of every campaign among the agents
+require('./routes-hc')(ctx);          // the Help Center website (public, at /hc): categories, sections and articles about Q-smart
 
 // the font files never change (a new font gets a new file name), so the browser keeps them for a year instead of asking every time
 app.use('/fonts', express.static(path.join(__dirname, 'public', 'fonts'), { maxAge: '365d', immutable: true }));

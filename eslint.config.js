@@ -29,5 +29,7 @@ module.exports = [
   { files: ['test/i18n.test.js', 'test/i18n-server.test.js', 'test/md-and-syntax.test.js', 'test/escaping.test.js', 'test/prefs.test.js'], languageOptions: { globals: { window: 'writable', I18N: 'writable' } } },
   // the browser tests run code inside the page, where the page's own names exist
   { files: ['test/e2e/**/*.js'], languageOptions: { globals: { ...globals.browser, ...shared } } },
+  // the Help Center website (public/hc) is its own small page: only the browser's names and md() from js/md.js
+  { files: ['public/hc/**/*.js'], languageOptions: { ecmaVersion: 2024, sourceType: 'script', globals: { ...globals.browser } }, rules: RULES },
   { files: ['public/js/**/*.js'], languageOptions: { ecmaVersion: 2024, sourceType: 'script', globals: { ...globals.browser, ...shared, module: 'readonly' } }, rules: RULES }
 ];

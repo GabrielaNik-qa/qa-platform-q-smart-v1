@@ -43,7 +43,7 @@ Object.assign(GOVR, {
 const hpPages = req => [...(req ? [] : [['', '—']]), ...GROUPS.flatMap(g => g.items.filter(([k]) => !Object.hasOwn(SOON, k)).map(([k, n]) => [k, tr(g.name) + ' › ' + tr(n)]))];
 const hpPageName = k => (hpPages(1).find(x => x[0] === k) || [k, ''])[1];
 const hpEd = (k, x) => canWriteHelp() ? `<span style="white-space:nowrap"><button class=ic title="Change" onclick="regForm('${k}','${x.id}')">${IC.pen}</button><button class=ic title="Delete" onclick="coDel('${GOVR[k].c}','${x.id}','${GOVR[k].what}')">${IC.bin}</button></span>` : '';
-const hpHead = (k, n) => head(GOVR[k].t, GOVR[k].s, `<div style="display:flex;gap:8px;flex-wrap:wrap">${bellBtn()}${canWriteHelp() && GOVR[k].seed && !n ? `<button class="ib ibx" onclick="regSeed('${k}')">${tr("Start from Q-smart's own list")}</button>` : ''}${canWriteHelp() ? `<button class="btn ibx" onclick="regForm('${k}')">${IC.plus} ${tr('Add')}</button>` : ''}</div>`);
+const hpHead = (k, n) => head(GOVR[k].t, GOVR[k].s, `<div style="display:flex;gap:8px;flex-wrap:wrap">${bellBtn()}<a class=ib href="/hc/" target=_blank rel=noopener>${tr('Help Center website')} ↗</a>${canWriteHelp() && GOVR[k].seed && !n ? `<button class="ib ibx" onclick="regSeed('${k}')">${tr("Start from Q-smart's own list")}</button>` : ''}${canWriteHelp() ? `<button class="btn ibx" onclick="regForm('${k}')">${IC.plus} ${tr('Add')}</button>` : ''}</div>`);
 const HPQ = { q: '' };
 const hpSearch = () => `<div class=sx style="width:300px;margin-bottom:12px"><span>${IC.search}</span><input id=hpq placeholder="Search…" value="${esc(HPQ.q)}" oninput="HPQ.q=this.value;render()"></div>`;
 const hpHit = s => !HPQ.q.trim() || s.toLowerCase().includes(HPQ.q.trim().toLowerCase());

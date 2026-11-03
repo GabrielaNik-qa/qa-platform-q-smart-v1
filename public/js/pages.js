@@ -15,7 +15,7 @@ const GROUPS = [
   { id: 'performance', name: 'Performance', sec: 'ops', icon: 'g_perf', items: [['goals', 'Goals & KPIs'], ['pips', 'Improvement plans'], ['kudos', 'Recognition']] },
   { id: 'coaching', name: 'Coaching', sec: 'ops', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration'], ['cs_pins', 'Pins']] },
   { id: 'aihub', name: 'AI Hub', sec: 'manage', icon: 'g_aihub', items: [['aihub', 'Overview'], ['cs_hubcheck', 'AI scores to check'], ['cs_hubuse', 'AI usage'], ['cs_hubprompts', 'Prompt library'], ['cs_hubfb', 'AI feedback']] },
-  { id: 'help', name: 'Help Center', sec: 'manage', icon: 'g_help', items: [['cs_faq', 'FAQ'], ['cs_videos', 'Video tutorials'], ['cs_tours', 'Guided tours'], ['cs_gloss', 'Glossary']] },
+  { id: 'help', name: 'Help Center', sec: 'manage', icon: 'g_help', items: [['cs_faq', 'FAQ'], ['cs_videos', 'Video tutorials'], ['cs_tours', 'Guided tours'], ['cs_gloss', 'Glossary'], ['cs_hcsite', 'Help Center website']] },
   { id: 'planning', name: 'Planning', sec: 'manage', icon: 'g_plan', items: [['planner', 'Review planner'], ['workload', 'QA workload'], ['calendar', 'Calendar']] },
   { id: 'reports', name: 'Reports', sec: 'manage', icon: 'g_reports', items: [['rbuild', 'Report builder'], ['rsaved', 'Saved & scheduled'], ['rexp', 'Export centre']] },
   { id: 'activity', name: 'Activity Log', sec: 'manage', icon: 'g_activity', items: [['audit', 'All activity'], ['cs_myact', 'My activity'], ['cs_actsign', 'Sign-ins'], ['cs_actexp', 'Exports & downloads']] },
@@ -108,12 +108,14 @@ delete SOON.cs_contact;
 ['cs_faq', 'cs_videos', 'cs_tours', 'cs_gloss', 'cs_myact', 'cs_pins'].forEach(k => { delete SOON[k]; });
 ['cs_revqa', 'cs_dashes'].forEach(k => { delete SOON[k]; RR[k] = STAFFR; });
 ['cs_start'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
+// built on 3 November (hcedit.js): the editor of the public Help Center website, for admins
+RR.cs_hcsite = ['admin'];
 // built on 3 November (registers.js): no longer coming soon, still for admins only
 ['cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
 Object.keys(SOON).forEach(k => { RR[k] = ['admin']; });
 Object.keys(ROLE).forEach(r => { RR['perm_' + r] = ['admin']; });   // the page of each role in Roles & permissions
 const ADMINP = ['perm_agent', 'perm_trainer', 'perm_lead', 'perm_qa', 'perm_admin', 'users', 'teams', 'wsp', 'skills', 'perms', 'integ', 'notifs', 'backup', 'mailtpl', 'audit', 'wcal', 'shifts', 'ltypes', 'attrules'];
-ADMINP.push('cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp');   // the registers and logs built on 3 November
+ADMINP.push('cs_hcsite', 'cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp');   // the registers and logs built on 3 November
 const own = (o, k) => o && Object.hasOwn(o, k) ? o[k] : undefined;   // only the object's own entries (a link such as #constructor is not a page)
 // a person's own choice (Roles & permissions) comes before their role's
 const canRoute = k => { if (ME.role === 'admin' && ADMINP.includes(k)) return true; const m = own(SET.permu, k); if (m && Object.hasOwn(m, ME.username)) return m[ME.username] === true; const p = own(SET.perm, k) || own(RR, k); return !Array.isArray(p) || p.includes(ME.role); };

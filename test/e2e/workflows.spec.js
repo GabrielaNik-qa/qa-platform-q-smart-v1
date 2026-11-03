@@ -270,3 +270,38 @@ test('knowledge base: create a page with an emoji, react, star, comment, table o
   await a.page.locator('#m .cfs').getByRole('button', { name: /Starred/ }).click(); await expect(a.page.locator('#m .cfs')).toContainText('How we greet customers');
   expect(a.errors).toEqual([]); await a.ctx.close();
 });
+
+// The Help Center website (3 November): a visitor who is not signed in searches, reads and answers "Was this article helpful?";
+// an admin writes a draft in the app, which visitors only see once it is published
+test('Help Center website: a visitor searches, reads and answers; an admin publishes a new article from the app', async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 } }), v = await ctx.newPage(), errors = [];
+  v.on('pageerror', e => errors.push(e.message));
+  await v.goto(process.env.E2E_BASE + '/hc/');
+  await expect(v.locator('.cat')).toHaveCount(6);
+  await v.locator('.hero input').fill('dispute');
+  await expect(v.locator('.hero .sug a').first()).toContainText('Disputing a review');
+  await v.locator('.hero input').press('Enter');
+  await expect(v.locator('.rh')).toContainText('for “dispute”'); await expect(v.locator('.hits mark').first()).toBeVisible();
+  await v.locator('.hits a.ht', { hasText: 'Disputing a review' }).click();
+  await expect(v.locator('.body h1')).toHaveText('Disputing a review'); await expect(v.locator('.side li.on')).toHaveText('Disputing a review');
+  await v.getByRole('button', { name: 'Yes', exact: true }).click();
+  await expect(v.locator('.vote')).toContainText('1 out of 1 found this helpful');
+  // the admin writes a draft: visitors do not see it until it is published
+  const g = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 900 } });
+  await go(g.page, 'cs_hcsite');
+  await g.page.locator('.hcsec', { hasText: 'First steps' }).getByRole('button', { name: 'Article' }).click();
+  await g.page.locator('.ov label', { hasText: 'Title' }).locator('input').fill('Working from a tablet');
+  await g.page.locator('.ov textarea').fill('Rotate the tablet to **landscape**.');
+  await g.page.locator('.ov').getByRole('button', { name: 'Save' }).click();
+  await expect(g.page.locator('#m')).toContainText('Working from a tablet');
+  const id = (await db()).hc.arts.find(a => a.title === 'Working from a tablet').id;
+  await v.goto(process.env.E2E_BASE + '/hc/#a/' + id); await v.reload();
+  await expect(v.locator('h1')).toContainText('does not exist');
+  await g.page.locator('tr', { hasText: 'Working from a tablet' }).getByRole('button', { name: 'Change' }).click();
+  await g.page.locator('.ov label', { hasText: 'Draft' }).locator('input').uncheck();
+  await g.page.locator('.ov').getByRole('button', { name: 'Save' }).click();
+  await expect(g.page.locator('tr', { hasText: 'Working from a tablet' })).not.toContainText('Draft');
+  await v.reload();
+  await expect(v.locator('.body h1')).toHaveText('Working from a tablet'); await expect(v.locator('.prose b')).toHaveText('landscape');
+  expect(errors).toEqual([]); expect(g.errors).toEqual([]); await g.ctx.close(); await ctx.close();
+});

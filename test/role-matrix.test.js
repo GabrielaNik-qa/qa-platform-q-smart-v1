@@ -32,7 +32,8 @@ function routes() {
   return out;
 }
 // every route that is not public on purpose: a route with no guard the test can read is listed here, or the test fails
-const PUBLIC = new Set(['POST /api/login', 'POST /api/logout', 'POST /api/register', 'POST /api/forgot', 'POST /api/reset', 'GET /api/notice', 'GET /api/health']);
+const PUBLIC = new Set(['POST /api/login', 'POST /api/logout', 'POST /api/register', 'POST /api/forgot', 'POST /api/reset', 'GET /api/notice', 'GET /api/health',
+  'GET /api/hc', 'GET /api/hc/a/:id', 'POST /api/hc/a/:id/vote']);   // the Help Center website is public on purpose (drafts and writing are for admins)
 
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qsmart-roles-')), DATA = path.join(DIR, 'data.json');
 const H = bcrypt.hashSync('password', 4);
