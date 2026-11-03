@@ -52,8 +52,6 @@ PG.words = function () {
 };
 const wordsSave = () => { const lines = id => $('#' + id).value.split('\n').map(s => s.trim()).filter(Boolean), pair = s => { const [a, b] = s.split('|'); return [a.trim(), (b || '').split(',').map(x => x.trim()).filter(Boolean)]; };
   orgSave({ words: { types: lines('wd-types'), topics: lines('wd-topics').map(pair).map(([name, words]) => ({ name, words })), vocab: lines('wd-vocab').map(pair).map(([term, wrong]) => ({ term, wrong })) } }, 'Business words saved'); };
-// the custom vocabulary on a text (used for transcripts): every wrong spelling becomes the right one
-const vocabFix = t => (SET.words && SET.words.vocab || []).reduce((s, v) => v.wrong.reduce((x, w) => x.replace(new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'gi'), v.term), s), String(t || ''));
 
 // ---- AI Hub (in MANAGE): for now a place-holder that links to the AI tools already in the app; more comes later (Gabriela, 29 October)
 const AIHUB = [['qask', 'g_qi', 'Ask Quinn', 'Questions about your teams, answered from your numbers.'], ['qins', 'g_qi', 'AI insights', 'What the AI noticed in your reviews.'],
