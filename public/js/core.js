@@ -283,6 +283,7 @@ async function load() {
     cs_ropa: ['ropa'], cs_subproc: ['subproc'], cs_dpa: ['dpas'], cs_consent: ['consents'], cs_aireg: ['aireg'], cs_ainotice: ['ainotices'], cs_breach: ['breaches'], cs_a11y: ['a11y'],
     cs_faq: ['faq'], cs_gloss: ['gloss'], cs_videos: ['videos'], cs_tours: ['tours'], cs_pins: ['pins'], cs_revqa: ['revqa'], cs_myact: ['kudos', 'surveys'], cs_dashes: ['surveys', 'revqa', 'pins'], cs_script: ['scripts'], cs_announce: ['announce'], cs_ideas: ['ideas'] };
   if (ME) want.push(['c_announce', '/api/c/announce']);   // the announcements show on every page
+  if (route === 'cs_contact') want.push(['su', '/api/support']);   // Contact support: my requests (all of them for admins)
   (Object.hasOwn(CL, route) ? CL[route] : []).forEach(c => { if (ME && (!['reports', 'risks', 'complaints'].includes(c) || ed)) want.push(['c_' + c, '/api/c/' + c]); });
   if (['rbuild', 'rsaved', 'goals', 'calendar', 'kudos', 'dash', 'pers'].includes(route)) want.push(['tk', '/api/tasks']);
   if (route === 'calendar') want.push(['se', '/api/sessions']);
@@ -327,6 +328,7 @@ async function load() {
   if (R.sm) SIMS = JSON.parse(R.sm);
   if (R.ss) SCNS = JSON.parse(R.ss);
   if (R.qf) QF = JSON.parse(R.qf);
+  if (R.su) SUPR = JSON.parse(R.su);
   Object.keys(R).filter(k => k.startsWith('c_') && R[k]).forEach(k => { CO[k.slice(2)] = JSON.parse(R[k]); });
   if (R.xp) XPS = JSON.parse(R.xp);
   if (R.bk) BKS = JSON.parse(R.bk);

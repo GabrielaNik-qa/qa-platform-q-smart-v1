@@ -114,6 +114,35 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   });
 
   // ---------------------------------------------------------------- export centre: every Excel file that was made, ready to download again
+  // ---------------------------------------------------------------- Contact support (Gabriela, 3 November): a form with an e-mail, a subject, a type, a description and one file
+  // or picture. The file is kept as a file next to the data (not inside it); a person sees their own requests, admins see all and set the status.
+  const SUPT = ['question', 'problem', 'idea', 'billing', 'other'], SUPST = ['new', 'open', 'answered', 'closed'];
+  const SUPF = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp', 'image/gif': '.gif', 'application/pdf': '.pdf', 'text/plain': '.txt' };
+  const supDir = () => path.join(path.dirname(FILE), 'support-files');
+  const supOut = x => { const { file, ...r } = x; return { ...r, file: file ? { name: file.name, type: file.type, size: file.size } : null }; };
+  app.get('/api/support', need(), (req, res) => { const u = req.session.user; res.json(coll(load(), 'support').filter(x => u.role === 'admin' || x.by === u.username).map(supOut)); });
+  app.post('/api/support', need(), (req, res) => {
+    const u = req.session.user, b = req.body || {}, email = str(b.email, 120), subject = str(b.subject, 150), desc = str(b.desc, 5000), type = SUPT.includes(b.type) ? b.type : 'question';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return bad(res, 'Write a valid e-mail address');
+    if (!subject) return bad(res, 'Write a subject'); if (!desc) return bad(res, 'Describe your request');
+    const id = 's' + hex(5); let file = null;
+    if (b.file && typeof b.file === 'object') {
+      const ext = SUPF[b.file.type], data = typeof b.file.data === 'string' ? b.file.data : '';
+      if (!ext || !/^[A-Za-z0-9+/=]+$/.test(data)) return bad(res, 'Attach a picture (PNG, JPG, WEBP, GIF), a PDF or a text file');
+      const buf = Buffer.from(data, 'base64'); if (buf.length > 1048576) return bad(res, 'The file must be smaller than 1 MB');
+      fs.mkdirSync(supDir(), { recursive: true }); fs.writeFileSync(path.join(supDir(), id + ext), buf);
+      file = { name: str(b.file.name, 120).replace(/[\\/:*?"<>|]/g, '_') || 'file' + ext, type: b.file.type, size: buf.length, path: id + ext };
+    }
+    const db = load(), x = { id, email, subject, type, desc, file, status: 'new', by: u.username, byName: u.name, at: iso() };
+    coll(db, 'support').unshift(x); db.users.filter(p => p.role === 'admin' && p.active !== false).forEach(p => notify(db, p.username, 'support', `${u.name} sent a support request: ${subject.slice(0, 80)}`, {}));
+    save(db); res.json(supOut(x));
+  });
+  app.put('/api/support/:id', need('admin'), (req, res) => { const db = load(), x = coll(db, 'support').find(r => r.id === req.params.id); if (!x) return res.status(404).json({ error: 'not found' });
+    const st = (req.body || {}).status; if (!SUPST.includes(st)) return bad(res, 'Choose a status'); x.status = st; x.updated = iso(); save(db); res.json(supOut(x)); });
+  app.get('/api/support/:id/file', need(), (req, res) => { const u = req.session.user, x = coll(load(), 'support').find(r => r.id === req.params.id && (u.role === 'admin' || r.by === u.username));
+    if (!x || !x.file) return res.status(404).json({ error: 'not found' }); const f = path.join(supDir(), path.basename(x.file.path)); if (!fs.existsSync(f)) return res.status(404).json({ error: 'not found' });
+    res.setHeader('Content-Type', x.file.type); res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Content-Disposition', 'attachment; filename="' + encodeURIComponent(x.file.name) + '"'); fs.createReadStream(f).pipe(res); });
+
   app.get('/api/exports', need(...EDIT), (req, res) => { const u = req.session.user; res.json(coll(load(), 'exports').filter(x => u.role === 'admin' || x.by === u.username).map(({ rows, ...x }) => x)); });
   app.get('/api/exports/:id', need(...EDIT), (req, res) => { const u = req.session.user, x = coll(load(), 'exports').find(r => r.id === req.params.id && (u.role === 'admin' || r.by === u.username)); if (!x) return res.status(404).json({ error: 'not found' }); res.json(x); });
   app.delete('/api/exports/:id', need(...EDIT), (req, res) => { const db = load(); db.exports = coll(db, 'exports').filter(r => r.id !== req.params.id || (r.by !== req.session.user.username && req.session.user.role !== 'admin')); save(db); res.json({ ok: 1 }); });

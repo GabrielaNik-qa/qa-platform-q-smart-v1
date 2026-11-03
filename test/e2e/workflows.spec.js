@@ -235,3 +235,15 @@ test('tools and settings: redaction, the score simulator, an announcement, a fea
   await expect.poll(async () => (await api(a.page, '/api/c/pins')).json.some(x => x.rid === rid && x.note === 'The closing question')).toBe(true);
   expect(a.errors).toEqual([]); await a.ctx.close();
 });
+
+// Contact support (3 November): an agent fills in the form with a picture and sees the request in My requests
+test('contact support: an agent sends a request with a picture and follows it', async ({ browser }) => {
+  const g = await personPage(browser, 'f.b1', { viewport: { width: 1366, height: 900 } });
+  await go(g.page, 'cs_contact');
+  await g.page.locator('#supe').fill('b1@example.com'); await g.page.locator('#sups').fill('The export button does nothing'); await g.page.locator('#supd').fill('On Reviews, nothing happens when I click it.');
+  await g.page.locator('#m input[type=file]').setInputFiles({ name: 'screen.png', mimeType: 'image/png', buffer: Buffer.from('89504e470d0a1a0a', 'hex') });
+  await g.page.waitForFunction(() => SUPD && SUPD.file);
+  await g.page.getByRole('button', { name: 'Submit' }).click();
+  await expect(g.page.locator('#m table')).toContainText('The export button does nothing'); await expect(g.page.locator('#m table')).toContainText('screen.png');
+  expect(g.errors).toEqual([]); await g.ctx.close();
+});

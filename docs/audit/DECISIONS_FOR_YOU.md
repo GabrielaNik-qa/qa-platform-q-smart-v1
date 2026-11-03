@@ -1041,3 +1041,34 @@ These need your decision and were not changed in round 4:
 - R-23: who scheduled reports may go to
 
 Details in `REMAINING_ISSUES.md`.
+
+## Z. Your answers of 3 November
+
+| # | Question | Your answer | What happens |
+|---|---|---|---|
+| 1 | Merge `q-smart-v1-audit` into `q-smart-v1` | **No** (not now) | Everything stays on `q-smart-v1-audit` |
+| 2 | Database | **Firebase** (free of charge) | CLAUDE.md corrected (it still said SQLite) |
+| 3 | Rename the GitHub repository | **Leave it** | — |
+| 4 | Payments | **Paddle** | Billing pages built with Paddle when the account exists |
+| 5 | Single sign-on, automatic users, password rules | **Yes, with Firebase, not before** | — |
+| 6 | E-mail sending | Question: is there a Firebase product? (today a normal Gmail account) | Answered in the chat |
+| 7 | AI | **Claude, with a monthly limit per team** | When the API key is given |
+| 8 | Contact support | **A form**: e-mail, subject, description, type of request, a file or picture, Submit | Built (3 November) |
+| 9 | Importing conversations | Question: can calls be evaluated without storing them in Q-smart (to save Firebase costs)? | Answered in the chat |
+| 10 | EU data location | **Yes** (EU Firebase region) | With Firebase |
+| 11 | Webhooks, developer API, MCP, API keys | **Now** | To build |
+| 12 | Sandbox, Import data, Beta features | **Now** | To build |
+| 13 | A person must check every AutoQA score | **No** | See the warning about the EU AI Act in the chat |
+| 14 | Feature requests and release notes | **Per company; a release note with every change** | Release notes kept up to date |
+| 15 | V1 time zone | **Yes**: start the server with `TZ=Europe/Sofia` | To do in the hosting set-up |
+| 16 | V6 e-mails | **Always in English** | No change |
+| 17 | V8 workspaces | **Workspaces are about users and teams; in the knowledge base, folders can be given to or taken from teams** | To build in the Knowledge Base |
+| 18 | V9 strict security policy | **Yes, after the database move** | Later |
+| 19 | V10 old test servers | **Yes, stop them** | Done (3 November) |
+| 20 | V11 virus scanner | **Leave it on** | No change |
+
+Also on 3 November:
+- The Knowledge Base goes back to **Learning** (with My Learning, Quizzes and Newsletter). It is not the Help Center.
+- The **Help Center** becomes a separate website on its own sub-domain, like the Zendesk Help Center, with articles about Q-smart (to build, from the Zendesk Help Center you will open).
+- The **Knowledge Base** in Learning should look and work like **Confluence** (to build, from the Confluence you will open).
+- The **Call Simulator** should be built like the one on converst-qa.web.app (to build, from the page you will open).

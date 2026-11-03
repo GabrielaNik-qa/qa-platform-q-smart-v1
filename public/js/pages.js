@@ -15,11 +15,11 @@ const GROUPS = [
   { id: 'performance', name: 'Performance', sec: 'ops', icon: 'g_perf', items: [['goals', 'Goals & KPIs'], ['pips', 'Improvement plans'], ['kudos', 'Recognition']] },
   { id: 'coaching', name: 'Coaching', sec: 'ops', icon: 'g_coaching', items: [['coach', 'Coaching'], ['o2o', 'One-to-One'], ['cal', 'Calibration'], ['cs_pins', 'Pins']] },
   { id: 'aihub', name: 'AI Hub', sec: 'manage', icon: 'g_aihub', items: [['aihub', 'Overview'], ['cs_hubcheck', 'AI scores to check'], ['cs_hubuse', 'AI usage'], ['cs_hubprompts', 'Prompt library'], ['cs_hubfb', 'AI feedback']] },
-  { id: 'help', name: 'Help Center', sec: 'manage', icon: 'g_help', items: [['kb', 'Articles'], ['cs_faq', 'FAQ'], ['cs_videos', 'Video tutorials'], ['cs_tours', 'Guided tours'], ['cs_gloss', 'Glossary']] },
+  { id: 'help', name: 'Help Center', sec: 'manage', icon: 'g_help', items: [['cs_faq', 'FAQ'], ['cs_videos', 'Video tutorials'], ['cs_tours', 'Guided tours'], ['cs_gloss', 'Glossary']] },
   { id: 'planning', name: 'Planning', sec: 'manage', icon: 'g_plan', items: [['planner', 'Review planner'], ['workload', 'QA workload'], ['calendar', 'Calendar']] },
   { id: 'reports', name: 'Reports', sec: 'manage', icon: 'g_reports', items: [['rbuild', 'Report builder'], ['rsaved', 'Saved & scheduled'], ['rexp', 'Export centre']] },
   { id: 'activity', name: 'Activity Log', sec: 'manage', icon: 'g_activity', items: [['audit', 'All activity'], ['cs_myact', 'My activity'], ['cs_actsign', 'Sign-ins'], ['cs_actexp', 'Exports & downloads']] },
-  { id: 'learning', name: 'Learning', icon: 'g_learning', space: 'learn', items: [['acad', 'My Learning'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },
+  { id: 'learning', name: 'Learning', icon: 'g_learning', space: 'learn', items: [['acad', 'My Learning'], ['kb', 'Knowledge Base'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },   // the Knowledge Base is back in Learning (Gabriela, 3 November)
   // Tools in the Learning panel: five tools to come (Gabriela's yes, 29 October)
   { id: 'tools', name: 'Tools', icon: 'g_tools', space: 'learn', items: [['cs_redact', 'Redaction'], ['cs_transl', 'Translator'], ['cs_sample', 'Sample calculator'], ['cs_scoresim', 'Score simulator'], ['cs_script', 'Script builder']] },
   { id: 'aisim', name: 'AI Simulator', icon: 'g_aisim', space: 'ai', items: [['sim', 'Practice a call'], ['simres', 'Results'], ['simsc', 'Scenarios']] },
@@ -98,6 +98,8 @@ const SOON = {
 const RR = { org: ['admin'], privacy: ['admin'], signin: ['admin'], words: ['admin'], qask: STAFFR, qagents: STAFFR, qins: STAFFR, qknow: STAFFR, simsc: ['admin', 'trainer'], entry: ['admin', 'qa'], flags: STAFFR, team: STAFFR, cats: STAFFR, coach: STAFFR, cal: STAFFR, sco: STAFFR, scat: ['admin', 'qa'], roots: ['admin', 'qa'], aqcats: ['admin', 'qa'], users: ['admin'], teams: ['admin'], wsp: ['admin'], skills: ['admin'], audit: ['admin'], wcal: ['admin'], shifts: ['admin'], ltypes: ['admin'], attrules: ['admin'], today: STAFFR };
 Object.assign(RR, { sysset: ['admin'], rbuild: STAFFR, rsaved: STAFFR, rexp: STAFFR, planner: ['admin', 'qa', 'lead'], workload: ['admin', 'qa', 'lead'], compliance: STAFFR, risks: STAFFR, complaints: STAFFR, csat: STAFFR, perms: ['admin'], integ: ['admin'], notifs: ['admin'], backup: ['admin'], mailtpl: ['admin'] });
 // an admin can change who sees which page (Admin > Roles & permissions); admins always keep the Admin pages
+// built on 3 November: Contact support, a form for everybody (support.js)
+delete SOON.cs_contact;
 // built on 3 November (tools.js): the tools and Feature requests and Release notes for everybody, the settings for admins
 ['cs_redact', 'cs_scoresim', 'cs_script', 'cs_ideas', 'cs_release'].forEach(k => { delete SOON[k]; });
 ['cs_sample'].forEach(k => { delete SOON[k]; RR[k] = STAFFR; });

@@ -79,3 +79,18 @@ test('sidebar, branding and regional settings: admins only, odd values dropped; 
   assert.equal((await b1.get('/api/c/announce')).json[0].text, 'Training on Friday');
   await a.put('/api/settings/x/sidebar', { value: {} }); await a.put('/api/settings/x/brand', { value: {} }); await a.put('/api/settings/x/region', { value: {} });
 });
+
+// Contact support (3 November): a request with a file; a person sees their own, admins see all and set the status; only safe files
+test('contact support: a request with a picture; the sender and the admins see it; only pictures, PDF and text under 1 MB', async () => {
+  const a = await client(app.base, 'f.admin'), b1 = await client(app.base, 'f.b1'), b2 = await client(app.base, 'f.b2');
+  const png = Buffer.from('89504e470d0a1a0a', 'hex').toString('base64');
+  assert.equal((await b1.post('/api/support', { email: 'not an e-mail', subject: 'x', desc: 'y' })).status, 400);
+  assert.equal((await b1.post('/api/support', { email: 'b1@example.com', subject: 'x', desc: 'y', file: { name: 'a.html', type: 'text/html', data: png } })).status, 400, 'no web pages');
+  const r = await b1.post('/api/support', { email: 'b1@example.com', subject: 'The export button does nothing', type: 'problem', desc: 'On Reviews, nothing happens.', file: { name: 'screen.png', type: 'image/png', data: png } });
+  assert.equal(r.status, 200); assert.equal(r.json.file.name, 'screen.png'); assert.equal(r.json.file.path, undefined, 'where the file is kept is not shown');
+  assert.equal((await b1.get('/api/support')).json.length, 1); assert.equal((await b2.get('/api/support')).json.length, 0, 'another agent sees nothing');
+  assert.equal((await b2.get('/api/support/' + r.json.id + '/file')).status, 404); const f = await b1.get('/api/support/' + r.json.id + '/file'); assert.equal(f.status, 200); assert.equal(f.headers.get('content-type'), 'image/png');
+  assert.equal((await b1.put('/api/support/' + r.json.id, { status: 'closed' })).status, 403);
+  assert.equal((await a.put('/api/support/' + r.json.id, { status: 'answered' })).json.status, 'answered');
+  assert.ok((await a.get('/api/support')).json.some(x => x.id === r.json.id));
+});

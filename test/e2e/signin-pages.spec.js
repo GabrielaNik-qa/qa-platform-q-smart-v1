@@ -61,7 +61,7 @@ test('the menu: order, coloured AI Simulator and Q-Intelligence, the settings wh
   // OPERATIONS and MANAGE (29 October): two headings like APPS; AI Hub always orange; AI Hub, Help Center and Activity Log have sub-menus
   expect(await a.page.locator('.sech span').allInnerTexts()).toEqual(['OPERATIONS', 'MANAGE']);   // written in capitals on screen
   await expect(a.page.locator('.grp.g-aihub .gh i')).toHaveCSS('color', 'rgb(255, 107, 0)');
-  for (const [g, k, h] of [['activity', 'audit', /Activity Log/], ['help', 'kb', /Help Center/], ['aihub', 'aihub', /AI Hub/]]) {
+  for (const [g, k, h] of [['activity', 'audit', /Activity Log/], ['help', 'cs_faq', /FAQ/], ['aihub', 'aihub', /AI Hub/]]) {
     await a.page.locator(`#n .grp.g-${g} .gh`).click(); await expect(a.page.locator(`#n .grp.g-${g}`)).toHaveClass(/open/);
     if (g === 'aihub') await expect(a.page.locator(`#n .grp.g-${g} .sub a.soon`).first(), 'coming-soon sub-pages, greyed').toBeVisible();   // Help Center and Activity Log are built (3 November)
     await a.page.locator(`#n .grp.g-${g} .sub a[href="#${k}"]`).click(); await expect(a.page.locator('#m h1')).toHaveText(h);
