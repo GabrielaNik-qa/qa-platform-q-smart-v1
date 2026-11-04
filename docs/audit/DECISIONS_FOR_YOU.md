@@ -1111,3 +1111,40 @@ Brevo's free plan sends up to 300 e-mails a day. With your own domain, add the S
 - **ElevenLabs voices:** yes, for the voice practice calls only (text calls stay free). *(Next.)*
 - **Quinn:** a hybrid assistant that answers most questions without AI (plan first, then build).
 
+---
+
+## OPEN DECISIONS: the complete list (4 November)
+
+Everything still open in this file and in REMAINING_ISSUES.md, in one place. Answer by number. The recommended choice is first.
+
+### For the work now
+1. **Call Simulator name**: what should it be called?
+2. **Sign-in design**: A (split), B (centered card), C (dark with rings) or D (form with a product preview)?
+3. **Quinn bubble** on every page, for every role, agents too? (yes / staff only)
+4. **Quinn models**: Haiku 5.5 to pick the intent, Sonnet 5.5 for analysis? (yes / always Opus / always Haiku)
+5. **Quinn hand-over** goes to: the admins (Contact support), or the team lead of the agent?
+6. **Quinn limits**: €10 per company per month and 30 AI answers per user per hour? (or your numbers)
+7. **Time zones for remote people**: each person their own time zone, with shifts in their local time? (recommended), or one company time zone?
+8. **Filters and Columns** (like Reviews) also on Users, Disputes, Quick Flags, Teams and Tasks? (yes / no)
+9. **Kainami recording test** (A5): drop it? (recommended: the Call Simulator here replaces it)
+
+### Before selling to other companies
+10. **R-2 First password**: replace password with a one-time invitation link and e-mail check? (recommended)
+11. **R-8 Passwords**: at least 10 characters, and two-step sign-in for admins? (recommended; Google and Microsoft sign-in cover the rest)
+12. **R-16 Registration**: invitation only, per company? (recommended), or keep open registration
+13. **R-5 seed.js**: remove the password fingerprints and the real-looking e-mail from it? (recommended)
+14. **R-10 Scoring**: every question must be answered (no silent "Yes")? And a review where everything is N/A is "not scored" instead of 0%? (recommended for both)
+15. **R-11 Quizzes**: show the right answers only after passing, and at most 3 tries? (recommended)
+16. **R-21 CSAT import**: the same lead + date + agent counts once? (recommended)
+17. **R-23 Report e-mails**: only to user accounts of the company? (recommended)
+18. **R-17 Lock-out**: keep "10 wrong passwords = 15 minutes locked"? (recommended, with Google and Microsoft sign-in)
+19. **V8 Workspaces**: decide what one workspace may see of another together with separate companies (Firebase)? (recommended)
+
+### Things only you can do (not decisions)
+- **Stripe:** the account, the plans and prices, the secret key, the webhook secret, the portal (see the message of 4 November).
+- **Google and Microsoft sign-in:** the two app registrations.
+- **Claude API key; ElevenLabs API key.**
+- **Voiso:** access to its reports, as an example for our reports.
+- **Patent attorney:** the description is in  (on your computer only, not in Git).
+- **A named Cloudflare tunnel on your own domain:** one address that does not change, needed by Stripe, Google and Microsoft.
+
