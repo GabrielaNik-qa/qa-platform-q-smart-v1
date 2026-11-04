@@ -10,14 +10,15 @@ const MODEL = () => CFG().model;
 const enabled = () => !!CFG().key;
 const costOf = (model, u) => { const p = PRICE[model] || PRICE['claude-opus-5-5'], i = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0); return (i * p[0] + (u.output_tokens || 0) * p[1]) / 1e6; };
 
-async function ask(system, content, max = 8000) {
-  const c = CFG();
+// opt.model: another model for this call (Quinn always uses Haiku); opt.info: filled with the tokens and the cost of the call
+async function ask(system, content, max = 8000, opt = {}) {
+  const c = CFG(), model = opt.model || c.model;
   if (!c.key) throw new Error('The AI is not connected. An admin can add the key in Admin › Integrations.');
   if (c.budget > 0 && c.used >= c.budget) throw new Error("This month's AI budget is used up. An admin can raise it in Admin › Integrations.");
   const r = await fetch((process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com') + '/v1/messages', {
     method: 'POST',
     headers: { 'x-api-key': c.key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({ model: c.model, max_tokens: max, system, messages: [{ role: 'user', content }] }),
+    body: JSON.stringify({ model, max_tokens: max, system, messages: [{ role: 'user', content }] }),
     signal: AbortSignal.timeout(180000)                                           // a request that hangs gives up after 3 minutes instead of waiting forever
   }).catch(e => { throw new Error(e.name === 'TimeoutError' ? 'The AI took too long to answer. Try again or use a shorter text.' : 'Could not reach the AI service'); });
   const j = await r.json().catch(() => null);
@@ -25,7 +26,7 @@ async function ask(system, content, max = 8000) {
   if (r.status === 401 || r.status === 403) throw new Error('The AI key was not accepted. Check it in Admin › Integrations.');
   if (r.status === 429 || r.status === 529) throw new Error('The AI service is busy right now. Try again in a minute.');
   if (!r.ok) throw new Error('The AI service answered with an error (' + r.status + '). Try again later.');
-  if (j && j.usage) USE(costOf(c.model, j.usage));                                  // counts towards this month's budget
+  if (j && j.usage) { const usd = costOf(model, j.usage); USE(usd); if (opt.info) Object.assign(opt.info, { in: j.usage.input_tokens || 0, out: j.usage.output_tokens || 0, usd }); }                                  // counts towards this month's budget
   if (j.stop_reason === 'refusal') throw new Error('The AI declined this request. Try a different text.');
   return (j.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
 }
