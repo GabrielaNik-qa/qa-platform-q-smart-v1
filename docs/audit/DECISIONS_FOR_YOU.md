@@ -1145,6 +1145,6 @@ Everything still open in this file and in REMAINING_ISSUES.md, in one place. Ans
 - **Google and Microsoft sign-in:** the two app registrations.
 - **Claude API key; ElevenLabs API key.**
 - **Voiso:** access to its reports, as an example for our reports.
-- **Patent attorney:** the description is in  (on your computer only, not in Git).
+- **Patent attorney:** the description is in the folder docs/patent (on your computer only, not in Git).
 - **A named Cloudflare tunnel on your own domain:** one address that does not change, needed by Stripe, Google and Microsoft.
 
