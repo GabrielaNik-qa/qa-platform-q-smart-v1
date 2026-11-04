@@ -54,10 +54,13 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     if (Array.isArray(b.bulk) && c !== 'surveys') return bad(res, 'Only survey answers can be imported as a list');
     const list = Array.isArray(b.bulk) ? b.bulk.slice(0, 3000) : [b];                // bulk = an imported list (surveys)
     if (JSON.stringify(list).length > 3e6) return bad(res, 'Too much data at once');
-    const out = list.map(x => ({ ...clean(x), id: c.slice(0, 1) + hex(5), by: u.username, byName: u.name, at: iso() }));
+    let out = list.map(x => ({ ...clean(x), id: c.slice(0, 1) + hex(5), by: u.username, byName: u.name, at: iso() }));
     const wrong = CHECK[c] && out.map(CHECK[c]).find(Boolean); if (wrong) return bad(res, wrong);
+    // decision 16 (4 November): a survey answer already there (same agent, date and lead) is not added again
+    const dupKey = x => [x.agent, x.date, x.lead || ''].join('|'), had = new Set(c === 'surveys' ? coll(db, c).map(dupKey) : []), before = out.length;
+    if (c === 'surveys' && Array.isArray(b.bulk)) out = out.filter(x => { const k = dupKey(x); if (had.has(k)) return false; had.add(k); return true; });
     out.forEach(x => { coll(db, c).unshift(x); after(db, c, x, u, true); });
-    save(db); res.json(Array.isArray(b.bulk) ? { added: out.length } : out[0]);
+    save(db); res.json(Array.isArray(b.bulk) ? { added: out.length, skipped: before - out.length } : out[0]);
   });
   app.put('/api/c/:col/:id', need(), known, (req, res) => {
     const c = req.params.col, u = req.session.user, db = load(), x = coll(db, c).find(r => r.id === req.params.id);
@@ -162,7 +165,9 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   };
   async function sendReport(db, r) {
     const owner = userBy(db, r.by); if (!owner || owner.active === false) return 0;   // the report of a person who left is not sent any more
-    const res = RPT.run(r.cfg || {}, reportData(db, owner)), to = String((r.schedule || {}).to || '').split(/[,;\s]+/).filter(x => /@/.test(x));
+    // decision 17 (4 November): only to the e-mail addresses of active accounts of the company
+    const mine = new Set(db.users.filter(x => x.active !== false && x.email).map(x => x.email.toLowerCase()));
+    const res = RPT.run(r.cfg || {}, reportData(db, owner)), to = String((r.schedule || {}).to || '').split(/[,;\s]+/).filter(x => /@/.test(x) && mine.has(x.toLowerCase()));
     if (!to.length) return 0;
     const html = RPT.toHtml(res, r.name) + `<p style="font-family:sans-serif;font-size:12px;color:#888">Sent by Q-smart · <a href="${BASE}">open the app</a></p>`;
     for (const t of to) await mail(t, 'Q-smart report: ' + r.name, `${r.name}\n${res.periodName} · ${res.n} records\nOpen ${BASE} to see the full report.`, 'report', { name: r.name, link: BASE }, html);
@@ -170,7 +175,7 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   }
   app.post('/api/c/reports/:id/send', need(...EDIT), async (req, res) => {
     const db = load(), u = req.session.user, r = coll(db, 'reports').find(x => x.id === req.params.id && (x.by === u.username || u.role === 'admin')); if (!r) return res.status(404).json({ error: 'not found' });
-    const n = await sendReport(db, r); if (!n) return bad(res, 'Add at least one e-mail address in "Send to"');
+    const n = await sendReport(db, r); if (!n) return bad(res, 'Add at least one e-mail address of a Q-smart account in "Send to"');
     markSent([r.id]); res.json({ sent: n });
   });
   // sending e-mails takes a while: the data is read again before saving, so changes other people made meanwhile are not overwritten

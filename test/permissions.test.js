@@ -229,3 +229,18 @@ test('beta features: only admins switch them; only yes / no values; the Help Cen
   assert.equal((await anon.get('/api/hc')).status, 404); assert.equal((await qa.get('/api/settings')).json.beta.hcsite, false);
   await a.put('/api/settings/x/beta', { value: {} }); assert.equal((await anon.get('/api/hc')).status, 200);
 });
+
+// Decisions 15 and 16 (4 November): a quiz shows the right answers only once passed, with 3 tries; a CSAT answer imported twice counts once
+test('quizzes: 3 tries and the answers only after passing; CSAT: the same answer imported twice counts once', async () => {
+  const tr1 = await client(app.base, 'f.tr1'), b2 = await client(app.base, 'f.b2'), qa = await client(app.base, 'f.qa1');
+  const q = (await tr1.post('/api/quizzes', { title: 'Greeting', status: 'published', assign: { all: true }, pass: 100, questions: [{ q: 'First words?', opts: ['Hello', 'Bye'], a: 0 }] })).json;
+  assert.equal(q.tries, 3);
+  const wrong = await b2.post('/api/quizzes/' + q.id + '/attempt', { answers: [1] });
+  assert.equal(wrong.json.passed, false); assert.equal(wrong.json.results[0].a, undefined, 'no right answer shown before passing'); assert.equal(wrong.json.left, 2);
+  await b2.post('/api/quizzes/' + q.id + '/attempt', { answers: [1] }); await b2.post('/api/quizzes/' + q.id + '/attempt', { answers: [1] });
+  assert.equal((await b2.post('/api/quizzes/' + q.id + '/attempt', { answers: [0] })).status, 403, 'no fourth try');
+  const ok = await (await client(app.base, 'f.b3')).post('/api/quizzes/' + q.id + '/attempt', { answers: [0] }); assert.equal(ok.json.results[0].a, 0, 'the answers once passed');
+  const row = { agent: 'f.b1', date: '2026-11-02', score: 4, lead: 'CS-1' };
+  assert.equal((await qa.post('/api/c/surveys', { bulk: [row, { ...row, lead: 'CS-2' }] })).json.added, 2);
+  assert.deepEqual((await qa.post('/api/c/surveys', { bulk: [row, { ...row, lead: 'CS-3' }] })).json, { added: 1, skipped: 1 });
+});

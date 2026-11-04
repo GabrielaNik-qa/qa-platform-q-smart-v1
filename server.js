@@ -112,7 +112,7 @@ const recent = (key, ms) => (hits[key] || []).filter(t => Date.now() - t < ms).l
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 const pwBad = p => {
   p = String(p || '');
-  const min = Math.max(6, ((load().settings || {}).signin || {}).pwMin || 6);   // Admin › Organization › Sign-in can ask for longer passwords
+  const min = Math.max(6, ((load().settings || {}).signin || {}).pwMin || 10);   // Admin › Organization › Sign-in; 10 characters unless an admin chose another length (decision 11, 4 November)
   if (p.length < min) return 'The password must be at least ' + min + ' characters';
   if (!/[a-z]/.test(p) || !/[A-Z]/.test(p)) return 'Use both uppercase and lowercase letters';
   if (!/\d/.test(p)) return 'Include at least one number';
@@ -391,7 +391,7 @@ app.put('/api/shared-views', need('admin', 'qa'), (req, res) => {
 // the sign-in page shows the company name and its privacy note before anyone signs in (nothing else)
 // a health check for a monitor or the hosting: is the app up and can it read its data? (no details, nothing private)
 app.get('/api/health', (req, res) => { try { fs.accessSync(FILE, fs.constants.R_OK | fs.constants.W_OK); res.json({ ok: true, up: Math.round(process.uptime()) }); } catch (e) { res.status(503).json({ ok: false }); } });
-app.get('/api/notice', (req, res) => { const s = load().settings || {}; res.json({ company: ((s.org || {}).name) || '', note: ((s.privacy || {}).note) || '' }); });
+app.get('/api/notice', (req, res) => { const s = load().settings || {}; res.json({ company: ((s.org || {}).name) || '', note: ((s.privacy || {}).note) || '', signup: ((s.signin || {}).openReg) === true }); });
 app.get('/api/settings', need(), (req, res) => res.json(setOut(load(), req.session.user)));
 app.put('/api/settings', need('admin'), (req, res) => {
   const b = req.body || {}, db = load(), pass = Number(b.pass);

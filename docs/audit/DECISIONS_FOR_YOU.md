@@ -1158,4 +1158,5 @@ Everything still open in this file and in REMAINING_ISSUES.md, in one place. Ans
 7. Time zones: **each person their own**, with shifts in local time.
 8. Filters and Columns on Users, Disputes, Quick Flags, Teams and Tasks: **yes**.
 9. The Kainami recording test is dropped. Question answered in the chat: transcripts can come from the dialer, or from a free model on our own server (Whisper), and AutoQA scores them with rules, without AI.
-10-19: still open.
+10-19: **as recommended** (your answer: "I like all your suggestions"). Done on 4 November: 11 (10 characters by default; two-step sign-in still to build), 12 (invitation only; an admin can open registration in Admin › Organization › Sign-in), 15 (3 tries, answers after passing), 16 (CSAT duplicates), 17 (report e-mails only to accounts), 18 and 19 (nothing to change). Still to build: 10 (invitation links), 11 two-step sign-in, 14 (scoring rules). **13 (seed.js) waits for your OK**, because your rule says I never change seed.js.
+- **Transcripts** (your OK, 4 November): keep the review, its scores and short quotes as proof; keep a link to the call in the dialer; delete the transcript itself after a number of days set per company. *(To build.)*

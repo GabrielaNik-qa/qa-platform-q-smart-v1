@@ -167,6 +167,10 @@ test('action items of a coaching session become tasks once (saving again does no
 
 // ---------------------------------------------------------------- people, teams, registration
 test('registration: the request waits for an admin; after approval the person signs in and must choose a password', async () => {
+  // decision 12 (4 November): by invitation only, until an admin opens registration
+  const closed = await fetch(BASE + '/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.66.250.9' }, body: JSON.stringify({ firstName: 'No', lastName: 'Body', email: 'nobody@example.com' }) });
+  assert.equal(closed.status, 403, 'closed by default');
+  assert.equal((await (await as('t.admin')).put('/api/org', { signin: { openReg: true, pwMin: 10, lockAfter: 10 } })).status, 200);
   const reg = await fetch(BASE + '/api/register', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.66.250.1' }, body: JSON.stringify({ firstName: 'Nina', lastName: "O'Neil", email: 'nina@test.com' }) });
   assert.equal(reg.status, 200);
   assert.equal((await as('n.oneil')).login.status, 403, 'pending');

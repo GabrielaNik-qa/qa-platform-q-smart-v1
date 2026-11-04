@@ -107,7 +107,7 @@ test('quick flags, tasks, coaching sessions and simulations of another workspace
 
 test('a scheduled report can only be sent by its owner (or an admin), and only contains the owner\'s workspace', async () => {
   const la = await as('l.alpha');
-  const rep = (await la.post('/api/c/reports', { name: 'Alpha weekly', cfg: { src: 'reviews', metrics: ['count'], period: { p: 'all' } }, schedule: { freq: 'none', to: 'alpha@example.com' } })).json;
+  const rep = (await la.post('/api/c/reports', { name: 'Alpha weekly', cfg: { src: 'reviews', metrics: ['count'], period: { p: 'all' } }, schedule: { freq: 'none', to: 'l.alpha@test.com, outside@example.com' } })).json;   // only the account's address receives it (decision 17)
   assert.equal((await (await as('l.beta')).post('/api/c/reports/' + rep.id + '/send')).status, 404, 'another team lead cannot trigger it');
   OUT = '';
   assert.equal((await la.post('/api/c/reports/' + rep.id + '/send')).status, 200);
@@ -225,7 +225,7 @@ test('page names of layouts and views must be simple names, and there are not en
 test('changing your password signs out your other sessions (the current one stays signed in)', async () => {
   const a = await as('p.change'), b = await as('p.change');
   assert.equal((await b.get('/api/me')).status, 200);
-  assert.equal((await a.post('/api/password', { current: 'password', next: 'New#Pass1' })).status, 200);
+  assert.equal((await a.post('/api/password', { current: 'password', next: 'New#Pass12345' })).status, 200);
   assert.equal((await a.get('/api/me')).status, 200, 'the session that changed it stays');
   assert.equal((await b.get('/api/me')).status, 401, 'the other session is ended');
 });

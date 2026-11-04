@@ -92,6 +92,7 @@ module.exports = ({ ADMIN_TEAM, BASE, DAY, DEFAULT_PASSWORD, DUMMY, LANGS, PREF_
   app.post('/api/register', (req, res) => {
     if (limited('reg:' + req.ip, 6, 36e5)) return res.status(429).json({ error: 'Too many registrations from this connection. Try again later.' });
     const b = req.body || {}, db = load();
+    if (((db.settings || {}).signin || {}).openReg !== true) return res.status(403).json({ error: 'Accounts are by invitation only. Ask your admin for an account.' });   // decision 12, 4 November
     const first = str(b.firstName, 40), last = str(b.lastName, 40), email = str(b.email, 120).toLowerCase();
     if (!first) return bad(res, 'Enter your first name');
     if (!last) return bad(res, 'Enter your last name');

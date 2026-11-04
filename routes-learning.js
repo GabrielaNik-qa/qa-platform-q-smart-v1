@@ -149,7 +149,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
     const as = b.assign || {};
     return { title, desc: str(b.desc, 400), kind: ['weekly', 'monthly', 'category', 'custom'].includes(b.kind) ? b.kind : 'custom', topics: list(b.topics, 10, 40), articles: list(b.articles, 30, 40),
       pass: Math.min(100, Math.max(1, parseInt(b.pass) || 80)), due: DAY.test(b.due || '') ? b.due : '', assign: { all: !!as.all, teams: list(as.teams, 20, 40).filter(t => db.teams.some(x => x.id === t)), users: list(as.users, 60, 40).filter(x => userBy(db, x)) },
-      status: b.status === 'published' ? 'published' : 'draft', questions };
+      status: b.status === 'published' ? 'published' : 'draft', questions, tries: Math.max(1, Math.min(20, parseInt(b.tries) || 3)) };   // tries: how many attempts an agent has (decision 15)
   };
   const notifyQuiz = (db, q) => db.users.forEach(u => { if (u.role === 'agent' && quizAssigned(q, u)) notify(db, u.username, 'quiz', `New quiz: ${q.title}${q.due ? ' (due ' + q.due + ')' : ''}`, { quiz: q.id }); });
   app.get('/api/quizzes', need(), (req, res) => {
@@ -170,9 +170,12 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, notify, use
   app.post('/api/quizzes/:id/attempt', need(), (req, res) => {
     const db = load(), u = req.session.user, q = db.quizzes.find(x => x.id === req.params.id);
     if (!q || !(isEd(u) || quizAssigned(q, userBy(db, u.username)))) return res.status(404).json({ error: 'not found' });
+    // decision 15 (4 November): at most 3 tries unless the quiz says otherwise, and the right answers only once passed
+    const mine = db.attempts.filter(a => a.user === u.username && a.qid === q.id), tries = Math.max(1, Math.min(20, parseInt(q.tries) || 3));
+    if (!isEd(u) && !mine.some(a => a.passed) && mine.length >= tries) return res.status(403).json({ error: 'You have used all your tries for this quiz. Ask your trainer.' });
     const g = grade(q.questions, (req.body || {}).answers), passed = g.score >= q.pass;
     if (!isEd(u)) db.attempts.push({ id: 't' + hex(5), user: u.username, qid: q.id, score: g.score, passed, at: iso() });   // trying it out as an editor is not recorded
-    save(db); res.json({ score: g.score, passed, pass: q.pass, results: g.results });
+    save(db); res.json({ score: g.score, passed, pass: q.pass, left: isEd(u) ? null : Math.max(0, tries - mine.length - 1), results: passed || isEd(u) ? g.results : g.results.map(r => ({ ok: r.ok })) });
   });
 
   // ---------------------------------------------------------------- who has read / passed what (for trainers and managers)
