@@ -77,13 +77,32 @@ const moveUser = (un, team) => { const u = ROSTER.find(x => x.username === un); 
   };
   ask('Move ' + u.name + '?', `${u.name} moves from ${tn(u.team)} to ${tn(team)}. Their earlier reviews stay on record, and the statistics of both teams are recalculated with the new members.`, () => go(team, true), { yes: 'Yes, move', no: 'Cancel', onNo: render, id: 'confirm.move-user' }); };
 const teamActions = t => `<div style="display:flex;gap:8px"><button class="ib ibx" onclick="editTeam('${t.id}')">${IC.pen} Edit</button>${t.system ? '' : `<button class="ib ibx" onclick="delTeam('${t.id}')">${IC.bin} Delete</button>`}</div>`;
+// the Teams table (4 November): filters and the columns each person chooses, like Reviews
+const teamList = (q = (UF.tq || '').toLowerCase()) => TEAMS.filter(t => (!q || t.name.toLowerCase().includes(q)) && (!UF.tw || WSP.some(w => w.id === UF.tw && w.teams.includes(t.id))) && (!UF.tl || (t.languages || []).includes(UF.tl)) && (!UF.ts || (t.skills || []).includes(UF.ts)));
+const TCOLS = [
+  { k: 'team', t: 'Team', lock: true, td: t => `<span style="color:${t.color}">●</span> <b>${esc(t.name)}</b>${t.system ? ' ' + pill('built in', 'ac') : ''}<br><small class=mu>${esc(t.desc || '')}</small>` },
+  { k: 'lead', t: 'Team lead', td: t => esc(leadName(t.id)) },
+  { k: 'ag', t: 'Agents', td: t => ROSTER.filter(r => r.active && r.team === t.id && r.role === 'agent').length },
+  { k: 'ppl', t: 'People', td: t => ROSTER.filter(r => r.active && r.team === t.id).length },
+  { k: 'lang', t: 'Languages', td: t => chips(t.languages) },
+  { k: 'skills', t: 'Skills', td: t => chips(t.skills) },
+  { k: 'ws', t: 'Workspace', td: t => esc(wsOf(t.id)) },
+  { k: 'pass', t: 'Pass target', td: t => PT(t.id) + '%' },
+  { k: 'region', t: 'Region', off: true, td: t => esc(t.region || '—') },
+  { k: 'hours', t: 'Hours', off: true, td: t => esc(t.hours || '—') },
+  { k: 'chan', t: 'Channels', off: true, td: t => chips(t.channels) },
+  { k: 'act', t: '', lock: true, r: true, td: t => teamActions(t) }];
+txReg('teams', { cols: TCOLS, rows: () => teamList(), count: () => teamList().length, clear: () => { Object.assign(UF, { tw: '', tl: '', ts: '' }); },
+  filters: () => [{ k: 'tw', n: 'Workspace', v: UF.tw || '', o: () => WSP.map(w => [w.id, w.name]), set: v => { UF.tw = v; } },
+    { k: 'tl', n: 'Language', v: UF.tl || '', o: () => SKL.languages.map(s => [s, s]), set: v => { UF.tl = v; } },
+    { k: 'ts', n: 'Skill', v: UF.ts || '', o: () => SKL.skills.map(s => [s, s]), set: v => { UF.ts = v; } }] });
 PG.teams = function () {
   const head2 = head('Teams', 'Every team has a team lead and a workspace. Administration holds all admins, QA, team leads and trainers.', `<div style="display:flex;gap:8px;flex-wrap:wrap">${vwBtn('teams')}<button class=btn onclick="newTeam()">+ New team</button></div>`);
-  const q = (UF.tq || '').toLowerCase(), TL = TEAMS.filter(t => !q || t.name.toLowerCase().includes(q));
-  const srch = `<div class=row style="margin-bottom:12px;justify-content:flex-start"><div class=sx style="width:260px"><span>${IC.search}</span><input placeholder="${esc(tr('Search teams…'))}" value="${esc(UF.tq || '')}" oninput="UF.tq=this.value;clearTimeout(UF.tt);UF.tt=setTimeout(()=>{render();const i=$('.sx input');if(i){i.focus();i.setSelectionRange(99,99)}},250)"></div><small class=mu>${TL.length} ${tr('teams')} · ${ROSTER.filter(r => r.active).length} ${tr('people')}</small></div>`;
-  if (vw('teams') === 'table') return head2 + srch + card('', tbl(['Team', 'Team lead', 'Agents', 'People', 'Languages', 'Skills', 'Workspace', 'Pass target', ''], TL.map(t => [`<span style="color:${t.color}">●</span> <b>${esc(t.name)}</b>${t.system ? ' ' + pill('built in', 'ac') : ''}<br><small class=mu>${esc(t.desc || '')}</small>`, esc(leadName(t.id)), ROSTER.filter(r => r.active && r.team === t.id && r.role === 'agent').length, ROSTER.filter(r => r.active && r.team === t.id).length, chips(t.languages), chips(t.skills), esc(wsOf(t.id)), PT(t.id) + '%', teamActions(t)])));
+  const q = (UF.tq || '').toLowerCase(), TL = teamList(q);
+  const srch = `<div class=row style="margin-bottom:12px;justify-content:flex-start"><div class=sx style="width:260px"><span>${IC.search}</span><input placeholder="${esc(tr('Search teams…'))}" value="${esc(UF.tq || '')}" oninput="UF.tq=this.value;clearTimeout(UF.tt);UF.tt=setTimeout(()=>{render();const i=$('.sx input');if(i){i.focus();i.setSelectionRange(99,99)}},250)"></div><small class=mu>${TL.length} ${tr('teams')} · ${ROSTER.filter(r => r.active).length} ${tr('people')}</small></div>`, srch2 = card('', txTools('teams', srch.replace('margin-bottom:12px;', 'margin:0;')));
+  if (vw('teams') === 'table') return head2 + srch2 + card('', txTbl('teams', TL, ''));
   if (GOTM) { const id = GOTM; GOTM = ''; setTimeout(() => { const c = $('.tm-' + id); if (c) { c.scrollIntoView({ behavior: 'smooth', block: 'center' }); c.classList.add('hl'); setTimeout(() => c.classList.remove('hl'), 2200); } }, 60); }
-  return head2 + srch + `<div class="g g2">${TL.map(t => { const mem = ROSTER.filter(r => r.active && r.team === t.id);
+  return head2 + srch2 + `<div class="g g2">${TL.map(t => { const mem = ROSTER.filter(r => r.active && r.team === t.id);
     return card(`<span style="color:${t.color}">●</span> ${esc(t.name)} ${t.system ? pill('built in', 'ac') : ''} <span class=bg title="${esc(tr('people'))}">${mem.length}</span>`, `<p class=mu style="margin:0 0 10px">${esc(t.desc || '')}</p><div class=row style="flex-wrap:wrap;gap:6px;font-size:13px"><span>Team lead: <b>${esc(leadName(t.id))}</b></span><span>${mem.filter(m => m.role === 'agent').length} agents · pass target ${PT(t.id)}%</span></div>`
       + `<div style="margin:10px 0;font-size:13px"><b>Workspace</b> ${esc(wsOf(t.id))}<br><b>Languages</b> ${chips(t.languages)}<br><b>Skills</b> ${chips(t.skills)}<br><b>Region</b> ${esc(t.region || '—')} · <b>Hours</b> ${esc(t.hours || '—')} · <b>Channels</b> ${chips(t.channels)}${t.notes ? `<br><small class=mu>${esc(t.notes)}</small>` : ''}</div>`
       + `<b style="font-size:13px">Members</b>${mem.map(m => `<div class="row li" style="font-size:13px"><span>${esc(m.name)} <small class=mu>${ROLE[m.role]}</small></span>${m.role === 'agent' ? `<select style="width:auto;padding:4px" onchange="moveUser('${esc(m.username)}',this.value)" title="Move to another team">${teamOpts().map(([a, b]) => `<option value="${a}" ${a === t.id ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>` : ''}</div>`).join('') || '<p class=mu style="margin:6px 0">No members yet</p>'}`
@@ -137,9 +156,31 @@ const regDecline = id => ask('Decline this registration?', 'The person will rece
 const userList = () => { const q = UF.q.toLowerCase(); return USR.filter(u => (!UF.team || u.team === UF.team) && (!UF.role || u.role === UF.role) && (UF.st === '' || (UF.st === 'active' ? u.active !== false : u.active === false)) && (!UF.sk || (u.skills || []).includes(UF.sk)) && (!UF.lg || (u.languages || []).includes(UF.lg)) && (!q || (u.name + ' ' + u.username + ' ' + (u.email || '')).toLowerCase().includes(q))); };
 const userAct = u => `<span style="white-space:nowrap"><button class=ic onclick="editUser('${esc(u.username)}')" title="Edit">${IC.pen}</button><button class=ic onclick="resetPw('${esc(u.username)}')" title="Reset password to &quot;password&quot;">${IC.gear}</button><button class=ic onclick="toggleUser('${esc(u.username)}')" title="${u.active === false ? 'Activate' : 'Deactivate'}">${u.active === false ? IC.play : IC.x}</button><button class=ic onclick="delUser('${esc(u.username)}')" title="Delete">${IC.bin}</button></span>`;
 const stPill = u => u.active === false ? pill('Inactive', 'bad') : u.mustChange ? pill('Must change password', 'wn') : pill('Active', 'ok');
+// the columns and the filters of the Users table (4 November), like Reviews
+const UCOLS = [
+  { k: 'name', t: 'Name', lock: true, td: u => `<a href="javascript:void(0)" class=uname onclick="editUser('${esc(u.username)}')"><span class=av style="background:${tcol(u.team)}">${esc(ini(u.name))}</span><span><b>${esc(u.name)}</b><br><small class=mu>${esc([tn(u.team), u.title].filter(Boolean).join(' · '))}</small></span></a>` },
+  { k: 'role', t: 'Role', td: u => `<span title="${esc(tr(ROLEHELP[u.role] || ''))}">${pill(ROLE[u.role] || u.role, 'ac')}</span>` },
+  { k: 'team', t: 'Team', off: true, td: u => esc(tn(u.team)) },
+  { k: 'lead', t: 'Team lead', td: u => esc(leadName(u.team)) },
+  { k: 'email', t: 'Email', off: true, td: u => esc(u.email || '') },
+  { k: 'title', t: 'Job title', off: true, td: u => esc(u.title || '') },
+  { k: 'emp', t: 'Employment', td: u => empCell(u) },
+  { k: 'st', t: 'Status', td: u => stPill(u) },
+  { k: 'last', t: 'Last sign-in', td: u => lastIn(u) },
+  { k: 'lang', t: 'Languages', off: true, td: u => chips(u.languages) },
+  { k: 'skills', t: 'Skills', off: true, td: u => chips(u.skills) },
+  { k: 'phone', t: 'Phone', off: true, td: u => esc(u.phone || '') },
+  { k: 'start', t: 'Start date', off: true, td: u => esc(u.start || '') },
+  { k: 'act', t: '', lock: true, r: true, td: u => userAct(u) }];
+txReg('users', { cols: UCOLS, rows: () => userList(), count: () => userList().length, clear: () => { Object.assign(UF, { team: '', role: '', st: '', sk: '', lg: '' }); },
+  filters: () => [{ k: 'team', n: 'Team', v: UF.team, o: () => TEAMS.map(t => [t.id, t.name]), set: v => { UF.team = v; } },
+    { k: 'role', n: 'Role', v: UF.role, o: () => Object.entries(ROLE), set: v => { UF.role = v; } },
+    { k: 'st', n: 'Status', v: UF.st, o: () => [['active', 'Active'], ['inactive', 'Inactive']], set: v => { UF.st = v; } },
+    { k: 'sk', n: 'Skill', v: UF.sk, o: () => SKL.skills.map(s => [s, s]), set: v => { UF.sk = v; } },
+    { k: 'lg', n: 'Language', v: UF.lg, o: () => SKL.languages.map(s => [s, s]), set: v => { UF.lg = v; } }] });
 const UT = l => vw('users') === 'boxes'
   ? `<div class=bxg>${l.map(u => `<div class=bx><div class=row><span style="display:flex;gap:10px;align-items:center"><span class=av style="margin:0">${esc(ini(u.name))}</span><span><b>${esc(u.name)}</b><br><small class=mu>${esc(u.title || ROLE[u.role])}</small></span></span>${stPill(u)}</div><small class=mu>${esc(u.email || u.username)}</small><div>${pill(ROLE[u.role] || u.role, 'ac')} <span class=tg style="color:${tcol(u.team)}">${esc(tn(u.team))}</span></div><small class=mu>Team lead: ${esc(leadName(u.team))}</small><div>${chips(u.languages)}</div><div>${chips(u.skills)}</div>${userAct(u)}</div>`).join('') || '<p class=mu>No users match</p>'}</div>`
-  : card(`${l.length} user${l.length === 1 ? '' : 's'}`, tbl(['Name', 'Role', 'Team lead', 'Employment', 'Status', 'Last sign-in', ''], l.map(u => [`<a href="javascript:void(0)" class=uname onclick="editUser('${esc(u.username)}')"><span class=av style="background:${tcol(u.team)}">${esc(ini(u.name))}</span><span><b>${esc(u.name)}</b><br><small class=mu>${esc([tn(u.team), u.title].filter(Boolean).join(' · '))}</small></span></a>`, `<span title="${esc(tr(ROLEHELP[u.role] || ''))}">${pill(ROLE[u.role] || u.role, 'ac')}</span>`, esc(leadName(u.team)), empCell(u), stPill(u), lastIn(u), userAct(u)])));
+  : card(`${l.length} user${l.length === 1 ? '' : 's'}`, txTbl('users', l));
 // the role and what it may see, under the role of the user form
 const roleGuide = r => `<div class=rguide>${Object.entries(ROLE).map(([k, n]) => `<div class="${k === r ? 'on' : ''}"><b>${esc(n)}</b><small>${tr(ROLEHELP[k] || '')}</small></div>`).join('')}</div>`;
 // import people from a list (Excel or CSV): first name, last name, email, role, team
@@ -153,7 +194,7 @@ PG.users = function () {
   if (ME.role !== 'admin') return head('Users', 'People and access') + card('', '<p class=mu>Only admins can see this page.</p>');
   return head('Users', 'Add, rename, move and remove people. Everybody belongs to a team.', `<div style="display:flex;gap:8px;flex-wrap:wrap">${vwBtn('users')}<button class="ib ibx" onclick="userImport()">${IC.up} ${tr('Import')}</button><button class=btn onclick="addUser()">+ Add user</button></div>`)
     + (REG.length ? card(`Pending registrations <span class=bg>${REG.length}</span>`, REG.map(r => `<div class="row li" style="flex-wrap:wrap;gap:10px"><div><b>${esc(r.name)}</b> <small>@${esc(r.username)} · ${esc(r.email)} · ${fdt(r.at)}</small></div><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select id=rr${r.id}>${Object.entries(ROLE).map(([k, v]) => `<option value=${k} ${k === 'agent' ? 'selected' : ''}>${v}</option>`).join('')}</select><select id=rt${r.id}>${teamOpts('— team (agents) —').map(([a, b]) => `<option value="${a}">${esc(b)}</option>`).join('')}</select><button class=btn onclick="regApprove('${r.id}')">Approve</button><button class=ib onclick="regDecline('${r.id}')">Decline</button></div></div>`).join('')) : '')
-    + card('', `<div class=row style="gap:10px;flex-wrap:wrap"><input style="flex:1;min-width:200px" placeholder="Search name, username or email…" value="${esc(UF.q)}" oninput="UF.q=this.value;ul()"><select onchange="UF.team=this.value;render()"><option value="">All teams</option>${TEAMS.map(t => `<option value="${t.id}" ${UF.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select><select onchange="UF.role=this.value;render()"><option value="">All roles</option>${Object.entries(ROLE).map(([k, v]) => `<option value=${k} ${UF.role === k ? 'selected' : ''}>${v}</option>`).join('')}</select><select onchange="UF.sk=this.value;render()"><option value="">All skills</option>${SKL.skills.map(s => `<option ${UF.sk === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select><select onchange="UF.lg=this.value;render()"><option value="">All languages</option>${SKL.languages.map(s => `<option ${UF.lg === s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select><select onchange="UF.st=this.value;render()"><option value="active" ${UF.st === 'active' ? 'selected' : ''}>Active</option><option value="inactive" ${UF.st === 'inactive' ? 'selected' : ''}>Inactive</option><option value="" ${UF.st === '' ? 'selected' : ''}>All</option></select></div>`)
+    + card('', txTools('users', `<input style="flex:1;min-width:200px" placeholder="Search name, username or email…" value="${esc(UF.q)}" oninput="UF.q=this.value;ul()">`))
     + `<div id=ut>${UT(userList())}</div>`;
 };
 const ul = () => { const e = $('#ut'); if (e) { e.innerHTML = UT(userList()); enhance(); } };

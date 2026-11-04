@@ -142,15 +142,31 @@ function tkMy() {
 }
 // the status filter: all, to do, active (in progress or in review), done, overdue (late and not done)
 const tkStOk = (t, st = TV.st) => st === 'all' || (st === 'active' ? t.status === 'doing' || t.status === 'review' : st === 'overdue' ? isOver(t) : t.status === st);
+// the columns of the task list (4 November); "For" only for those who give tasks
+const TKSTN = { todo: 'To Do', doing: 'In Progress', review: 'In review', done: 'Done' };
+txReg('tasks', { rows: () => tkBase().filter(t => !t.archived && tkStOk(t)).sort(tkOrder), count: () => 0, filters: () => [], clear: () => {},
+  get cols() { return [
+    { k: 'task', t: 'TASK', lock: true, td: t => `<i class=tkdot style="background:${(TPRI[t.priority] || TPRI.med)[1]}"></i> <b>${esc(t.title)}</b>${t.pinned ? ` <span style="color:var(--ac)">${TIC.pin}</span>` : ''}` },
+    ...(canEditWork() ? [{ k: 'for', t: 'FOR', td: t => `<span style="white-space:nowrap">${tkAv(t.assignee, 22)} ${esc(an(t.assignee) || t.assignee)}</span>` }] : []),
+    { k: 'st', t: 'STATUS', td: t => TKSTN[t.status] || esc(t.status) },
+    { k: 'pr', t: 'PRIORITY', td: t => { const [pn, pc] = TPRI[t.priority] || TPRI.med; return `<span class=tkch style="--c:${pc}">${pn}</span>`; } },
+    { k: 'due', t: 'DUE', td: t => `<span style="white-space:nowrap">${t.due ? (isOver(t) ? `<b style="color:var(--bad)">${t.due}</b>` : t.due) : '—'}</span>` },
+    { k: 'pg', t: 'PROGRESS', td: t => { const cl = tkItems(t.checklist), dn = cl.filter(c => c.done).length; return cl.length ? `<div class=sv><b class=mono>${dn}/${cl.length}</b>${bar(dn / cl.length * 100, dn === cl.length ? 'var(--ok)' : 'var(--ac)')}</div>` : '—'; } },
+    { k: 'cat', t: 'CATEGORY', off: true, td: t => esc(t.category || '—') },
+    { k: 'lb', t: 'LABELS', off: true, td: t => chips(t.labels || []) },
+    { k: 'start', t: 'START', off: true, td: t => esc(t.start || '—') },
+    { k: 'by', t: 'GIVEN BY', off: true, td: t => esc(an(t.by) || t.by || '') },
+    { k: 'ty', t: 'TYPE', off: true, td: t => t.type === 'mission' ? tr('Target') : tr('Task') },
+    { k: 'xp', t: 'XP', off: true, td: t => t.points || '—' },
+    { k: 'rv', t: 'NEEDS REVIEW', off: true, td: t => t.rev ? tr('Yes') : '—' }]; } });
 function tkBoard() {
   const base = tkBase();
   if (TV.st === 'archive') { const l = base.filter(t => t.archived).sort((a, b) => String(b.archived).localeCompare(String(a.archived))); return l.length ? `<div class=tkarc>${l.slice(0, 60).map(tkCard).join('')}</div>${l.length > 60 ? `<small class=mu>Showing the 60 most recent of ${l.length}</small>` : ''}` : '<div class=agem>The archive is empty</div>'; }
   const act = base.filter(t => !t.archived);
   if (TV.view === 'time') return tkTime(act.filter(t => tkStOk(t)));
   if (TKVM === 'list') {
-    const l = act.filter(t => tkStOk(t)).sort(tkOrder), ed = canEditWork(), stn = { todo: 'To Do', doing: 'In Progress', review: 'In review', done: 'Done' };
-    return l.length ? `<div class=card style="padding:0"><div class=sc><table class=ct><tr><th>TASK</th>${ed ? '<th>FOR</th>' : ''}<th>STATUS</th><th>PRIORITY</th><th>DUE</th><th>PROGRESS</th></tr>${l.map(t => { const cl = tkItems(t.checklist), dn = cl.filter(c => c.done).length, [pn, pc] = TPRI[t.priority] || TPRI.med;
-      return `<tr class=clk onclick="TKV='${t.id}';render()"><td><i class=tkdot style="background:${pc}"></i> <b>${esc(t.title)}</b>${t.pinned ? ` <span style="color:var(--ac)">${TIC.pin}</span>` : ''}</td>${ed ? `<td style="white-space:nowrap">${tkAv(t.assignee, 22)} ${esc(an(t.assignee) || t.assignee)}</td>` : ''}<td>${stn[t.status] || esc(t.status)}</td><td><span class=tkch style="--c:${pc}">${pn}</span></td><td style="white-space:nowrap">${t.due ? (isOver(t) ? `<b style="color:var(--bad)">${t.due}</b>` : t.due) : '—'}</td><td>${cl.length ? `<div class=sv><b class=mono>${dn}/${cl.length}</b>${bar(dn / cl.length * 100, dn === cl.length ? 'var(--ok)' : 'var(--ac)')}</div>` : '—'}</td></tr>`; }).join('')}</table></div></div>` : '<div class=agem>No tasks here</div>';
+    const l = act.filter(t => tkStOk(t)).sort(tkOrder);
+    return l.length ? `<div class=card style="padding:12px 0 0">${txBtns('tasks').replace('margin-bottom:8px', 'margin:0 12px 8px')}${txTbl('tasks', l, 'ct', t => `class=clk onclick="TKV='${t.id}';render()"`)}</div>` : '<div class=agem>No tasks here</div>';
   }
   const cols = [['todo', 'To Do', 'var(--mu)', 'Nothing to do'], ['doing', 'In Progress', 'var(--wn)', 'Nothing in progress'], ['review', 'In review', 'var(--ac)', 'Nothing waits for a check'], ['done', 'Done', 'var(--ok)', 'No completed tasks']].filter(([k]) => TV.st === 'all' || TV.st === k || (TV.st === 'active' && (k === 'doing' || k === 'review')) || (TV.st === 'overdue' && k !== 'done'));
   return `<div class=tkkan style="grid-template-columns:repeat(${cols.length},minmax(230px,1fr))">${cols.map(([k, n, c, em]) => { let x = act.filter(t => t.status === k && (TV.st !== 'overdue' || isOver(t))); const total = x.length;

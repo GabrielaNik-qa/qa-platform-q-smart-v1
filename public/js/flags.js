@@ -24,7 +24,7 @@ const agCell = (u, name) => `<span class=av>${esc(ini(name))}</span>${ME.role ==
 // one row per call: every reviewed call, plus calls that only have a quick flag (matched on lead ID + agent)
 function qfRows() {
   const m = new Map(), key = (l, a) => String(l).trim().toLowerCase() + '|' + a;
-  EV.forEach(e => m.set(key(e.id, e.agent), { lead: e.id, agent: e.agent, tm: e.tm, d: e.d, cp: cpn(e), ch: chOf(e), ev: e, qf: [] }));
+  EVA.forEach(e => m.set(key(e.id, e.agent), { lead: e.id, agent: e.agent, tm: e.tm, d: e.d, cp: cpn(e), ch: chOf(e), ev: e, qf: [] }));
   QF.forEach(f => { const k = key(f.lead, f.agent); let r = m.get(k); if (!r) { r = { lead: f.lead, agent: f.agent, tm: teamOf(f.agent) || f.tid, d: new Date(f.date + 'T12:00:00'), cp: f.date + ' ' + (f.cp || 'general'), ch: f.ch || 'call', ev: null, qf: [] }; m.set(k, r); } r.qf.push(f); });
   return [...m.values()].map(r => ({ ...r, red: (r.ev && r.ev.fl === 'red') || r.qf.some(f => f.type === 'red'), green: (r.ev && r.ev.fl === 'green') || r.qf.some(f => f.type === 'green') }));
 }
@@ -33,14 +33,22 @@ const XFF = { all: () => true, flagged: r => r.red || r.green, red: r => r.red, 
 const XL = () => xfBase().filter(XFF[XF.ff]);
 const xfSet = (k, v, soft) => { fSet(XF, k, v); if (soft) xfRt(); else render(); };
 const xfKpis = b => { const fl = b.filter(XFF.flagged); return `<div class=fkp>${kpiF('Total Flagged', fl.length, 'var(--tx)', `<span style="color:var(--mu)">${IC.flag}</span>`, "xfSet('ff','flagged')", XF.ff === 'flagged')}${kpiF('Red Flags', b.filter(r => r.red).length, 'var(--bad)', FLG('red'), "xfSet('ff','red')", XF.ff === 'red')}${kpiF('Green Flags', b.filter(r => r.green).length, 'var(--ok)', FLG('green'), "xfSet('ff','green')", XF.ff === 'green')}</div>`; };
+const qfBadges = r => [...(r.ev && r.ev.fl ? [`<span class="qfb ${r.ev.fl}" title="Flag given in the QA review">${IC.flag} QA ${r.ev.fl === 'red' ? 'Red' : 'Green'}</span>`] : []), ...r.qf.map(f => `<span class="qfb ${f.type} clk" onclick="qfEdit('${f.id}')" title="${esc((f.cm || 'No comment') + ' — by ' + (f.byName || f.by) + ', ' + f.date)}">${IC.flag} ${f.type === 'red' ? 'Red' : 'Green'}</span>`)].join('') || '<span class=mu>—</span>';
+// a score cell: the score, or "Not scored" when every question was N/A (decision 14)
+const evSc = (e, tm) => e.ns ? `<small class=mu>${tr('Not scored')}</small>` : `<b class=mono style="color:${scol(e.sc, tm)}">${Math.round(e.sc)}%</b>`;
+const qfPre = r => `{ch:'${r.ch}',agent:${jsq(r.agent)},lead:${jsq(r.lead)},date:'${iso(r.d)}',cp:${jsq(r.ev ? r.ev.cp : (r.qf[0] || {}).cp || '')}`;   // jsq: lead IDs and campaigns with ' \ or line breaks keep working
+txReg('flags', { rows: () => XL(), count: () => XL().length, filters: () => [], clear: () => {}, cols: [
+  { k: 'lead', t: 'LEAD ID', lock: true, td: r => r.ev ? leadA(r.lead, `om('view','${r.ev.rid}')`) : leadA(r.lead, `qfEdit('${r.qf[0].id}')`) },
+  { k: 'ch', t: 'TYPE', td: r => chTag(r.ch, 1) }, { k: 'd', t: 'DATE', td: r => f(r.d) },
+  { k: 'ag', t: 'AGENT', td: r => agCell(r.agent, an(r.agent) || r.agent) }, { k: 'tm', t: 'TEAM', td: r => teamLink(r.tm) },
+  { k: 'cp', t: 'CAMPAIGN', td: r => esc(r.cp) }, { k: 'sc', t: 'QA SCORE', td: r => r.ev ? evSc(r.ev, r.tm) : '<small class=mu>no review</small>' },
+  { k: 'qf', t: 'QUICK FLAGS', td: r => `<div class=qfbs>${qfBadges(r)}</div>` },
+  { k: 'cm', t: 'COMMENTS', off: true, td: r => esc(r.qf.map(x => x.cm).filter(Boolean).join(' | ')) || '—' },
+  { k: 'by', t: 'FLAGGED BY', off: true, td: r => esc([...new Set(r.qf.map(x => x.byName || x.by))].join(', ')) || '—' },
+  { k: 'act', t: 'ACTIONS', lock: true, r: true, td: r => `<button class="ic qfr" title="Add a red flag" onclick="qfNew(${qfPre(r)},type:'red'})">${IC.flag}</button><button class="ic qfg" title="Add a green flag" onclick="qfNew(${qfPre(r)},type:'green'})">${IC.flag}</button><button class=ic title="View" onclick="${r.ev ? `om('view','${r.ev.rid}')` : `qfEdit('${r.qf[0].id}')`}">${IC.eye}</button>` }] });
 function xfTable() {
   const l = XL(), [a, z, pg] = pager(l.length, XF, 'xfSet');
-  const badges = r => [...(r.ev && r.ev.fl ? [`<span class="qfb ${r.ev.fl}" title="Flag given in the QA review">${IC.flag} QA ${r.ev.fl === 'red' ? 'Red' : 'Green'}</span>`] : []), ...r.qf.map(f => `<span class="qfb ${f.type} clk" onclick="qfEdit('${f.id}')" title="${esc((f.cm || 'No comment') + ' — by ' + (f.byName || f.by) + ', ' + f.date)}">${IC.flag} ${f.type === 'red' ? 'Red' : 'Green'}</span>`)].join('') || '<span class=mu>—</span>';
-  return card(`${XF.c ? CHN[XF.c] + ' reviews' : 'Conversations'} <span class=bg>${l.length}</span>`, `<div class=sc><table class=ct><tr><th>LEAD ID</th><th>TYPE</th><th>DATE</th><th>AGENT</th><th>TEAM</th><th>CAMPAIGN</th><th>QA SCORE</th><th>QUICK FLAGS</th><th style="text-align:right">ACTIONS</th></tr>`
-    + l.slice(a, z).map(r => { const pre = `{ch:'${r.ch}',agent:${jsq(r.agent)},lead:${jsq(r.lead)},date:'${iso(r.d)}',cp:${jsq(r.ev ? r.ev.cp : (r.qf[0] || {}).cp || '')}`;   // jsq: lead IDs and campaigns with ' \ or line breaks keep working
-      return `<tr><td>${r.ev ? leadA(r.lead, `om('view','${r.ev.rid}')`) : leadA(r.lead, `qfEdit('${r.qf[0].id}')`)}</td><td>${chTag(r.ch, 1)}</td><td>${f(r.d)}</td><td>${agCell(r.agent, an(r.agent) || r.agent)}</td><td>${teamLink(r.tm)}</td><td>${esc(r.cp)}</td><td>${r.ev ? `<b class=mono style="color:${scol(r.ev.sc, r.tm)}">${Math.round(r.ev.sc)}%</b>` : '<small class=mu>no review</small>'}</td><td><div class=qfbs>${badges(r)}</div></td>`
-        + `<td style="text-align:right;white-space:nowrap"><button class="ic qfr" title="Add a red flag" onclick="qfNew(${pre},type:'red'})">${IC.flag}</button><button class="ic qfg" title="Add a green flag" onclick="qfNew(${pre},type:'green'})">${IC.flag}</button><button class=ic title="View" onclick="${r.ev ? `om('view','${r.ev.rid}')` : `qfEdit('${r.qf[0].id}')`}">${IC.eye}</button></td></tr>`; }).join('')
-    + (l.length ? '' : `<tr><td colspan=9 class=mu style="text-align:center;padding:26px">Nothing matches these filters</td></tr>`) + `</table></div>${pg}`, 'ftbl');
+  return card(`${XF.c ? CHN[XF.c] + ' reviews' : 'Conversations'} <span class=bg>${l.length}</span>`, txBtns('flags') + txTbl('flags', l.slice(a, z)) + pg, 'ftbl');
 }
 const xfRt = () => { const k = $('#xfk'), t = $('#xft'), b = xfBase(); if (k) k.innerHTML = xfKpis(b); if (t) t.innerHTML = xfTable(); };
 PG.flags = function () {
@@ -86,16 +94,25 @@ const QFMM = () => { const d = QFM, red = d.type === 'red', tc = red ? 'var(--ba
 const dispStatus = e => { const d = e.dp; if (!d) return ''; if (d.status === 'resolved') return 'resolved'; return d.msgs.some(m => m.r !== 'agent' && !m.sys) ? 'progress' : 'disputed'; };
 const DST = { disputed: ['Disputed', 'bad'], progress: ['In progress', 'ac'], resolved: ['Resolved', 'ok'] };
 const dispPill = e => { const s = DST[dispStatus(e)]; return s ? pill(s[0], s[1]) : ''; };
-const dsBase = () => { const q = DS.q.toLowerCase(); return EV.filter(e => e.dp && (!DS.c || chOf(e) === DS.c) && (!DS.t || e.tm === DS.t) && (!DS.a || e.agent === DS.a) && inPF(new Date(e.dp.at), DS) && (!q || (e.id + ' ' + agn(e) + ' ' + cpn(e) + ' ' + e.dp.msgs.map(m => m.t).join(' ')).toLowerCase().includes(q))).sort((a, b) => new Date(b.dp.at) - new Date(a.dp.at)); };
+const dsBase = () => { const q = DS.q.toLowerCase(); return EVA.filter(e => e.dp && (!DS.c || chOf(e) === DS.c) && (!DS.t || e.tm === DS.t) && (!DS.a || e.agent === DS.a) && inPF(new Date(e.dp.at), DS) && (!q || (e.id + ' ' + agn(e) + ' ' + cpn(e) + ' ' + e.dp.msgs.map(m => m.t).join(' ')).toLowerCase().includes(q))).sort((a, b) => new Date(b.dp.at) - new Date(a.dp.at)); };
 const DL = () => dsBase().filter(e => !DS.s || dispStatus(e) === DS.s);
 const dsSet = (k, v, soft) => { fSet(DS, k, v); if (soft) dsRt(); else render(); };
 const dsKpis = b => { const c = k => b.filter(e => dispStatus(e) === k).length; return `<div class=fkp style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">${kpiF('Total Disputes', b.length, 'var(--tx)', `<span style="color:var(--mu)">${IC.flag}</span>`, "dsSet('s','')", !DS.s)}${kpiF('Disputed', c('disputed'), 'var(--bad)', '<i class=dotk style="background:var(--bad)"></i>', "dsSet('s','disputed')", DS.s === 'disputed')}${kpiF('In Progress', c('progress'), 'var(--ac)', '<i class=dotk style="background:var(--ac)"></i>', "dsSet('s','progress')", DS.s === 'progress')}${kpiF('Resolved', c('resolved'), 'var(--ok)', '<i class=dotk style="background:var(--ok)"></i>', "dsSet('s','resolved')", DS.s === 'resolved')}</div>`; };
+const DOUTP = r => r ? (r.outcome === 'kept' ? pill('Score kept', 'ac') : r.outcome === 'partly' ? pill('Partly changed', 'wn') : pill('Score changed', 'wn')) : '<span class=mu>—</span>';
+const dsLast = e => e.dp.msgs.filter(x => !x.sys).slice(-1)[0] || {};
+txReg('disputes', { rows: () => DL(), count: () => DL().length, filters: () => [], clear: () => {}, cols: [
+  { k: 'lead', t: 'LEAD ID', lock: true, td: e => leadA(e.id, `om('view','${e.rid}')`) },
+  { k: 'ch', t: 'TYPE', td: e => chTag(chOf(e), 1) }, { k: 'at', t: 'DISPUTED ON', td: e => f(new Date(e.dp.at)) },
+  { k: 'ag', t: 'AGENT', td: e => agCell(e.agent, agn(e)) }, { k: 'tm', t: 'TEAM', td: e => teamLink(e.tm) },
+  { k: 'sc', t: 'QA SCORE', td: e => evSc(e, e.tm) }, { k: 'st', t: 'STATUS', td: e => dispPill(e) },
+  { k: 'msg', t: 'LAST MESSAGE', td: e => { const m = dsLast(e); return `<div class=dsm title="${esc(m.t || '')}" onclick="om('view','${e.rid}')"><small class=mu>${esc(m.n || '')}</small> ${esc(m.t || '')}</div>`; } },
+  { k: 'out', t: 'OUTCOME', td: e => DOUTP(e.dp.res) },
+  { k: 'rv', t: 'REVIEWER', off: true, td: e => esc(e.rv || '') },
+  { k: 'res', t: 'RESOLVED ON', off: true, td: e => e.dp.res ? f(new Date(e.dp.res.at)) : '—' },
+  { k: 'act', t: 'ACTIONS', lock: true, r: true, td: e => `<button class=ic title="Open the review and the conversation" onclick="om('view','${e.rid}')">${IC.eye}</button>` }] });
 function dsTable() {
   const l = DL(), [a, z, pg] = pager(l.length, DS, 'dsSet');
-  return card(`Disputed calls <span class=bg>${l.length}</span>`, `<div class=sc><table class=ct><tr><th>LEAD ID</th><th>TYPE</th><th>DISPUTED ON</th><th>AGENT</th><th>TEAM</th><th>QA SCORE</th><th>STATUS</th><th>LAST MESSAGE</th><th>OUTCOME</th><th style="text-align:right">ACTIONS</th></tr>`
-    + l.slice(a, z).map(e => { const m = e.dp.msgs.filter(x => !x.sys).slice(-1)[0] || {}, r = e.dp.res;
-      return `<tr><td>${leadA(e.id, `om('view','${e.rid}')`)}</td><td>${chTag(chOf(e), 1)}</td><td>${f(new Date(e.dp.at))}</td><td>${agCell(e.agent, agn(e))}</td><td>${teamLink(e.tm)}</td><td><b class=mono style="color:${scol(e.sc, e.tm)}">${Math.round(e.sc)}%</b></td><td>${dispPill(e)}</td><td><div class=dsm title="${esc(m.t || '')}" onclick="om('view','${e.rid}')"><small class=mu>${esc(m.n || '')}</small> ${esc(m.t || '')}</div></td><td>${r ? (r.outcome === 'kept' ? pill('Score kept', 'ac') : r.outcome === 'partly' ? pill('Partly changed', 'wn') : pill('Score changed', 'wn')) : '<span class=mu>—</span>'}</td><td style="text-align:right"><button class=ic title="Open the review and the conversation" onclick="om('view','${e.rid}')">${IC.eye}</button></td></tr>`; }).join('')
-    + (l.length ? '' : `<tr><td colspan=10 class=mu style="text-align:center;padding:26px">No disputes match these filters</td></tr>`) + `</table></div>${pg}`, 'ftbl');
+  return card(`Disputed calls <span class=bg>${l.length}</span>`, txBtns('disputes') + txTbl('disputes', l.slice(a, z)) + pg, 'ftbl');
 }
 // ---- what the disputes say (ideas from the Zendesk QA disputes dashboard): how they end, how long they take, which categories are
 // disputed, who disputes most and whose reviews are disputed most (the filters above apply)

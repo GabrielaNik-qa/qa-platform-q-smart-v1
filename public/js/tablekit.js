@@ -11,8 +11,8 @@ const txReg = (page, d) => { TXR[page] = d; };
 const txCols = page => {
   const all = TXR[page].cols, mine = (MYP().cols || {})[page];
   const l = Array.isArray(mine) ? mine.map(k => all.find(c => c.k === k)).filter(Boolean) : all.filter(c => !c.off);
-  all.filter(c => c.lock && !l.includes(c)).forEach(c => l.unshift(c));
-  return l;
+  all.filter(c => c.lock && !c.r && !l.includes(c)).forEach(c => l.unshift(c));
+  return [...l.filter(c => !c.r), ...all.filter(c => c.r)];   // the buttons column (r) always stays last
 };
 const txLab = (d, v) => { const o = d.o().find(x => String(x[0]) === String(v)); return o ? o[1] : v; };
 const txOn = page => TXR[page].filters().filter(d => d.v && !d.fixed);
@@ -24,6 +24,13 @@ function txTools(page, search = '') {
     + (on.length ? `<a href="javascript:void(0)" class=agl onclick="txClear('${page}')">Reset</a>` : '')
     + `<span style="flex:1"></span><button class="ib ibx" onclick="txCopy('${page}')" title="Copy every matching row, to paste into Excel">${IC.copy} Copy</button><button class="ib ibx" onclick="TXC='${page}';render()" aria-haspopup=dialog title="Choose the columns of the table">${TIC.list || IC.list} Columns</button></div>`;
 }
+// a page's own table with the kit (4 November): the columns each person chose (saved in their account), in their order.
+// c.r = a column on the right (the buttons); rowAttr(row) = what the row itself gets (e.g. a click that opens it)
+const txTbl = (page, rows, cls = 'ct', rowAttr) => { const cols = txCols(page), al = c => c.r ? ' style="text-align:right;white-space:nowrap"' : '';
+  return `<div class=sc data-notools><table class="${cls}"><tr>${cols.map(c => `<th${al(c)}>${c.t}</th>`).join('')}</tr>${rows.map(r => `<tr${rowAttr ? ' ' + rowAttr(r) : ''}>${cols.map(c => `<td${al(c)}>${c.td(r)}</td>`).join('')}</tr>`).join('')}`
+    + (rows.length ? '' : `<tr><td colspan=${cols.length} class=mu style="text-align:center;padding:26px">${tr('Nothing matches these filters')}</td></tr>`) + '</table></div>'; };
+// only Columns and Copy, for a page that keeps its own filter bar (Quick Flags, Disputes, Tasks)
+const txBtns = page => `<div class=txbar style="justify-content:flex-end;margin-bottom:8px"><button class="ib ibx" onclick="txCopy('${page}')" title="Copy every matching row, to paste into Excel">${IC.copy} Copy</button><button class="ib ibx" onclick="TXC='${page}';render()" aria-haspopup=dialog title="Choose the columns of the table">${(typeof TIC !== 'undefined' && TIC.list) || IC.list} Columns</button></div>`;
 function txSet(page, k, v) { const d = TXR[page].filters().find(x => x.k === k); if (d) d.set(v); PN = 1; render(); }
 function txClear(page) { TXR[page].clear(); PN = 1; render(); }
 // ---- the Filters panel: every filter of the table in one place, the number of results updates as you choose
