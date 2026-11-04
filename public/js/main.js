@@ -165,6 +165,7 @@ function render() {
   if (!ME) { $('#m').innerHTML = LG(); $('#n').innerHTML = ''; $('#br').innerHTML = ''; $('#fz').innerHTML = ''; refocus(fk); return; }
   applySb();
   $('#m').innerHTML = (typeof sbxBar === 'function' ? sbxBar() : '') + (typeof annBar === 'function' ? annBar() : '') + (Object.hasOwn(PG, route) && typeof PG[route] === 'function' ? PG[route] : PG.dash)() + overlays();   // announcements on top   // a link such as #constructor shows the dashboard
+  if (typeof qnMount === 'function') qnMount();   // the Quinn bubble on every page (it keeps its conversation from page to page)
   $('#br').innerHTML = `<div class=brand onclick="brandGo(event)" title="${curSpace() === 'main' ? 'Go to Home' : 'Back to the main menu'}">${mark('mg2', 36)}<div><b>Q-SMART</b><small>${esc((SET.brand || {}).name || 'Customer Service Analytics')}</small></div>${(SET.brand || {}).logo ? `<img class=brlogo src="${esc(SET.brand.logo)}" alt="">` : ''}</div>`; if (typeof brandApply === 'function') brandApply();
   navOnly();
   $('#fz').innerHTML = FOOT();

@@ -43,7 +43,7 @@ const GROUPS = [
   { id: 'scorecards', name: 'Quality set-up', sec: 'setup', icon: 'g_sc', space: 'admin', items: [['sco', 'Scorecards'], ['scat', 'Categories'], ['roots', 'Root causes'], ['aqcats', 'Auto QA categories'], ['sysset', 'System settings']] },
   { id: 'wfsetup', name: 'Workforce set-up', sec: 'setup', icon: 'g_sys', space: 'admin', items: [['wcal', 'Work calendars'], ['shifts', 'Shift templates'], ['ltypes', 'Leave types'], ['attrules', 'Attendance rules']] },
   { id: 'messages', name: 'Messages', sec: 'setup', icon: 'g_mail', space: 'admin', items: [['notifs', 'Notification rules'], ['mailtpl', 'Email templates'], ['cs_maildom', 'Sending email domain'], ['cs_announce', 'Announcements']] },
-  { id: 'aiset', name: 'AI', sec: 'setup', icon: 'g_aihub', space: 'admin', items: [['cs_aiprov', 'AI provider'], ['cs_ailimit', 'AI usage limits'], ['cs_aionoff', 'AI on or off'], ['cs_aiinstr', 'AI instructions']] },
+  { id: 'aiset', name: 'AI', sec: 'setup', icon: 'g_aihub', space: 'admin', items: [['cs_quinn', 'Quinn'], ['cs_aiprov', 'AI provider'], ['cs_ailimit', 'AI usage limits'], ['cs_aionoff', 'AI on or off'], ['cs_aiinstr', 'AI instructions']] },
   { id: 'sbset', name: 'Sidebar settings', sec: 'setup', icon: 'g_layout', space: 'admin', items: [['cs_sbfull', 'Full-size sidebar'], ['cs_sbcompact', 'Compact sidebar'], ['cs_sbviews', 'Saved views']] },
   // GOVERNANCE
   { id: 'gdpr', name: 'GDPR', sec: 'gov', icon: 'g_shield', space: 'admin', items: [['privacy', 'Data protection'], ['cs_ropa', 'Record of processing'], ['cs_subproc', 'Sub-processors'], ['cs_dpa', 'Data processing agreement'], ['cs_consent', 'Recording consent']] },
@@ -116,12 +116,14 @@ RR.cs_hcsite = ['admin'];
 ['cs_apikeys', 'cs_api', 'cs_webhooks', 'cs_mcp'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
 // built on 4 November (billing.js): Plan & seats, Invoices and Payment method with Stripe, for admins
 ['cs_plan', 'cs_invoices', 'cs_payment'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
+// built on 4 November (quinn-ui.js): Admin › Quinn, the answers, usage and cost of the assistant
+RR.cs_quinn = ['admin'];
 // built on 3 November (registers.js): no longer coming soon, still for admins only
 ['cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp'].forEach(k => { delete SOON[k]; RR[k] = ['admin']; });
 Object.keys(SOON).forEach(k => { RR[k] = ['admin']; });
 Object.keys(ROLE).forEach(r => { RR['perm_' + r] = ['admin']; });   // the page of each role in Roles & permissions
 const ADMINP = ['perm_agent', 'perm_trainer', 'perm_lead', 'perm_qa', 'perm_admin', 'users', 'teams', 'wsp', 'skills', 'perms', 'integ', 'notifs', 'backup', 'mailtpl', 'audit', 'wcal', 'shifts', 'ltypes', 'attrules'];
-ADMINP.push('cs_plan', 'cs_invoices', 'cs_payment', 'cs_apikeys', 'cs_api', 'cs_webhooks', 'cs_mcp', 'cs_sandbox', 'cs_import', 'cs_beta', 'cs_hcsite', 'cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp');   // the registers and logs built on 3 November
+ADMINP.push('cs_quinn', 'cs_plan', 'cs_invoices', 'cs_payment', 'cs_apikeys', 'cs_api', 'cs_webhooks', 'cs_mcp', 'cs_sandbox', 'cs_import', 'cs_beta', 'cs_hcsite', 'cs_ropa', 'cs_subproc', 'cs_dpa', 'cs_consent', 'cs_aireg', 'cs_ainotice', 'cs_breach', 'cs_a11y', 'cs_seclog', 'cs_actsign', 'cs_actexp');   // the registers and logs built on 3 November
 const own = (o, k) => o && Object.hasOwn(o, k) ? o[k] : undefined;   // only the object's own entries (a link such as #constructor is not a page)
 // a person's own choice (Roles & permissions) comes before their role's
 const canRoute = k => { if (typeof betaOff === 'function' && betaOff(k)) return false;   // a beta feature an admin switched off (Admin › Beta features) is hidden from everybody

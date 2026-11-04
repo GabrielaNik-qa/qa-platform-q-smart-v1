@@ -56,7 +56,8 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, notify, limited }
     const D = st.days[d] = st.days[d] || {}, M = st.months[mo] = st.months[mo] || {};
     [D, M].forEach(o => { o.total = (o.total || 0) + 1; o[lv] = (o[lv] || 0) + 1; if (r.tokens && r.tokens.in !== undefined) { o.tin = (o.tin || 0) + r.tokens.in; o.tout = (o.tout || 0) + r.tokens.out; o.usd = Math.round(((o.usd || 0) + r.tokens.usd) * 1e6) / 1e6; } });
     const um = st.users[mo] = st.users[mo] || {}; um[u.username] = (um[u.username] || 0) + 1;
-    const k = Q.words(q).join(' ').slice(0, 120); if (k) { st.top[k] = (st.top[k] || 0) + 1; const tk = Object.entries(st.top); if (tk.length > 400) st.top = Object.fromEntries(tk.sort((a, b) => b[1] - a[1]).slice(0, 300)); }
+    const k = Q.words(q).join(' ').slice(0, 120), nOf = v => (v && v.n) || (typeof v === 'number' ? v : 0);
+    if (k) { st.top[k] = { n: nOf(st.top[k]) + 1, q: (st.top[k] && st.top[k].q) || str(q, 160) }; const tk = Object.entries(st.top); if (tk.length > 400) st.top = Object.fromEntries(tk.sort((a, b) => nOf(b[1]) - nOf(a[1])).slice(0, 300)); }
     Object.keys(st.days).sort().slice(0, -90).forEach(x => delete st.days[x]);
     if (r.type === 'none' || r.type.startsWith('ai')) db.quinnMisses = [{ q: str(q, 300), lang: r.lang, type: r.type, why: r.why || '', page: r.page || '', at: iso(), by: u.role }, ...(db.quinnMisses || [])].slice(0, 500);
   }

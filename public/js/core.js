@@ -285,7 +285,8 @@ async function load() {
   if (route === 'cs_hcsite' && adm) want.push(['hs', '/api/hc?all=1']);
   if (['cs_apikeys', 'cs_api', 'cs_webhooks', 'cs_mcp'].includes(route) && adm) want.push(['dv', '/api/devinfo']);   // the developer pages (devs.js)
   if (route === 'cs_apikeys' && adm) want.push(['dk', '/api/devkeys']);
-  if (route === 'cs_webhooks' && adm) want.push(['wh', '/api/hooks']);   // the Help Center website, drafts included   // Contact support: my requests (all of them for admins)
+  if (route === 'cs_webhooks' && adm) want.push(['wh', '/api/hooks']);
+  if (route === 'cs_quinn' && adm) want.push(['qad', '/api/quinn/admin']);   // Admin › Quinn   // the Help Center website, drafts included   // Contact support: my requests (all of them for admins)
   (Object.hasOwn(CL, route) ? CL[route] : []).forEach(c => { if (ME && (!['reports', 'risks', 'complaints'].includes(c) || ed)) want.push(['c_' + c, '/api/c/' + c]); });
   if (['rbuild', 'rsaved', 'goals', 'calendar', 'kudos', 'dash', 'pers'].includes(route)) want.push(['tk', '/api/tasks']);
   if (route === 'calendar') want.push(['se', '/api/sessions']);
@@ -335,6 +336,7 @@ async function load() {
   if (R.dv) DEVI = JSON.parse(R.dv);
   if (R.dk) DEVK = JSON.parse(R.dk);
   if (R.wh) DEVH = JSON.parse(R.wh);
+  if (R.qad) QNA = JSON.parse(R.qad);
   Object.keys(R).filter(k => k.startsWith('c_') && R[k]).forEach(k => { CO[k.slice(2)] = JSON.parse(R[k]); });
   if (R.xp) XPS = JSON.parse(R.xp);
   if (R.bk) BKS = JSON.parse(R.bk);

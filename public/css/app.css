@@ -1259,3 +1259,19 @@ small.beta { font: 600 10px var(--font); letter-spacing: .06em; text-transform: 
 .cscard { border-left: 4px solid #FFD447 } .cscard[data-seg="sa"] { border-left-color: #FF6B00 } .cscard[data-seg="re"] { border-left-color: #FF6F91 } .cscard[data-seg="own"] { border-left-color: var(--ac) }
 .cslvl i.on { background: linear-gradient(#FF6B00, #FF6F91) }
 @media (max-width: 700px) { .qtmodes { grid-template-columns: 1fr } .qtbrand { flex-direction: column; align-items: flex-start } }
+
+/* Quinn, the bubble on every page (4 November) */
+#qnb { position: fixed; right: 22px; bottom: 22px; z-index: 60 }
+.qnfab { width: 56px; height: 56px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; background: linear-gradient(135deg, #FF6B00, #FF5C8A); box-shadow: 0 8px 24px rgba(255,107,0,.35) }
+.qnfab svg { width: 28px; height: 28px } .qnfab:hover { transform: translateY(-2px) }
+.qnp { width: min(380px, calc(100vw - 32px)); height: min(560px, calc(100vh - 60px)); display: flex; flex-direction: column; background: var(--pn); border: 1px solid var(--bd); border-radius: 18px; box-shadow: 0 18px 50px rgba(0,0,0,.28); overflow: hidden }
+.qnp header { display: flex; gap: 10px; align-items: center; padding: 12px 14px; color: #fff; background: linear-gradient(120deg, #FF6B00, #FF5C8A) } .qnp header div { flex: 1; display: grid } .qnp header small { opacity: .85 } .qnp header .ic { color: #fff }
+.qnav { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.18) } .qnav svg { width: 20px; height: 20px }
+.qnmsgs { flex: 1; overflow: auto; padding: 12px; display: grid; gap: 8px; align-content: start }
+.qnm { padding: 10px 12px; border-radius: 14px; background: var(--sunk); font-size: 14px; max-width: 92%; display: grid; gap: 6px } .qnm.me { justify-self: end; background: color-mix(in srgb, #FF6B00 16%, var(--pn)) }
+.qnm p { margin: 0 } .qnmeta { display: flex; justify-content: space-between; gap: 8px; align-items: center } .qnmeta small { color: var(--mu); font-size: 11px }
+.qnno { border: 0; background: none; color: var(--mu); font: 12px var(--font); cursor: pointer; text-decoration: underline }
+.qnchips { display: flex; gap: 6px; flex-wrap: wrap } .qnchips .ib { height: auto; padding: 6px 10px; font-size: 12.5px; text-align: left; white-space: normal }
+.qnin { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--bd) } .qnin input { flex: 1; min-width: 0 }
+.qnp footer { padding: 6px 12px 10px; text-align: center } .qnp footer .agl { background: none; border: 0; cursor: pointer; font: 600 13px var(--font) }
+@media print { #qnb { display: none } }
