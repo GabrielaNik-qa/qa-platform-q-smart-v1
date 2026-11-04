@@ -18,7 +18,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, scopeOf, 
     if (mode === 'ai' && limited('ai-run:' + req.session.user.username, 5, 36e5)) return res.status(429).json({ error: 'Too many AI requests. Try again later.' });   // one run = up to 40 AI requests
     try {
       const got = new Map();
-      for (const c of visible(db, req.session.user)) { if (mode === 'ai' && got.size >= 40) break; got.set(c.id, mode === 'ai' ? await ai.scoreConversation(c.text, cats) : scoreConv(c.text, cats)); }
+      for (const c of visible(db, req.session.user)) { if (!c.text) continue; if (mode === 'ai' && got.size >= 40) break; got.set(c.id, mode === 'ai' ? await ai.scoreConversation(c.text, cats) : scoreConv(c.text, cats)); }
       const now = load(); now.conversations.forEach(c => { if (got.has(c.id)) c.auto = got.get(c.id); });   // AI rating takes a while: save onto fresh data so nobody's changes are lost
       save(now); res.json({ ok: 1, count: got.size, mode });
     } catch (e) { bad(res, e.message); }

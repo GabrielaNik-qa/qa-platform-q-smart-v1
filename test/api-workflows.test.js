@@ -186,6 +186,21 @@ test('organization: only admins change it; old notifications are deleted after t
   await adm.put('/api/org', { signin: { pwMin: 8, lockAfter: 10 }, privacy: { keep: {} } });
 });
 
+test('transcripts: after the chosen days only the text is deleted; the review, its scores, the comments and the dialer link stay', async () => {
+  const adm = await asU('t.admin');
+  assert.strictEqual((await adm.put('/api/org', { privacy: { keep: {}, txDays: 13 } })).json.privacy.txDays, 0, 'only the offered choices');
+  assert.strictEqual((await adm.put('/api/org', { privacy: { keep: {}, txDays: 30 } })).json.privacy.txDays, 30);
+  const db = readDb(), old = new Date(Date.now() - 40 * 864e5).toISOString(), fresh = new Date().toISOString(), base = db.evaluations.find(x => x.agent === AGENT);
+  db.evaluations.push({ ...base, rid: 'rtx-old', id: 'TX-1', ch: 'chat', tx: 'Agent: hello', cl: 'https://dialer.example.com/c/1', at: old, d: old }, { ...base, rid: 'rtx-new', id: 'TX-2', ch: 'chat', tx: 'Agent: hi', at: fresh, d: fresh });
+  fs.writeFileSync(FILE, JSON.stringify(db));
+  const out = (await adm.post('/api/org/purge')).json; assert.ok(out.tx >= 1);
+  const after = readDb().evaluations, o = after.find(x => x.rid === 'rtx-old'), n = after.find(x => x.rid === 'rtx-new');
+  assert.deepEqual([o.tx, !!o.txGone, o.cl, o.sc, o.cs.length > 0], ['', true, 'https://dialer.example.com/c/1', base.sc, true], 'only the text goes');
+  assert.strictEqual(n.tx, 'Agent: hi', 'a newer transcript stays');
+  const clean = readDb(); clean.evaluations = clean.evaluations.filter(x => !x.rid.startsWith('rtx-')); fs.writeFileSync(FILE, JSON.stringify(clean));
+  await adm.put('/api/org', { privacy: { keep: {}, txDays: 0 } });
+});
+
 test('data protection works: agents can be kept from recordings and reviewer names, the sign-in page shows the privacy note, transcripts get the custom vocabulary', async () => {
   const adm = await asU('t.admin'), qa = await asU('t.qa'), ag = await asU(AGENT);
   const db = readDb(), e = db.evaluations.find(x => x.agent === AGENT); e.rec = 'old-rec.mp3'; e.rl = 'https://example.com/rec'; fs.writeFileSync(FILE, JSON.stringify(db));

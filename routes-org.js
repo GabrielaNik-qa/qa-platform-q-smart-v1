@@ -7,13 +7,14 @@ const fs = require('fs'), path = require('path'), ai = require('./ai');
 module.exports = ({ app, load, save, need, bad, hex, iso, str, list, setOut, limited, seesUser, scopeOf }) => {
   const STAFF = ['admin', 'qa', 'lead', 'trainer'];
   const MONTHS = v => Math.min(120, Math.max(0, parseInt(v) || 0));   // 0 = keep for ever
+  const TXDAYS = [0, 7, 14, 30, 60, 90, 180, 365];                       // transcripts: kept this many days (0 = for ever)
   const KEEP = ['rec', 'notif', 'sim', 'ai', 'audit'];
 
   // ---------------------------------------------------------------- the organization settings (admins)
   app.put('/api/org', need('admin'), (req, res) => {
     const db = load(), b = req.body || {}, s = db.settings;
     if (b.org) { const o = b.org; s.org = { name: str(o.name, 120), legal: str(o.legal, 160), address: str(o.address, 200), city: str(o.city, 80), country: str(o.country, 80), vat: str(o.vat, 40), web: str(o.web, 160), billing: str(o.billing, 160), support: str(o.support, 160), dpo: str(o.dpo, 120), dpoEmail: str(o.dpoEmail, 160), tz: str(o.tz, 60), logo: /^https:\/\//.test(o.logo || '') ? str(o.logo, 400) : '' }; }
-    if (b.privacy) { const p = b.privacy; s.privacy = { keep: Object.fromEntries(KEEP.map(k => [k, MONTHS((p.keep || {})[k])])), agentsRec: p.agentsRec !== false, agentsReviewer: p.agentsReviewer !== false, note: str(p.note, 2000) }; }
+    if (b.privacy) { const p = b.privacy; s.privacy = { keep: Object.fromEntries(KEEP.map(k => [k, MONTHS((p.keep || {})[k])])), agentsRec: p.agentsRec !== false, agentsReviewer: p.agentsReviewer !== false, note: str(p.note, 2000), txDays: TXDAYS.includes(+p.txDays) ? +p.txDays : 0 }; }
     if (b.signin) { const g = b.signin; s.signin = { pwMin: Math.min(32, Math.max(8, parseInt(g.pwMin) || 10)), lockAfter: Math.min(20, Math.max(3, parseInt(g.lockAfter) || 10)), openReg: g.openReg === true }; }   // openReg: anybody may ask for an account (else by invitation only)
     if (b.words) { const w = b.words; s.words = { types: list(w.types, 60, 40), topics: (Array.isArray(w.topics) ? w.topics : []).slice(0, 60).map(t => ({ name: str(t && t.name, 60), words: list(t && t.words, 40, 60).map(x => x.toLowerCase()) })).filter(t => t.name && t.words.length), vocab: (Array.isArray(w.vocab) ? w.vocab : []).slice(0, 200).map(v => ({ term: str(v && v.term, 60), wrong: list(v && v.wrong, 30, 60) })).filter(v => v.term && v.wrong.length) }; }
     save(db); res.json(setOut(db, req.session.user));
@@ -23,7 +24,10 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, setOut, lim
   const REC = path.resolve(process.env.REC_DIR || process.env.RECORDINGS_DIR || path.join(require('os').homedir(), 'Documents', 'Q-smart recordings'));
   const olderThan = (d, m) => d && m && Date.now() - new Date(d).getTime() > m * 30.44 * 864e5;
   function purge(db, audit) {
-    const k = ((db.settings || {}).privacy || {}).keep || {}, out = { rec: 0, notif: 0, sim: 0, ai: 0, audit: 0 };
+    const pv = (db.settings || {}).privacy || {}, k = pv.keep || {}, out = { rec: 0, notif: 0, sim: 0, ai: 0, audit: 0, tx: 0 };
+    // transcripts (4 November): after the chosen days only the text goes; the review, its scores, the comments and the dialer link stay
+    const txOld = d => pv.txDays && d && Date.now() - new Date(d).getTime() > pv.txDays * 864e5;
+    if (pv.txDays) { db.evaluations.forEach(e => { if (e.tx && txOld(e.at || e.d)) { e.tx = ''; e.txGone = iso(); out.tx++; } }); (db.conversations || []).forEach(c => { if (c.text && txOld(c.created || c.date)) { c.text = ''; c.txGone = iso(); out.tx++; } }); }
     if (k.rec) db.evaluations.forEach(e => { if (e.rec && olderThan(e.at || e.d, k.rec)) { try { fs.rmSync(path.join(REC, path.basename(e.rec)), { force: true }); } catch (x) { /* already gone */ } e.rec = ''; out.rec++; } });
     if (k.notif) { const n = db.notifications.length; db.notifications = db.notifications.filter(x => !olderThan(x.at, k.notif)); out.notif = n - db.notifications.length; }
     if (k.sim) (db.simulations || []).forEach(x => { if (x.tx && olderThan(x.date, k.sim)) { delete x.tx; out.sim++; } });
