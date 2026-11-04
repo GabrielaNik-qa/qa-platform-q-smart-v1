@@ -14,3 +14,5 @@ ai-usage.json
 support-files/
 sandbox.json
 sandbox.json.tmp
+# confidential: the description for the patent attorney stays on this computer, never in Git
+docs/patent/

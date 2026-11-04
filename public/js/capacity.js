@@ -4,7 +4,17 @@
 // history. When something changes, the plan shows what changed and suggests a new split; a team lead or an admin approves
 // it before the agents see it. Agents see their own leads for the month, the week and today, campaign by campaign.
 // The data and the rules: routes-cap.js and cap.js.
-let CAP = null, CPM = '', CPP = LS.get('qa_cpp', ''), CPT = LS.get('qa_cpt', 'split'), CPFR = '', CPI = null;   // the data, month, plan, tab, start of a new split asked for, the paste window
+let CAP = null, CPM = '', CPP = LS.get('qa_cpp', ''), CPT = LS.get('qa_cpt', 'split'), CPFR = '', CPI = null, CPW = null;   // CPW: the worked-leads file being checked
+// the worked leads from the dialer: a ready Excel template, then the filled file (CSV or Excel), checked row by row before it counts
+async function cpWorked(inp) { const f = inp.files && inp.files[0]; inp.value = ''; if (!f) return;
+  if (!/\.(csv|txt|xlsx)$/i.test(f.name)) return toast('Choose a CSV or Excel (.xlsx) file', true); if (f.size > 5242880) return toast('The file must be smaller than 5 MB', true);
+  const file = { name: f.name, data: await b64(f) }, r = await api('/api/cap/plans/' + CAP.plan.id + '/worked', { file, preview: true }); if (!r.ok) return toast(await errOf(r, 'The file could not be read'), true);
+  CPW = { file, ...(await r.json()) }; render(); }
+const cpWorkedGo = () => once('cpw', async () => { const r = await api('/api/cap/plans/' + CAP.plan.id + '/worked', { file: CPW.file }); if (!r.ok) return toast(await errOf(r, 'Could not import'), true);
+  const j = await r.json(); CPW = null; CAP = null; render(); toast(tr(`${j.add} rows imported`)); });
+const cpWorkedCard = () => !CPW ? '' : card(`${tr('Worked leads from the dialer')} <span class=bg>${CPW.rows.length}</span>`, `<div class=row style="justify-content:flex-start;gap:10px;margin-bottom:10px">${pill(tr(`${CPW.add} rows to add`), 'ok')}${CPW.skip ? pill(tr(`${CPW.skip} skipped`), 'wn') : ''}<small class=mu data-noi18n>${esc(CPW.file.name)}</small></div>`
+  + tbl(['Row', 'Values', 'What happens'], CPW.rows.map(x => [x.n, `<span data-noi18n>${esc(Object.values(x.r).filter(Boolean).join(' · '))}</span>`, x.ok ? `<span style="color:var(--ok)">✓</span> <small class=mu data-noi18n>${esc(x.what)}</small>` : `<span style="color:var(--bad)">✗ ${esc(tr(x.why))}</span>`]))
+  + `<p class=mu style="margin:10px 0 0"><small>${tr('For the days in the file, these numbers replace the usual rule (a lead counts as worked when the agent was at work). A day imported again is replaced.')}</small></p><div class=acts><button class=ib onclick="CPW=null;render()">${tr('Cancel')}</button><button class=btn onclick="cpWorkedGo()" ${CPW.add ? '' : 'disabled'}>${tr('Import')}</button></div>`);   // the data, month, plan, tab, start of a new split asked for, the paste window
 const cpMon = () => CPM || iso(new Date()).slice(0, 7);
 const cpMonName = m => new Date(m + '-01T12:00:00').toLocaleDateString(I18N.locale(), { month: 'long', year: 'numeric' });
 const cpGo = n => { const [y, m] = cpMon().split('-').map(Number); CPM = n ? iso(new Date(y, m - 1 + n, 1)).slice(0, 7) : ''; if (CPM === iso(new Date()).slice(0, 7)) CPM = ''; CPFR = ''; load().then(render); };
@@ -39,7 +49,7 @@ PG.cap = function () {
   const staff = isStaffR(), top = head('Capacity planning', staff ? 'The leads of every campaign, split fairly among the agents' : 'My leads for the month, the week and today', bellBtn());
   const P = CAP && CAP.plan, plans = (CAP && CAP.plans) || [];
   const pick = staff && plans.length > 1 ? `<select style="width:auto" onchange="cpPlan(this.value)" aria-label="${esc(tr('Plan'))}">${plans.map(p => `<option value="${p.id}" ${P && p.id === P.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>` : '';
-  const acts = staff && CAP ? (CAP.canNew ? `<button class=ib onclick="cpNew()">${IC.plus} ${tr('New plan')}</button>` : '') + (P && P.canEdit ? `<button class=ib onclick="cpEditPlan()">${IC.pen} ${tr('Name and teams')}</button><button class=ib onclick="cpDel()" title="${esc(tr('Delete the plan'))}" aria-label="${esc(tr('Delete the plan'))}">${IC.bin}</button>` : '') : '';
+  const acts = staff && CAP ? (CAP.canNew ? `<button class=ib onclick="cpNew()">${IC.plus} ${tr('New plan')}</button>` : '') + (P && P.canEdit ? `<a class=ib href="/api/cap/plans/${P.id}/worked-template" download title="${esc(tr('An Excel file with the agents and campaigns of this plan, to fill with the worked leads'))}">${IC.dl} ${tr('Worked leads template')}</a><label class=ib style="cursor:pointer">${tr('Import worked leads')}<input type=file accept=".csv,.txt,.xlsx" style="display:none" onchange="cpWorked(this)"></label><button class=ib onclick="cpEditPlan()">${IC.pen} ${tr('Name and teams')}</button><button class=ib onclick="cpDel()" title="${esc(tr('Delete the plan'))}" aria-label="${esc(tr('Delete the plan'))}">${IC.bin}</button>` : '') : '';
   const nav = `<div class=row style="gap:8px;flex-wrap:wrap;margin:0 0 12px;justify-content:flex-start"><div class=sg role=group aria-label="${esc(tr('Month'))}"><button onclick="cpGo(-1)" aria-label="${esc(tr('Previous month'))}">‹</button><button onclick="cpGo(0)" class="${CPM ? '' : 'on'}">${tr('This month')}</button><button onclick="cpGo(1)" aria-label="${esc(tr('Next month'))}">›</button></div><b>${esc(cpMonName(cpMon()))}</b>${pick}<span style="flex:1"></span>${acts}</div>`;
   if (!CAP) return top + nav + card('', '<p class=mu style="margin:0">…</p>');
   if (!staff) return top + nav + cpMine();
@@ -50,7 +60,8 @@ PG.cap = function () {
   const tabs = [['split', 'Split'], ...(live ? [['days', 'By day']] : []), ['camps', 'Campaigns'], ['people', 'People'], ...(live ? [['hist', 'History']] : [])], t = tabs.some(x => x[0] === CPT) ? CPT : 'split';
   const bar = `<div class=sg role=tablist style="margin:0 0 12px">${tabs.map(([k, l]) => `<button role=tab class="${t === k ? 'on' : ''}" aria-selected="${t === k}" onclick="cpTab('${k}')">${tr(l)}</button>`).join('')}</div>`;
   const body = t === 'days' ? cpDays(P) : t === 'camps' ? cpCamps(P) : t === 'people' ? cpPeople(P) : t === 'hist' ? cpHist(P) : live ? cpSplitLive(P) : cpSplitDraft(P);
-  return top + nav + status + tiles + (live && P.preview ? cpChanges(P) : '') + bar + body;
+  const wk = P.actualDays ? `<p class=mu style="margin:-6px 0 12px"><small>${tr(`Worked leads from the dialer: ${P.actualDays} days imported`)}${P.actualAt ? ' · ' + fdt(P.actualAt) : ''}</small></p>` : '';
+  return top + nav + cpWorkedCard() + status + wk + tiles + (live && P.preview ? cpChanges(P) : '') + bar + body;
 };
 // the changes since the last split, and the new split the app suggests (before → after for every person)
 function cpChanges(P) {

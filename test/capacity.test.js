@@ -167,6 +167,25 @@ test('this month: leads not worked on days that are over go back into the split 
   assert.equal(P2.assigned.k1, twoEach * 2, 'every lead has an agent again');
 });
 
+// the worked leads from the dialer (Gabriela, 4 November): a template with the plan's agents and campaigns, a file checked row by row,
+// and for the days in it the real numbers instead of "at work = worked"
+test('worked leads from the dialer: the template, a checked import, and the real numbers count for those days', async () => {
+  const adm = await as('d.admin'), two = await as('x.two'), url = `/api/cap?month=${today.slice(0, 7)}&plan=cp-now`;
+  assert.equal((await two.get('/api/cap/plans/cp-now/worked-template')).status, 403);
+  assert.equal((await adm.get('/api/cap/plans/cp-now/worked-template')).status, 200);
+  const file = rows => ({ name: 'worked.csv', data: Buffer.from(rows.join('\n')).toString('base64') });
+  assert.equal((await adm.post('/api/cap/plans/cp-now/worked', { file: file(['Agent,Leads', 'x.one,3']), preview: true })).status, 400, 'the columns are named');
+  const tomorrow = wf.addDays(today, 1), day0 = PAST[0] || today;
+  const f = file(['Date,Agent,Campaign,Worked leads', day0 + ',x.one,K 0-30,0', tomorrow + ',x.one,K 0-30,1', day0 + ',nobody,K 0-30,1', day0 + ',x.one,Other,1', day0 + ',x.one,K 0-30,1.5']);
+  const before = (await adm.get(url)).json.plan, pv = await adm.post('/api/cap/plans/cp-now/worked', { file: f, preview: true });
+  assert.deepEqual([pv.json.add, pv.json.skip], [1, 4]);
+  assert.match(pv.json.rows[1].why, /over or today/); assert.match(pv.json.rows[2].why, /No agent/); assert.match(pv.json.rows[3].why, /No campaign/); assert.match(pv.json.rows[4].why, /whole number/);
+  assert.equal((await adm.get(url)).json.plan.actualDays, 0, 'the preview saves nothing');
+  assert.equal((await adm.post('/api/cap/plans/cp-now/worked', { file: f })).json.add, 1);
+  const after = (await adm.get(url)).json.plan; assert.equal(after.actualDays, 1);
+  if (PAST.length && before.open) assert.notDeepEqual(after.preview, before.preview, 'a past day with 0 worked leads changes what is left to split');
+});
+
 test('a month that is over cannot be split; plans can be deleted', async () => {
   const lead = await as('d.lead'), past = wf.addDays(today.slice(0, 8) + '01', -1).slice(0, 7);
   const id = (await lead.post('/api/cap/plans', { month: past, teams: ['t-a'] })).json.id;

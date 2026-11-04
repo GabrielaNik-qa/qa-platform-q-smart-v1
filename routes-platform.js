@@ -83,6 +83,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, SBOX_FILE, SBX, a
   };
   // one review from another program (the API and MCP of routes-api.js use the same checks)
   app.locals.importReview = (db, r, me) => ONE.reviews(db, r, { me });
+  app.locals.readTable = readFile;   // a CSV or Excel file as rows (Capacity planning imports the worked leads with it)
   function run(db, kind, rows, me) {
     const ctx = { me, hash: kind === 'users' ? bcrypt.hashSync(DEFAULT_PASSWORD, 10) : '' };   // one password hash for the whole file (everybody must change it at the first sign-in)
     return rows.map((r, i) => { try { return { n: i + 2, r, ok: true, what: ONE[kind](db, r, ctx) }; } catch (e) { return { n: i + 2, r, ok: false, why: e.message }; } });

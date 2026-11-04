@@ -5,7 +5,7 @@
 // lead or an admin approves it before the agents see it. Until the dialer sends real numbers, a lead counts as worked when
 // its day is over and the person was at work that day. Admins and team leads plan the teams they look after; QA
 // specialists and trainers can look; agents see only their own numbers.
-const wf = require('./wf'), cap = require('./cap');
+const wf = require('./wf'), cap = require('./cap'), ExcelJS = require('exceljs');
 
 module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, scopeOf, seesUser, ADMIN_TEAM, att }) => {
   const W = db => wf.settingsOf(db.settings && db.settings.wf, wf.localDay());
@@ -20,6 +20,8 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, s
   const has = (o, k) => Object.prototype.hasOwnProperty.call(o || {}, k);
   const sum = o => Object.values(o || {}).reduce((a, b) => a + b, 0);
   const add = (o, id, n) => { o[id] = (o[id] || 0) + n; };
+  // the worked leads the dialer gave for one person and day ({ campaign id: number }), imported from its file (4 November)
+  const actOf = (p, un, d) => ((p.actual || {})[un] || {})[d];
   // was the person at work on a day that is over (or on today): no when absent, away for the whole day, or not planned
   const atWork = s => !['absent', 'off', 'hol', 'none'].includes(s.st) && !(s.st === 'leave' && !['am', 'pm', 'hours'].includes(s.part));
   function teamsOk(db, me, list) {
@@ -55,13 +57,19 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, s
       const row = eff[u.username] || days.map(() => null), m = {}, lost = {}, recent = {}, left = {}, td = {}, wk = {}, fromD = {}, byDay = [], lostAt = [];
       const seen = (last && last.seen && last.seen[u.username]) || [];   // days already known as not worked when the last split was made
       row.forEach((q, i) => {
+        // a day with the dialer's real numbers: they are the leads worked that day (instead of "at work = worked")
+        const d = days[i], A = actOf(p, u.username, d);
+        if (A && d < D) Object.entries(A).forEach(([id, n]) => add(worked, id, n));
         byDay.push(q ? sum(q) : null); if (!q) return;
-        const d = days[i], gone = d <= today && !atWork(att.statusOf(db, S, u, d, LV, now));
-        if (gone) lostAt.push(i);
+        const gone = d <= today && !atWork(att.statusOf(db, S, u, d, LV, now));
+        // not worked that day: everything when the person was away, or what the dialer says was left (assigned minus worked)
+        const miss = id => A && d <= today ? Math.max(0, (q[id] || 0) - (A[id] || 0)) : gone ? q[id] : 0;
+        if (Object.keys(q).some(id => miss(id) > 0)) lostAt.push(i);
         Object.entries(q).forEach(([id, n]) => {
-          if (gone) { add(lost, id, n); if (last && !seen.includes(i)) add(recent, id, n); return; }
+          const ms = miss(id); if (ms) { add(lost, id, ms); if (last && !seen.includes(i)) add(recent, id, ms); }
+          if (gone) return;
           add(m, id, n);
-          if (d < D) add(worked, id, n); else add(fromD, id, n);
+          if (d < D) { if (!A) add(worked, id, n); } else add(fromD, id, n);
           if (d >= today) add(left, id, n);
           if (d === today) add(td, id, n);
           if (d >= wk0 && d <= wk1) add(wk, id, n);
@@ -115,7 +123,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, s
   function planOut(db, me, p, v) {
     const V = p.versions || [], last = V[V.length - 1], old = {};
     V.forEach(x => (x.cs || []).forEach(c => { if (!v.camps.some(k => k.id === c.id)) old[c.id] = { ...c, leads: 0, old: true }; }));
-    return { id: p.id, name: p.name, month: p.month, teams: p.teams, canEdit: canEdit(db, me, p), campaigns: [...v.camps, ...Object.values(old)], days: v.days, from: v.D, open: v.open,
+    return { id: p.id, name: p.name, month: p.month, teams: p.teams, canEdit: canEdit(db, me, p), actualAt: p.actualAt || null, actualDays: Object.values(p.actual || {}).reduce((a, x) => a + Object.keys(x).length, 0), campaigns: [...v.camps, ...Object.values(old)], days: v.days, from: v.D, open: v.open,
       version: last ? { no: last.no, from: last.from, at: last.at, by: nameOf(db, last.by) } : null,
       history: V.map(x => ({ no: x.no, from: x.from, at: x.at, by: nameOf(db, x.by), leads: sum(x.pool), people: Object.keys(x.split).length, why: x.why || [] })).reverse(),
       people: v.people.map(x => ({ u: x.u, name: x.name, team: x.team, member: x.member, pct: x.pct, month: x.month, total: sum(x.month), lost: sum(x.lost), left: sum(x.left), today: sum(x.today), week: sum(x.week), byDay: x.byDay, lostAt: x.lostAt })),
@@ -189,6 +197,47 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, s
     V.push(x);
     on.forEach(c => { if (c.total) notify(db, c.u, 'cap', x.no === 1 ? `Your leads for ${p.month} are ready: ${c.total} leads from ${x.from}` : `Your leads for ${p.month} have changed: ${c.total} leads from ${x.from}`, { cap: p.id }); });
     save(db); res.json({ ok: 1, no: x.no, from: x.from });
+  });
+  // ---- the worked leads from the dialer (Voiso, Ringover …): a ready template, then a CSV or Excel file with Date, Agent, Campaign, Worked leads
+  app.get('/api/cap/plans/:id/worked-template', need('admin', 'lead'), async (req, res) => {
+    const db = load(), p = find(db, req.session.user, req.params.id, res); if (!p) return;
+    const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('Worked leads'), how = wb.addWorksheet('How to fill');
+    ws.columns = [{ header: 'Date', key: 'd', width: 14 }, { header: 'Agent', key: 'a', width: 28 }, { header: 'Campaign', key: 'c', width: 28 }, { header: 'Worked leads', key: 'n', width: 14 }];
+    ws.getRow(1).font = { bold: true };
+    agentsOf(db, p).forEach(u => p.campaigns.forEach(c => ws.addRow({ d: null, a: u.name, c: c.name, n: null })));
+    ws.getColumn('d').numFmt = 'mm-dd-yy';
+    ['One row per agent, day and campaign: the number of leads the agent worked that day in that campaign.', 'Date: the day (a date cell, or 2026-11-03, or 03.11.2026). Only days of ' + p.month + ' that are over or today.',
+      'Agent: the name, username or e-mail as in Q-smart. Campaign: the name as in the plan.', 'Copy the rows for every day you import. A day you import again replaces the numbers of that day.',
+      'Days without numbers keep the usual rule: a lead counts as worked when the agent was at work that day.'].forEach(t => how.addRow([t]));
+    how.getColumn(1).width = 110;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="worked-leads-${p.month}.xlsx"`);
+    await wb.xlsx.write(res); res.end();
+  });
+  app.post('/api/cap/plans/:id/worked', need('admin', 'lead'), async (req, res) => {
+    const db = load(), b = req.body || {}, p = find(db, req.session.user, req.params.id, res); if (!p) return;
+    let rows; try { rows = await app.locals.readTable(b.file); } catch (e) { return bad(res, e.message); }
+    const head = (rows[0] || []).map(h => String(h).trim().toLowerCase()), col = names => head.findIndex(h => names.includes(h));
+    const at = { d: col(['date', 'day']), a: col(['agent', 'username', 'name', 'e-mail', 'email']), c: col(['campaign', 'campaign name']), n: col(['worked leads', 'worked', 'leads', 'leads worked']) };
+    if (Object.values(at).some(i => i < 0)) return bad(res, 'The first row must name the columns: Date, Agent, Campaign, Worked leads');
+    const people = agentsOf(db, p), today = wf.localDay(), sumUp = {}, out = [];
+    const dayOf = v => { const s = String(v || '').trim(), m = s.match(/^(\d{4})-(\d{2})-(\d{2})/) || s.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
+      return !m ? '' : m[0].length >= 10 && s[4] === '-' ? `${m[1]}-${m[2]}-${m[3]}` : `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`; };
+    rows.slice(1, 5001).forEach((r, i) => { const v = k => String(r[at[k]] == null ? '' : r[at[k]]).trim(), line = { n: i + 2, r: { date: v('d'), agent: v('a'), campaign: v('c'), worked: v('n') } };
+      if (!line.r.agent && !line.r.campaign && !line.r.worked) return;                       // an empty row of the template
+      try { const d = dayOf(v('d')); if (!d) throw new Error('The date must look like 2026-11-03 or 03.11.2026');
+        if (d.slice(0, 7) !== p.month || d > today) throw new Error('Only days of ' + p.month + ' that are over or today');
+        const s = v('a').toLowerCase(), u = people.find(x => x.username === s || x.name.toLowerCase() === s || (x.email || '').toLowerCase() === s); if (!u) throw new Error('No agent of this plan called ' + v('a'));
+        const c = p.campaigns.find(x => x.id === v('c') || x.name.toLowerCase() === v('c').toLowerCase()); if (!c) throw new Error('No campaign of this plan called ' + v('c'));
+        const n = Number(v('n')); if (!Number.isInteger(n) || n < 0 || n > 100000) throw new Error('Worked leads must be a whole number from 0');
+        const k = u.username + '|' + d + '|' + c.id; sumUp[k] = (sumUp[k] || 0) + n; out.push({ ...line, ok: true, what: `${u.name} · ${d} · ${c.name}: ${n}` });
+      } catch (e) { out.push({ ...line, ok: false, why: e.message }); } });
+    const add1 = out.filter(x => x.ok).length;
+    if (!b.preview && add1) { p.actual = p.actual || {}; const days = new Set();
+      Object.keys(sumUp).forEach(k => { const [un, d] = k.split('|'); if (!days.has(un + '|' + d)) { days.add(un + '|' + d); (p.actual[un] = p.actual[un] || {})[d] = {}; } });   // a day imported again is replaced
+      Object.entries(sumUp).forEach(([k, n]) => { const [un, d, c] = k.split('|'); p.actual[un][d][c] = n; });
+      p.actualAt = iso(); save(db); }
+    res.json({ rows: out.slice(0, 500), add: add1, skip: out.length - add1, days: new Set(out.filter(x => x.ok).map(x => x.what.split(' · ')[1])).size });
   });
   app.delete('/api/cap/plans/:id', need('admin', 'lead'), (req, res) => {
     const db = load(), me = req.session.user, p = find(db, me, req.params.id, res); if (!p) return;
