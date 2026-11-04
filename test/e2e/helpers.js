@@ -22,7 +22,7 @@ async function personPage(browser, username, { viewport, lang } = {}) {
   // requests to other sites are already counted above
   page.on('requestfailed', r => { const why = (r.failure() || {}).errorText || ''; if (new URL(r.url()).origin === origin && !/ERR_ABORTED/.test(why)) errors.push('request failed: ' + r.url() + ' ' + why); });
   await page.goto(process.env.E2E_BASE + '/');
-  if (lang) await page.getByRole('button', { name: lang, exact: true }).click();
+  if (lang) { await page.locator('.lglang summary').click(); await page.getByRole('button', { name: lang, exact: true }).click(); }   // the language globe on top (4 November)
   if (username) await signIn(page, username);
   return { page, ctx, errors };
 }

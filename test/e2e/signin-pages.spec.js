@@ -185,7 +185,7 @@ test('the language: chosen on the sign-in screen, saved with the account, the sa
   expect(await page.evaluate(() => I18N.lang)).toBe('bg');
   expect((await api(page, '/api/me')).json.prefs.lang).toBe('bg');
   await page.evaluate(() => out()); await expect(page.locator('#lu')).toBeVisible();
-  await page.getByRole('button', { name: 'English', exact: true }).click();      // somebody else could pick English on this computer…
+  await page.locator('.lglang summary').click(); await page.getByRole('button', { name: 'English', exact: true }).click();      // the globe; somebody else could pick English on this computer…
   await signIn(page, 'f.c1');
   expect(await page.evaluate(() => I18N.lang), '…the account keeps Bulgarian').toBe('bg');
   await page.evaluate(() => setLang('fr'));
