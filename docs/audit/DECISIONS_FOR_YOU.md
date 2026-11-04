@@ -1102,3 +1102,12 @@ Brevo's free plan sends up to 300 e-mails a day. With your own domain, add the S
 - Seats = everybody with an active account.
 - The Stripe keys are typed in Admin › Billing › Plan & seats and kept encrypted. Test keys (sk_test_…) never move real money.
 
+### More answers of 4 November
+- **AI team lead:** the Monday summary is **on by default** (an admin can switch it off). **Trainers** write summaries too. *(Done.)*
+- **Reports and e-mails:** **nothing is sent to anybody by default.** A person chooses whether a report is scheduled, and how often. A scheduled report arrives as a **notification in the app**; e-mail only when "Also by e-mail" is ticked. *(Done for scheduled reports.)* The same rule applies to the monthly AI report and the Workforce reports. Voiso reports will be shared as an example.
+- **Leave types:** annual leave stays adjustable (Workforce set-up › Leave types); sick, unpaid leave and personal hours exist; **"Other leave"** added. *(Done.)*
+- **Workforce:** menu as proposed; check-in button first, telephony import later; a warning after too many lates, not a deduction; the fair split by working days and hours; a mid-month change is suggested and approved by a person; "Attendance is tracked from" set on the start day; old balances entered with Adjust. The morning brief, Bradford levels 50 / 125 / 400 and the 70% short-staffed share: **all OK as they are.**
+- **Call Simulator:** a **universal product for every client** (not one industry), its **own look in the Q-smart colours**, a **new name** (to be given), **own scenarios** for each company, and the AI trainer **suggests a practice scenario** to an agent who is weak in a category. *(Next.)*
+- **ElevenLabs voices:** yes, for the voice practice calls only (text calls stay free). *(Next.)*
+- **Quinn:** a hybrid assistant that answers most questions without AI (plan first, then build).
+

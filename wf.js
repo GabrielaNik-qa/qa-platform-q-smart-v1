@@ -128,7 +128,8 @@ const LT0 = [
   { id: 'lt-annual', name: 'Annual leave', color: '#16a34a', paid: true, unit: 'day', allowance: 20, carry: 5, half: true, approval: true, sandwich: false, bradford: false },
   { id: 'lt-sick', name: 'Sick leave', color: '#e11d48', paid: true, unit: 'day', allowance: 0, carry: 0, half: false, approval: false, sandwich: false, bradford: true },
   { id: 'lt-unpaid', name: 'Unpaid leave', color: '#475569', paid: false, unit: 'day', allowance: 0, carry: 0, half: true, approval: true, sandwich: false, bradford: false },
-  { id: 'lt-hours', name: 'Personal hours', color: '#0d9488', paid: true, unit: 'hour', allowance: 8, carry: 0, half: false, approval: true, sandwich: false, bradford: false }];
+  { id: 'lt-hours', name: 'Personal hours', color: '#0d9488', paid: true, unit: 'hour', allowance: 8, carry: 0, half: false, approval: true, sandwich: false, bradford: false },
+  { id: 'lt-other', name: 'Other leave', color: '#7c3aed', paid: true, unit: 'day', allowance: 0, carry: 0, half: true, approval: true, sandwich: false, bradford: false }];
 const RULES0 = { lateLimit: 3, latePeriod: 'month', missingAfter: 30, fixDays: 7, fixReasons: ['Forgot to check in', 'Forgot to check out', 'Worked away from the computer', 'Technical problem', 'Other'], shortGrace: 15, teamOffPct: 20, since: '', minOnPct: 70, briefOn: false, briefAfter: 30, bradford: [50, 125, 400] };
 const half = (v, lo, hi, def) => { const n = Number(v); return v !== '' && v !== null && v !== undefined && Number.isFinite(n) ? Math.min(hi, Math.max(lo, Math.round(n * 2) / 2)) : def; };
 function cleanLeaveTypes(list, make) {

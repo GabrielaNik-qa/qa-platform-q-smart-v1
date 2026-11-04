@@ -149,7 +149,9 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   app.get('/api/exports/:id', need(...EDIT), (req, res) => { const u = req.session.user, x = coll(load(), 'exports').find(r => r.id === req.params.id && (u.role === 'admin' || r.by === u.username)); if (!x) return res.status(404).json({ error: 'not found' }); res.json(x); });
   app.delete('/api/exports/:id', need(...EDIT), (req, res) => { const db = load(); db.exports = coll(db, 'exports').filter(r => r.id !== req.params.id || (r.by !== req.session.user.username && req.session.user.role !== 'admin')); save(db); res.json({ ok: 1 }); });
 
-  // ---------------------------------------------------------------- scheduled reports: e-mailed by themselves (daily / weekly / monthly, at the chosen hour)
+  // ---------------------------------------------------------------- scheduled reports (daily / weekly / monthly, at the chosen hour)
+  // Gabriela, 4 November: nothing is sent unless a person schedules it. A scheduled report arrives as a notification in the app
+  // (everything can be seen there); it is also e-mailed only when "Also by e-mail" is ticked.
   // the data a report is made of: only what its owner may see (their workspace), like the Reports page in the browser
   const reportData = (db, owner) => {
     const teamOf = un => (db.users.find(x => x.username === un) || {}).team || '', s = scopeOf(db, owner);
@@ -172,7 +174,8 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
     markSent([r.id]); res.json({ sent: n });
   });
   // sending e-mails takes a while: the data is read again before saving, so changes other people made meanwhile are not overwritten
-  const markSent = ids => { const db = load(); let n = 0; coll(db, 'reports').forEach(r => { if (ids.includes(r.id)) { r.lastSent = iso(); n++; } }); if (n) save(db); };
+  const markSent = (ids, tell) => { const db = load(); let n = 0; coll(db, 'reports').forEach(r => { if (ids.includes(r.id)) { r.lastSent = iso(); n++;
+    if (tell && r.by) notify(db, r.by, 'report', `Your report "${r.name}" is ready`, { report: r.id }); } }); if (n) save(db); };
   async function scheduler() {
     try {
       const db = load(), now = new Date(), today = now.toISOString().slice(0, 10), sent = [];
@@ -180,9 +183,9 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
         const s = r.schedule || {}; if (!s.freq || s.freq === 'none' || now.getHours() < (+s.hour || 8) || String(r.lastSent || '').slice(0, 10) === today) continue;
         if (s.freq === 'weekly' && now.getDay() !== (+s.weekday || 1)) continue;
         if (s.freq === 'monthly' && now.getDate() !== (+s.day || 1)) continue;
-        if (await sendReport(db, r)) sent.push(r.id);
+        if (s.email) await sendReport(db, r); sent.push(r.id);
       }
-      if (sent.length) markSent(sent);
+      if (sent.length) markSent(sent, true);
     } catch (e) { console.log('Scheduled reports problem:', e.message); }
   }
   setInterval(scheduler, 10 * 60 * 1000); setTimeout(scheduler, 20000);

@@ -65,7 +65,7 @@ const aiReject = () => ask('Reject this AI review?', 'Nothing is published. You 
 // (its actions become tasks for the agent). The weekly summary is written on request, or every Monday when switched on.
 let AIPV = null, AILT = '';                                   // AIPV = the coaching plan being checked; AILT = the team shown
 const aiLeadOk = () => ['admin', 'qa', 'lead', 'trainer'].includes(ME.role);
-const aiSumOk = () => ['admin', 'qa', 'lead'].includes(ME.role);
+const aiSumOk = () => ['admin', 'qa', 'lead', 'trainer'].includes(ME.role);
 function aiTabPage() { return AQTAB === 'ai' && aiRev() ? aiRevPage() : AQTAB === 'lead' && aiLeadOk() ? aiLeadPage() : AQTAB === 'train' && aiLeadOk() ? aiTrainPage() : AQTAB === 'ana' && aiLeadOk() ? aiAnaPage() : ''; }
 function aiLeadPage() {
   const risk = AIL.risk.filter(x => !AILT || x.team === AILT), wait = AIL.plans.filter(p => p.status === 'draft'), sums = AIL.summaries.filter(x => !AILT || x.team === AILT);

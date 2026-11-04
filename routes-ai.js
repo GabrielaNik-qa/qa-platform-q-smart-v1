@@ -36,7 +36,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   const show = db => {
     const c = conf(db), k = n => { const v = unseal(c[KEYS[n]]); return { set: !!v, last4: v ? v.slice(-4) : '', env: !v && n === 'anthropic' && !!process.env.ANTHROPIC_API_KEY }; };
     return { model: ai.MODEL(), models: MODELS.map(([id, name]) => ({ id, name, price: ai.PRICE[id] })), budget: Number(c.budget) || 0, usage: usage(),
-      playbook: c.playbook || '', leadAuto: !!c.leadAuto, rolePlay: !!c.rolePlay, analystAuto: !!c.analystAuto, voice: VOICES.includes(c.voice) ? c.voice : 'browser', elevenVoice: c.elevenVoice || '', keys: { anthropic: k('anthropic'), elevenlabs: k('elevenlabs'), openai: k('openai') }, enabled: ai.enabled() };
+      playbook: c.playbook || '', leadAuto: c.leadAuto !== false, rolePlay: !!c.rolePlay, analystAuto: !!c.analystAuto, voice: VOICES.includes(c.voice) ? c.voice : 'browser', elevenVoice: c.elevenVoice || '', keys: { anthropic: k('anthropic'), elevenlabs: k('elevenlabs'), openai: k('openai') }, enabled: ai.enabled() };
   };
   app.get('/api/ai/settings', need('admin'), (req, res) => res.json(show(load())));
   // { model, budget, voice, elevenVoice, anthropicKey, elevenKey, openaiKey } — a key: text to set it, "" to remove it, left out to keep it
@@ -144,7 +144,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     const db = load(), see = inTeams(db, req.session.user);
     res.json({ risk: riskOf(db, see), summaries: (db.aiSummaries || []).filter(x => x.team ? see(x.team) : !scopeOf(db, req.session.user)).slice(0, 40), plans: (db.aiPlans || []).filter(p => see((db.users.find(u => u.username === p.agent) || {}).team)).slice(0, 100) });
   });
-  app.post('/api/ai/lead/summary', need('admin', 'qa', 'lead'), async (req, res) => {
+  app.post('/api/ai/lead/summary', need(...LEADS), async (req, res) => {   // trainers write summaries too (Gabriela, 4 November)
     const db = load(), team = str((req.body || {}).team, 40);
     if (team ? !db.teams.some(t => t.id === team && !t.system) || !inTeams(db, req.session.user)(team) : scopeOf(db, req.session.user)) return bad(res, 'Choose a team');   // the all-teams summary is only for people who see every team
     if (!ai.enabled()) return bad(res, 'Connect the AI (Admin › Integrations) to write summaries.');
@@ -181,7 +181,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   let busy = false;
   const weekly = async () => {
     if (busy) return; const now = new Date(); if (now.getDay() !== 1 || now.getHours() < 8) return;
-    const db = load(); if (!conf(db).leadAuto || !ai.enabled()) return;
+    const db = load(); if (conf(db).leadAuto === false || !ai.enabled()) return;   // on unless an admin switched it off (Gabriela, 4 November)
     busy = true;
     try { for (const t of db.teams.filter(x => !x.system)) if (!(load().aiSummaries || []).some(x => x.team === t.id && x.week === monday())) await writeSummary(t.id, 'AI team lead', true).catch(() => {}); }
     finally { busy = false; }

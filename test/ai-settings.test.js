@@ -119,13 +119,14 @@ test('the AI team lead: agents at risk from the reviews, the weekly summary, coa
   assert.deepEqual(L.risk.map(x => x.agent), ['k.agent'], 'only the low scorer is at risk');
   assert.ok(L.risk[0].why.includes('below target for 2 weeks') && L.risk[0].why.includes('critical fail')); assert.equal(L.risk[0].weak[0].n, 'Opening');
   assert.equal((await (await as('k.agent')).get('/api/ai/lead')).status, 403, 'agents never see the AI team lead');
-  assert.equal((await (await as('k.trainer')).post('/api/ai/lead/summary', { team: 't-a' })).status, 403, 'trainers do not write summaries');
+  assert.equal((await (await as('k.agent')).post('/api/ai/lead/summary', { team: 't-a' })).status, 403, 'agents do not write summaries (trainers do, since 4 November: see below)');
 
   // the weekly summary: written on request; the team lead is told
   assert.equal((await a.post('/api/ai/lead/summary', { team: 't-admin' })).status, 400, 'not the Administration team');
   const w = await a.post('/api/ai/lead/summary', { team: 't-a' });
   assert.equal(w.status, 200); assert.match(w.json.text, /hard week/); assert.ok(w.json.stats.thisWeek.reviews >= 4, 'the reviews of this week'); assert.equal(w.json.stats.agentsAtRisk[0].name, 'k.agent');
   assert.ok((await (await as('k.lead')).get('/api/notifications')).json.some(n => JSON.stringify(n).includes(w.json.id)), 'the team lead is told');
+  assert.equal((await (await as('k.trainer')).post('/api/ai/lead/summary', { team: 't-a' })).status, 200, 'trainers write summaries too (Gabriela, 4 November)');
 
   // a coaching plan draft; approving it needs a real session with that agent
   assert.equal((await a.post('/api/ai/lead/plan', { agent: 'k.qa' })).status, 400, 'only agents');
@@ -140,7 +141,7 @@ test('the AI team lead: agents at risk from the reviews, the weekly summary, coa
   assert.equal((await lead.post('/api/ai/lead/plan/' + p.id + '/reject', {})).status, 400, 'decided only once');
   const p2 = (await a.post('/api/ai/lead/plan', { agent: 'k.agent' })).json, rj = await a.post('/api/ai/lead/plan/' + p2.id + '/reject', {});
   assert.deepEqual([rj.status, rj.json.status], [200, 'rejected']);
-  L = (await lead.get('/api/ai/lead')).json; assert.equal(L.plans.length, 2); assert.equal(L.summaries.length, 1);
+  L = (await lead.get('/api/ai/lead')).json; assert.equal(L.plans.length, 2); assert.equal(L.summaries.length, 2, 'the one of admin and the one of the trainer');
 });
 
 test('the AI trainer: practice calls with an AI customer (switched on by the admin), training needs from the reviews, quiz drafts a person publishes', async () => {
