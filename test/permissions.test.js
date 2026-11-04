@@ -144,22 +144,29 @@ test('Help Center website: public reading, drafts for admins only, one helpful a
   const r = await fetch(app.base + '/', { redirect: 'manual', headers: { 'X-Forwarded-Host': 'help.example.com' } }); assert.equal(r.status, 302); assert.match(r.headers.get('location'), /\/hc\/$/);
 });
 
-// The Call Simulator (3 November): the written customer, the indicators and the right outcome give the score, counted by the server
-test('Call Simulator: scenarios by segment and level; the server scores a written call (indicators + right outcome); only admins delete', async () => {
+// Q Trainer (3 November; the Call Simulator until 4 November): the written customer, the indicators and the right outcome give the score, counted by the server
+test('Q Trainer: universal scenarios by segment and level; the server scores a written call (indicators + right outcome); only admins delete', async () => {
   const b1 = await client(app.base, 'f.b1'), b2 = await client(app.base, 'f.b2'), a = await client(app.base, 'f.admin'), tr = a;
   const rp = (await b1.get('/api/ai/roleplay')).json;
   assert.equal(rp.on, false, 'no AI: the written customer'); assert.ok(rp.langs.bg && rp.langs.fr);
-  const r8 = rp.scenarios.find(s => s.id === 'r8'); assert.equal(r8.seg, 'Regular'); assert.equal(r8.level, 1); assert.ok(r8.lines.length && r8.inds.length && r8.outcomes.length);
+  const r8 = rp.scenarios.find(s => s.id === 'wb30'); assert.equal(r8.seg, 'Retention'); assert.equal(r8.level, 1); assert.ok(r8.lines.length && r8.inds.length && r8.outcomes.length);
   assert.equal(r8.correct, undefined, 'the right outcome is not sent before the call'); assert.equal(r8.brief, undefined);
-  const msgs = [{ r: 'c', t: 'Hello?' }, { r: 'a', t: 'Hello, my name is Ana from Q-casino. This call is recorded. How are you?' }, { r: 'c', t: r8.lines[0] },
-    { r: 'a', t: 'We have a 100% bonus up to 200 euro, minimum deposit 20 euro, wager 20. I will send it by e-mail. Thank you, bye!' }];
-  const f = await b1.post('/api/sim/finish', { sc: 'r8', msgs, outcome: 'Winner: the player accepted the offer', secs: 95, mode: 'voice', lang: 'en', score: 1 });
+  assert.ok(!rp.scenarios.some(s => /casino|bonus|wager|player/i.test(s.name + s.who + s.open)), 'universal scenarios, for any company (4 November)');
+  // practice suggestions (4 November): f.b1's review misses the first question of every category, so it is below the pass mark
+  assert.ok(rp.suggested.length && rp.suggested.every(x => rp.scenarios.some(s => s.id === x.id) && x.cat), 'scenarios that train the weak categories');
+  const tr1 = await client(app.base, 'f.tr1'), cat = rp.suggested[0].cat;
+  const pr = await tr1.post('/api/ai/trainer/practice', { cat }); assert.equal(pr.status, 200, pr.text); assert.ok(pr.json.sent >= 1);
+  assert.ok(app.db().notifications.some(n => n.to === 'f.b1' && /practice call in Q Trainer/.test(JSON.stringify(n))), 'the agent is told');
+  assert.equal((await b1.post('/api/ai/trainer/practice', { cat })).status, 403, 'agents do not send practice calls');
+  const msgs = [{ r: 'c', t: 'Hello?' }, { r: 'a', t: 'Hello, my name is Ana from Q-smart Demo. This call is recorded. How are you?' }, { r: 'c', t: r8.lines[0] },
+    { r: 'a', t: 'We have a special offer: 20% off for three months, no contract, cancel anytime. I will send it by e-mail. Thank you, bye!' }];
+  const f = await b1.post('/api/sim/finish', { sc: 'wb30', msgs, outcome: 'Won back: the customer accepted the offer', secs: 95, mode: 'voice', lang: 'en', score: 1 });
   assert.equal(f.status, 200, f.text);
-  assert.deepEqual([f.json.score, f.json.right, f.json.turns, f.json.secs, f.json.mode, f.json.seg], [100, true, 2, 95, 'voice', 'Regular'], 'all 7 indicators and the right outcome; the page cannot send its own score');
+  assert.deepEqual([f.json.score, f.json.right, f.json.turns, f.json.secs, f.json.mode, f.json.seg], [100, true, 2, 95, 'voice', 'Retention'], 'all 7 indicators and the right outcome; the page cannot send its own score');
   assert.equal(f.json.inds.find(x => x.t === 'Says the call is recorded').turn, 1);
-  const w = await b1.post('/api/sim/finish', { sc: 'r8', msgs: msgs.slice(0, 2), outcome: 'Not interested', secs: 30 });
-  assert.equal(w.json.right, false); assert.equal(w.json.best, 'Winner: the player accepted the offer'); assert.equal(w.json.score, Math.round(3 / 7 * 80), 'greets, says it is recorded, asks: 3 of 7, and the wrong outcome');
-  assert.equal((await b1.post('/api/sim/finish', { sc: 'r8', msgs: [{ r: 'c', t: 'Hello?' }] })).status, 400, 'at least one reply');
+  const w = await b1.post('/api/sim/finish', { sc: 'wb30', msgs: msgs.slice(0, 2), outcome: 'Not interested', secs: 30 });
+  assert.equal(w.json.right, false); assert.equal(w.json.best, 'Won back: the customer accepted the offer'); assert.equal(w.json.score, Math.round(3 / 7 * 80), 'greets, says it is recorded, asks: 3 of 7, and the wrong outcome');
+  assert.equal((await b1.post('/api/sim/finish', { sc: 'wb30', msgs: [{ r: 'c', t: 'Hello?' }] })).status, 400, 'at least one reply');
   assert.equal((await b1.post('/api/sim/finish', { sc: 'nope', msgs })).status, 400);
   assert.ok(!(await b2.get('/api/simulations')).json.some(x => x.id === f.json.id), 'another agent does not see it');
   // a scenario written by a trainer or admin keeps its segment, level, lines, indicators and outcomes

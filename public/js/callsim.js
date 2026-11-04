@@ -1,4 +1,4 @@
-// ===================== Call Simulator (Gabriela, 3 November), like the one of converst-qa.web.app =====================
+// ===================== Q Trainer (Gabriela, 3 November; called the Call Simulator until 4 November) =====================
 // New simulation: four steps, then the language, the segment and a scenario (with its level), the call with the indicators ticked
 // while you speak, and at the end you choose how the call ended. The customer follows the lines of the scenario; when an admin
 // switches on the AI customer (Admin › Integrations), the AI plays it, in the language you chose. The server scores the call (sim.js).
@@ -6,6 +6,12 @@
 let CSM = { step: 'home', mode: 'text', lang: 'en', seg: '', sc: null, msgs: [], t0: 0, li: 0, busy: false, end: false, out: '', res: null };
 let CSD = { tab: 'over', per: 'all', team: '', who: '', open: null }, SIMV = null, SCNS = { builtin: [], custom: [] }, CSTICK = null;
 const CSPASS = 85;
+// Q Trainer's own mark: the Q with its sound rings, in the Q-smart colours (pink, orange, yellow)
+const QTLOGO = '<svg class=qtlogo viewBox="0 0 120 80" aria-hidden="true"><path d="M22 14a40 40 0 0 0 0 52M32 22a28 28 0 0 0 0 36M42 30a16 16 0 0 0 0 20" fill="none" stroke="#FF6F91" stroke-width="5" stroke-linecap="round"/><path d="M98 14a40 40 0 0 1 0 52M88 22a28 28 0 0 1 0 36M78 30a16 16 0 0 1 0 20" fill="none" stroke="#FFD447" stroke-width="5" stroke-linecap="round"/><circle cx="60" cy="38" r="16" fill="none" stroke="#FF6B00" stroke-width="7"/><path d="M70 49l9 9" stroke="#FF6F91" stroke-width="7" stroke-linecap="round"/></svg>';
+const qtSeg = s => ({ 'Customer service': 'cs', Sales: 'sa', Retention: 're' })[s || 'Customer service'] || 'own';
+// the practice calls suggested to me: the scenarios that train the categories where my reviews are below the pass mark (no AI)
+const qtSuggested = () => { const l = (AIRP.suggested || []).map(x => ({ ...x, sc: csSc(x.id) })).filter(x => x.sc); if (!l.length) return '';
+  return card(`🎯 ${tr('Suggested for you')}`, `<p class=mu style="margin:0 0 10px">${tr('Your reviews of the last 30 days are below the pass mark in these categories. These calls train them.')}</p><div class=qtsug>${l.map(x => `<button class="ib qtsg" onclick="csStart(${jsq(x.id)})"><b data-noi18n>${esc(tr(x.sc.name))}</b><small class=mu>${tr('trains')} <span data-noi18n>${esc(tr(x.cat))}</span> · ${Math.round(x.avg)}%</small></button>`).join('')}</div>`, 'qtsugc'); };
 const csSc = id => AIRP.scenarios.find(x => x.id === id);
 const csLvl = n => `<span class=cslvl title="${tr('Level')} ${n}/5" aria-label="${tr('Level')} ${n}/5">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</span>`;
 const csTime = s => { s = Math.max(0, Math.round(s || 0)); return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
@@ -63,20 +69,20 @@ function csDetail(s) {
 const csScore = s => `<div class=csbig style="--c:${csCol(s.score)}"><b class=mono>${s.score}</b><small>/100</small></div>`;
 
 PG.sim = function () {
-  const top = (t, s, back) => `<header class=hd><div class=row style="gap:12px;justify-content:flex-start">${back ? `<button class=ic aria-label="${tr('Back')}" title="${tr('Back')}" onclick="csGo('${back}')">‹</button>` : ''}<div><small class=cskick>${tr('Call Simulator')}</small><h1>${tr(t)}</h1><p class=mu style="margin:4px 0 0">${tr(s)}</p></div></div>${bellBtn()}</header>`;
+  const top = (t, s, back) => `<header class=hd><div class=row style="gap:12px;justify-content:flex-start">${back ? `<button class=ic aria-label="${tr('Back')}" title="${tr('Back')}" onclick="csGo('${back}')">‹</button>` : ''}<div><small class=cskick>${tr('Q Trainer')}</small><h1>${tr(t)}</h1><p class=mu style="margin:4px 0 0">${tr(s)}</p></div></div>${bellBtn()}</header>`;
   const who = AIRP.on ? tr('The AI plays the customer, in the language you choose.') : tr('The customer follows the written lines of the scenario. An admin can let the AI play the customer (Admin › Integrations).');
   if (CSM.step === 'home' || !AIRP.scenarios.length) return top('New simulation', 'Pick a mode, then choose the customer you will call.')
-    + `<section class="card cshero"><div class=cswave aria-hidden=true>${'<i></i>'.repeat(9)}</div><h2>${tr('Call Simulator')}</h2><p class=mu>${tr('Train with practice customers and follow your progress.')}</p>`
-    + `<div class=cssteps>${[['g_me', 'Choose a scenario'], ['ch_chat', 'Speak freely'], ['g_analytics', 'Track indicators'], ['check', 'Get feedback']].map(([ic, t], i) => `<div><span>${IC[ic] || ''}</span><small class=mono>0${i + 1}</small><b>${tr(t)}</b></div>`).join('')}</div>`
-    + (AIRP.scenarios.length ? `<button class=btn onclick="CSM.mode='voice';csGo('pick')">🎤 ${tr('Start training')}</button><br><button class=agl style="background:none;border:0;cursor:pointer;margin-top:10px" onclick="CSM.mode='text';csGo('pick')">${tr('Start training with text only')}</button>` : `<p class=mu>${tr('No scenario is switched on yet. A trainer or an admin switches them on in Call Simulator › Scenarios.')}</p>`)
-    + `<p class=mu style="margin:14px 0 0"><small>${who}</small></p></section>`;
+    + `<section class="card qthero"><div class=qtbrand>${QTLOGO}<div><small class=cskick>${tr('Q Trainer')}</small><h2>${tr('Practise the call before the real one.')}</h2><p class=mu style="margin:0">${who}</p></div></div>`
+    + (AIRP.scenarios.length ? `<div class=qtmodes><button class=qtmode onclick="CSM.mode='voice';csGo('pick')"><span class=qtico>🎤</span><b>${tr('Voice call')}</b><small>${tr('Speak; the customer answers aloud')}</small></button><button class=qtmode onclick="CSM.mode='text';csGo('pick')"><span class=qtico>💬</span><b>${tr('Chat')}</b><small>${tr('Type your replies')}</small></button></div>`
+      : `<p class=mu>${tr('No scenario is switched on yet. A trainer or an admin switches them on in Q Trainer › Scenarios.')}</p>`)
+    + `<ol class=qtflow>${['Choose a customer', 'Talk', 'Indicators tick as you speak', 'Score and feedback'].map(t => `<li>${tr(t)}</li>`).join('')}</ol></section>` + qtSuggested();
   if (CSM.step === 'pick') {
     const segs = [...new Set(AIRP.scenarios.map(x => x.seg || 'Customer service'))]; if (!segs.includes(CSM.seg)) CSM.seg = segs[0];
     const langs = AIRP.on ? `<div class="card cslang"><small class=ktt>🌐 ${tr('Language')}</small><div class=chips>${Object.entries(AIRP.langs || { en: 'English' }).map(([k, n]) => `<button class="ib ${CSM.lang === k ? 'on' : ''}" aria-pressed="${CSM.lang === k}" onclick="CSM.lang='${k}';render()">${k.toUpperCase()} <small>${esc(tr(n))}</small></button>`).join('')}</div><small class=mu>${CSM.mode === 'voice' ? '🎤 ' + tr('Voice mode') : '💬 ' + tr('Text mode')} · ${tr('The AI customer answers in the language you choose')}</small></div>`
       : `<div class="card cslang"><small class=mu>${CSM.mode === 'voice' ? '🎤 ' + tr('Voice mode') : '💬 ' + tr('Text mode')} · ${who}</small></div>`;
     return top('Choose a scenario', 'Choose the segment, then the customer you are calling today.', 'home') + langs
       + `<div class="card cssegs"><small class=ktt>${tr('Segment')}</small><div class=seg role=tablist>${segs.map(g => `<button role=tab class="${CSM.seg === g ? 'on' : ''}" aria-selected="${CSM.seg === g}" onclick="CSM.seg=${jsq(g)};render()">${esc(tr(g))}</button>`).join('')}</div></div>`
-      + `<div class=cscards>${AIRP.scenarios.filter(x => (x.seg || 'Customer service') === CSM.seg).map(x => `<button class="card cscard" onclick="csStart(${jsq(x.id)})">${csLvl(x.level || 2)}<b data-noi18n>${esc(tr(x.name))}</b><span class=mu data-noi18n>${esc(tr(x.who))}</span><small class=mu data-noi18n>“${esc(tr(x.open))}”</small><span class=row><small class=mu>${(x.inds || []).length} ${tr('indicators')}</small><span class=agl>${tr('Start')} →</span></span></button>`).join('')}</div>`;
+      + qtSuggested() + `<div class=cscards>${AIRP.scenarios.filter(x => (x.seg || 'Customer service') === CSM.seg).map(x => `<button class="card cscard" data-seg="${esc(qtSeg(x.seg))}" onclick="csStart(${jsq(x.id)})">${csLvl(x.level || 2)}<b data-noi18n>${esc(tr(x.name))}</b><span class=mu data-noi18n>${esc(tr(x.who))}</span><small class=mu data-noi18n>“${esc(tr(x.open))}”</small><span class=row><small class=mu>${(x.inds || []).length} ${tr('indicators')}</small><span class=agl>${tr('Start')} →</span></span></button>`).join('')}</div>`;
   }
   const sc = csSc(CSM.sc); if (!sc) { CSM.step = 'home'; return PG.sim(); }
   if (CSM.step === 'res' && CSM.res) { const s = CSM.res;
@@ -116,7 +122,7 @@ PG.simres = function () {
   const people = [...new Set(SIMS.map(s => s.agent))].filter(u => !CSD.team || (teamOf(u) === CSD.team)).sort((a, b) => (an(a) || a).localeCompare(an(b) || b));
   const bar = `<div class=row style="justify-content:flex-start;gap:10px;flex-wrap:wrap;margin-bottom:14px"><div class=seg role=tablist>${CSPER.map(([k, n]) => `<button role=tab class="${CSD.per === k ? 'on' : ''}" aria-selected="${CSD.per === k}" onclick="CSD.per='${k}';render()">${tr(n)}</button>`).join('')}</div>`
     + (ag ? '' : `<select style="width:auto" aria-label="${tr('Team')}" onchange="CSD.team=this.value;CSD.who='';render()"><option value="">${tr('All teams')}</option>${TEAMS.filter(t => !t.system).map(t => `<option value="${esc(t.id)}" ${CSD.team === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select><select style="width:auto" aria-label="${tr('Agent')}" onchange="CSD.who=this.value;render()"><option value="">${tr('All agents')}</option>${people.map(u => `<option value="${esc(u)}" ${CSD.who === u ? 'selected' : ''}>${esc(an(u) || u)}</option>`).join('')}</select>`) + '</div>';
-  const top = head('Call Simulator', ag ? 'Your practice calls and your progress.' : 'Train with practice customers and follow your progress.', `<div style="display:flex;gap:8px">${bellBtn()}<button class="btn ibx" onclick="CSM.step='home';goPage('sim')">${IC.plus} ${tr('New simulation')}</button></div>`)
+  const top = head('Q Trainer', ag ? 'Your practice calls and your progress.' : 'Train with practice customers and follow your progress.', `<div style="display:flex;gap:8px">${bellBtn()}<button class="btn ibx" onclick="CSM.step='home';goPage('sim')">${IC.plus} ${tr('New simulation')}</button></div>`)
     + `<div class="seg cstabs" role=tablist>${tabs.map(([k, n]) => `<button role=tab class="${CSD.tab === k ? 'on' : ''}" aria-selected="${CSD.tab === k}" onclick="CSD.tab='${k}';render()">${tr(n)}</button>`).join('')}</div>` + bar;
   if (!l.length) return top + `<div class=agem>${tr('No practice calls in this period.')} <a href="javascript:void(0)" class=agl onclick="CSM.step='home';goPage('sim')">${tr('Start a simulation ›')}</a></div>`;
   if (CSD.tab === 'sess') return top + `<p class=mu style="margin:0 0 10px">${csN(l.length, 'session')}</p>` + l.slice(0, 200).map(s => csRow(s, CSD.open === s.id)).join('');
@@ -158,13 +164,14 @@ const SC_F = [{ k: 'name', l: 'Name', req: 1, ph: 'Refund request' }, { k: 'who'
   { k: 'open', l: 'The first sentence of the customer', t: 'textarea', rows: 2, req: 1, ph: 'Hi, I want a refund for the subscription I bought last week.' },
   { k: 'lines', l: 'What the customer says next (one line per reply)', t: 'lines', rows: 4, hint: 'Used when the AI customer is switched off: after each reply of the agent, the next line.' },
   { k: 'inds', l: 'Indicators (one per line: what the agent should do: words that show it)', t: 'textarea', rows: 5, ph: 'Shows understanding: sorry, understand' },
-  { k: 'outcomes', l: 'Outcomes (one per line, the right one first)', t: 'lines', rows: 4, hint: 'The agent sees them in a mixed order and chooses one at the end of the call.' }];
+  { k: 'outcomes', l: 'Outcomes (one per line, the right one first)', t: 'lines', rows: 4, hint: 'The agent sees them in a mixed order and chooses one at the end of the call.' },
+  { k: 'cats', l: 'Scorecard categories it trains', t: 'multi', o: () => [...new Set(SCS.flatMap(s => (s.cats || []).map(c => c.n)))].map(n => [n, n]), hint: 'Agents below the pass mark in these categories are suggested this call.' }];
 const scIndTxt = l => (l || []).map(x => x.t + ': ' + x.kw.join(', ')).join('\n');
 const scIndOf = s => String(s || '').split('\n').map(x => { const i = x.indexOf(':'); return i < 0 ? null : { t: x.slice(0, i).trim(), kw: x.slice(i + 1).split(',').map(k => k.trim()).filter(Boolean) }; }).filter(x => x && x.t && x.kw.length);
 const scSave = id => async d => { const outs = d.outcomes || [], b = { ...d, inds: scIndOf(d.inds), correct: outs[0] || '' };
   const r = await api('/api/ai/scenarios' + (id ? '/' + id : ''), b, id ? 'PUT' : 'POST'); if (!r.ok) return errOf(r, 'Could not save the scenario'); await load(); toast(id ? 'Scenario saved' : 'Scenario added'); };
-const scNew = () => openForm({ title: 'New scenario', w: 680, yes: 'Add', d: { name: '', who: '', seg: '', level: '2', brief: '', open: '', lines: [], inds: '', outcomes: [] }, fields: SC_F, save: scSave() });
+const scNew = () => openForm({ title: 'New scenario', w: 680, yes: 'Add', d: { name: '', who: '', seg: '', level: '2', brief: '', open: '', lines: [], inds: '', outcomes: [], cats: [] }, fields: SC_F, save: scSave() });
 const scEdit = id => { const s = SCNS.custom.find(x => x.id === id), outs = [s.correct, ...(s.outcomes || []).filter(o => o !== s.correct)].filter(Boolean);
-  openForm({ title: 'Edit scenario', w: 680, d: { name: s.name, who: s.who, seg: s.seg || '', level: String(s.level || 2), brief: s.brief || '', open: s.open, lines: s.lines || [], inds: scIndTxt(s.inds), outcomes: outs }, fields: SC_F, save: scSave(id) }); };
+  openForm({ title: 'Edit scenario', w: 680, d: { name: s.name, who: s.who, seg: s.seg || '', level: String(s.level || 2), brief: s.brief || '', open: s.open, lines: s.lines || [], inds: scIndTxt(s.inds), outcomes: outs, cats: s.cats || [] }, fields: SC_F, save: scSave(id) }); };
 const scDel = id => ask('Delete this scenario?', 'Practice calls already made keep their results.', async () => { await api('/api/ai/scenarios/' + id, null, 'DELETE'); await load(); render(); toast('Scenario deleted'); }, { yes: 'Yes, delete', no: 'Cancel', danger: true });
 async function scOnOff(id, own, on) { const r = await api('/api/ai/scenarios/' + id, own ? { active: on } : { off: !on }, 'PUT'); if (!r.ok) return toast(await errOf(r, 'Could not save'), true); await load(); render(); toast(on ? 'Agents can practise it' : 'Hidden from the agents'); }

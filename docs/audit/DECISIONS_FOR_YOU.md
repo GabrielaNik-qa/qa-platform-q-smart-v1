@@ -1148,3 +1148,14 @@ Everything still open in this file and in REMAINING_ISSUES.md, in one place. Ans
 - **Patent attorney:** the description is in the folder docs/patent (on your computer only, not in Git).
 - **A named Cloudflare tunnel on your own domain:** one address that does not change, needed by Stripe, Google and Microsoft.
 
+### Your answers to the open decisions (4 November)
+1. **Q Trainer** is the new name of the Call Simulator.
+2. Sign-in: none of A-D. A **centered, modern** screen that keeps the company symbols (the Q with its rings and waves), and a **small globe** button for the language.
+3. The Quinn bubble on every page, for every role: **yes**.
+4. Quinn models: **always Claude Haiku 5.5**.
+5. The Quinn hand-over goes to **both**: the admins (Contact support) and the agent's team lead.
+6. Quinn limits: **yes** (€10 per company per month, 30 AI answers per user per hour).
+7. Time zones: **each person their own**, with shifts in local time.
+8. Filters and Columns on Users, Disputes, Quick Flags, Teams and Tasks: **yes**.
+9. The Kainami recording test is dropped. Question answered in the chat: transcripts can come from the dialer, or from a free model on our own server (Whisper), and AutoQA scores them with rules, without AI.
+10-19: still open.

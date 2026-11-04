@@ -1245,3 +1245,17 @@ small.beta { font: 600 10px var(--font); letter-spacing: .06em; text-transform: 
 .billpr { font: 700 22px var(--font) }
 .billcard { display: inline-grid; place-items: center; width: 64px; height: 42px; border-radius: 8px; color: #fff; font: 700 12px var(--font); letter-spacing: .06em; background: linear-gradient(135deg, #1e3a8a, #6d28d9) }
 @media (max-width: 900px) { .billp { grid-template-columns: 1fr 1fr } }
+
+/* Q Trainer (4 November): its own look in the Q-smart colours, not the one of other tools */
+.qthero { display: grid; gap: 18px; padding: 24px; border-top: 0; background: linear-gradient(120deg, color-mix(in srgb, #FF6F91 10%, var(--pn)), var(--pn) 45%, color-mix(in srgb, #FFD447 10%, var(--pn))) }
+.qtbrand { display: flex; gap: 18px; align-items: center } .qtlogo { width: 120px; height: 80px; flex: none } .qtbrand h2 { margin: 2px 0 6px; font-size: 24px }
+.qtmodes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px }
+.qtmode { display: grid; grid-template-columns: 44px 1fr; grid-template-rows: auto auto; column-gap: 12px; align-items: center; text-align: left; padding: 16px 18px; border-radius: 14px; border: 1px solid var(--bd); background: var(--pn); color: var(--tx); font: inherit; cursor: pointer; transition: border-color .15s, transform .15s }
+.qtmode:hover { border-color: #FF6B00; transform: translateY(-1px) } .qtmode b { font-size: 16px } .qtmode small { grid-column: 2; color: var(--mu) }
+.qtico { grid-row: span 2; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; font-size: 22px; background: linear-gradient(135deg, #FF6B00, #FF6F91) }
+.qtflow { display: flex; gap: 8px; flex-wrap: wrap; margin: 0; padding: 0; list-style: none; counter-reset: qt } .qtflow li { counter-increment: qt; font-size: 13px; color: var(--mu); padding: 4px 12px 4px 4px; border-radius: 999px; background: var(--sunk) }
+.qtflow li::before { content: counter(qt); display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 6px; border-radius: 50%; background: #FF6B00; color: #fff; font: 600 11px var(--font) }
+.qtsug { display: flex; gap: 8px; flex-wrap: wrap } .qtsg { display: grid; gap: 2px; text-align: left; height: auto; padding: 10px 14px } .qtsugc { border-color: color-mix(in srgb, #FF6F91 45%, var(--bd)) }
+.cscard { border-left: 4px solid #FFD447 } .cscard[data-seg="sa"] { border-left-color: #FF6B00 } .cscard[data-seg="re"] { border-left-color: #FF6F91 } .cscard[data-seg="own"] { border-left-color: var(--ac) }
+.cslvl i.on { background: linear-gradient(#FF6B00, #FF6F91) }
+@media (max-width: 700px) { .qtmodes { grid-template-columns: 1fr } .qtbrand { flex-direction: column; align-items: flex-start } }

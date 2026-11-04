@@ -266,7 +266,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     { id: 'tech', name: 'Technical problem', who: 'Confused customer', persona: 'a confused, non-technical customer', brief: 'The app keeps logging you out. You do not know your app version and need simple step-by-step help.', open: "The app keeps logging me out and I don't know what to do." },
     { id: 'ident', name: 'Identity check', who: 'Customer in a hurry', persona: 'a customer in a hurry', brief: 'You want your delivery address changed right now and find security questions annoying, but you answer them when the agent explains why.', open: "Just change my address, I don't have time for questions." }
   ];
-  const BUILT = [...SCEN, ...SIM.REACT];                           // the customer-service calls above and the reactivation calls of sim.js
+  const BUILT = [...SCEN, ...SIM.MORE];                           // the customer-service calls above and the reactivation calls of sim.js
   const rpOn = db => !!conf(db).rolePlay && ai.enabled();
   // the scenarios to practise: the built-in ones a trainer or admin did not switch off, and the ones they wrote (AI Simulator › Scenarios)
   const scenList = db => { const off = (db.settings && db.settings.scenOff) || []; return [...BUILT.filter(s => !off.includes(s.id)), ...(db.simScen || []).filter(s => s.active !== false)].map(SIM.full); };
@@ -280,7 +280,21 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   };
   const msgsOf = v => (Array.isArray(v) ? v : []).slice(0, 60).map(m => ({ r: m && m.r === 'a' ? 'a' : 'c', t: str(m && m.t, 600) })).filter(m => m.t);
   // the practice list for everybody: not the situation the customer knows, nor the right outcome (those would give the answers away)
-  app.get('/api/ai/roleplay', need(), (req, res) => res.json({ on: rpOn(load()), langs: SIM.LANGS, scenarios: scenList(load()).map(({ id, name, who, open, seg, level, lines, inds, outcomes }) => ({ id, name, who, open, seg, level, lines, inds, outcomes })) }));
+  // the scenarios that train the categories where a person is below the pass mark in the last 30 days (rules only, no AI)
+  const suggestFor = (db, un) => { const u = db.users.find(x => x.username === un); if (!u) return [];
+    const weak = catAvgs(db.evaluations.filter(e => e.agent === un && evAge(e) < 30)).filter(c => c.v < passOf(db, u.team)).sort((a, b) => a.v - b.v), list = scenList(db), out = [];
+    weak.forEach(c => list.filter(s => SIM.trains(s, c.n) && !out.some(o => o.id === s.id)).sort((a, b) => a.level - b.level).slice(0, 2).forEach(s => out.push({ id: s.id, cat: c.n, avg: c.v })));
+    return out.slice(0, 4); };
+  app.get('/api/ai/roleplay', need(), (req, res) => { const db = load();
+    res.json({ on: rpOn(db), langs: SIM.LANGS, suggested: suggestFor(db, req.session.user.username), scenarios: scenList(db).map(({ id, name, who, open, seg, level, lines, inds, outcomes }) => ({ id, name, who, open, seg, level, lines, inds: inds.map(({ t, kw }) => ({ t, kw })), outcomes })) }); });
+  // the AI trainer sends the agents below target in a category a practice scenario that trains it (a notification with the link)
+  app.post('/api/ai/trainer/practice', need(...LEADS), (req, res) => {
+    const db = load(), me = req.session.user, cat = str((req.body || {}).cat, 80), see = inTeams(db, me), need1 = needsOf(db, see).find(x => x.cat === cat);
+    if (!need1) return bad(res, 'Nobody is below target in this category');
+    const sc = scenList(db).filter(s => SIM.trains(s, cat)).sort((a, b) => a.level - b.level)[0]; if (!sc) return bad(res, 'No scenario trains this category yet: write one in Q Trainer › Scenarios');
+    need1.below.forEach(a => notify(db, a.agent, 'sim', `${me.name} suggests a practice call in Q Trainer: "${sc.name}", to train ${cat}`, { sc: sc.id }));
+    save(db); res.json({ sent: need1.below.length, scenario: sc.name });
+  });
   app.get('/api/ai/scenarios', need(...SCW), (req, res) => {
     const db = load(), off = (db.settings && db.settings.scenOff) || [];
     res.json({ builtin: BUILT.map(SIM.full).map(({ id, name, who, brief, open, seg, level, lines, inds, outcomes, correct }) => ({ id, name, who, brief, open, seg, level, lines, inds, outcomes, correct, off: off.includes(id) })), custom: db.simScen.map(SIM.full) });
@@ -337,7 +351,8 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     db.users.filter(u => u.role === 'agent' && u.active !== false && see(u.team)).forEach(u => catAvgs(db.evaluations.filter(e => e.agent === u.username && evAge(e) < 30)).forEach(c => {
       const x = m[c.n] = m[c.n] || { cat: c.n, all: [], below: [] }; x.all.push(c.v); if (c.v < passOf(db, u.team)) x.below.push({ agent: u.username, name: u.name, avg: c.v });
     }));
-    return Object.values(m).filter(x => x.below.length).map(x => ({ cat: x.cat, avg: avgOf(x.all), agents: x.all.length, below: x.below.sort((a, b) => a.avg - b.avg) }))
+    const list = scenList(db);
+    return Object.values(m).filter(x => x.below.length).map(x => ({ cat: x.cat, avg: avgOf(x.all), agents: x.all.length, below: x.below.sort((a, b) => a.avg - b.avg), practice: list.filter(s => SIM.trains(s, x.cat)).slice(0, 3).map(s => s.name) }))
       .sort((a, b) => b.below.length - a.below.length || a.avg - b.avg).slice(0, 20);
   }
   const quizRow = q => ({ id: q.id, title: q.title, status: q.status, created: q.created, cat: (q.ai || {}).cat || '', n: ((q.assign || {}).users || []).length, qs: (q.questions || []).length });

@@ -306,29 +306,29 @@ test('Help Center website: a visitor searches, reads and answers; an admin publi
   expect(errors).toEqual([]); expect(g.errors).toEqual([]); await g.ctx.close(); await ctx.close();
 });
 
-// The Call Simulator (3 November): an agent calls the written customer, the indicators are ticked, the outcome is chosen, the
+// Q Trainer (3 November; the Call Simulator until 4 November): an agent calls the written customer, the indicators are ticked, the outcome is chosen, the
 // result is on the dashboard; the admin sees the agent in the ranking
-test('Call Simulator: a written call with live indicators, the outcome, the score and the dashboard', async ({ browser }) => {
+test('Q Trainer: a written call with live indicators, the outcome, the score and the dashboard', async ({ browser }) => {
   const g = await personPage(browser, 'f.b1', { viewport: { width: 1366, height: 900 } });
   await go(g.page, 'sim');
-  await g.page.getByRole('button', { name: 'Start training with text only' }).click();
-  await g.page.locator('.cssegs').getByRole('tab', { name: 'Regular', exact: true }).click();
-  await g.page.locator('.cscard', { hasText: 'Regular (8-30 days)' }).click();
+  await g.page.getByRole('button', { name: /Chat/ }).click();
+  await g.page.locator('.cssegs').getByRole('tab', { name: 'Retention', exact: true }).click();
+  await g.page.locator('.cscard', { hasText: 'Recently inactive customer (8-30 days)' }).click();
   await expect(g.page.locator('.csside .ktt')).toContainText('0/7');
   const say = async t => { await g.page.locator('#si').fill(t); await g.page.getByRole('button', { name: 'Send' }).click(); };
   await say('Hello, my name is Ana. This call is recorded. How are you?');
   await expect(g.page.locator('.csside .ktt')).toContainText('3/7');
-  await say('You get a 100% bonus, minimum deposit 20 euro, wager 20.');
+  await say('You get a special offer of 20% off, with no contract.');
   await say('I will send it by e-mail. Thank you, bye!');
   await expect(g.page.locator('.csside .ktt')).toContainText('7/7');
   await expect(g.page.locator('#m')).toContainText('The customer has finished');
   await g.page.getByRole('button', { name: 'End the call' }).click();
-  await g.page.getByRole('button', { name: 'Winner: the player accepted the offer' }).click();
+  await g.page.getByRole('button', { name: 'Won back: the customer accepted the offer' }).click();
   await g.page.getByRole('button', { name: 'Get my score' }).click();
   await expect(g.page.locator('.csbig b')).toHaveText('100'); await expect(g.page.locator('.csv')).toContainText('Right choice');
   await g.page.getByRole('button', { name: 'Open the dashboard' }).click();
-  await expect(g.page.locator('.cssess')).toContainText('Regular (8-30 days)');
-  expect((await db()).simulations.find(s => s.agent === 'f.b1' && s.sc === 'r8').score).toBe(100);
+  await expect(g.page.locator('.cssess')).toContainText('Recently inactive customer (8-30 days)');
+  expect((await db()).simulations.find(s => s.agent === 'f.b1' && s.sc === 'wb30').score).toBe(100);
   const a = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 900 } });
   await go(a.page, 'simres'); await a.page.locator('.cstabs').getByRole('tab', { name: 'Agents' }).click();
   await expect(a.page.locator('#m table')).toContainText('100%');

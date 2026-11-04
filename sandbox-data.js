@@ -14,7 +14,7 @@ const AGENTS = [['Alex Moreau', 't-b2b', .93], ['Bianca Rossi', 't-b2b', .88], [
 const STAFF = [['Quinn Harper', 'qa', ''], ['Sam Ortega', 'qa', ''], ['Lara Brandt', 'lead', 't-b2b'], ['Milo Hayes', 'lead', 't-b2c'], ['Vera Lind', 'lead', 't-vip'], ['Tom Reyes', 'trainer', '']];
 const uname = n => 'sb.' + n.toLowerCase().split(' ')[0];
 const COMMENTS = ['Good energy and a clear offer. Ask one more question before you close.', 'The call was recorded, but you did not say it: always mention the recording first.',
-  'Very good objection handling, you stayed calm.', 'Explain the wager and the minimum deposit every time.', 'Nice close: you agreed the next step with the player.', 'Let the player finish before you answer.'];
+  'Very good objection handling, you stayed calm.', 'Explain the conditions of the offer every time.', 'Nice close: you agreed the next step with the customer.', 'Let the customer finish before you answer.'];
 
 // admin = the record of the admin who makes the sandbox, so they stay signed in inside it
 function company(admin) {
@@ -34,10 +34,10 @@ function company(admin) {
       sc: b.sc, cs: b.cs, scid: DEFAULT_SC.id, scn: DEFAULT_SC.name, st: 'ok', fl: '', cp: '', cm: COMMENTS[Math.floor(r() * COMMENTS.length)], ch, rv: qa.name, by: qa.username, seen: r() < .8 ? d.toISOString() : null });
   } });
   evaluations.sort((a, b) => String(b.d).localeCompare(String(a.d)));
-  // practice calls in the Call Simulator: the good agents meet more indicators and choose the right outcome more often
-  const scen = SIM.REACT.map(SIM.full), simulations = [];
-  const GOOD = { 'Greets and says their name': 'Hello, my name is {n}, I am calling from the casino.', 'Says the call is recorded': 'This call is recorded for quality.', 'Asks a question': 'How have you been?',
-    'Explains the offer clearly': 'We have a 100% bonus for you.', 'Gives the conditions (deposit, wager)': 'The minimum deposit is 20 euro and the wager is 20.', 'Agrees the next step': 'I will send it to you by e-mail.', 'Closes politely': 'Thank you, have a nice day!' };
+  // practice calls in Q Trainer: the good agents meet more indicators and choose the right outcome more often
+  const scen = SIM.MORE.map(SIM.full), simulations = [];
+  const GOOD = { 'Greets and says their name': 'Hello, my name is {n}, I am calling from Q-smart Demo.', 'Says the call is recorded': 'This call is recorded for quality.', 'Asks a question': 'How have you been?',
+    'Explains the offer clearly': 'We have a special offer for you: 20% off for three months.', 'Gives the conditions': 'There is no contract and you can cancel anytime.', 'Shows the value': 'It includes everything you had before, so you save money.', 'Agrees the next step': 'I will send it to you by e-mail.', 'Closes politely': 'Thank you, have a nice day!' };
   AGENTS.forEach(([n, team, skill]) => { for (let k = 0; k < 4; k++) {
     const sc = scen[Math.floor(r() * scen.length)], first = n.split(' ')[0], msgs = [{ r: 'c', t: sc.open }];
     const said = sc.inds.filter(() => r() < skill).map(x => (GOOD[x.t] || '').replace('{n}', first)).filter(Boolean);

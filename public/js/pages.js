@@ -22,7 +22,7 @@ const GROUPS = [
   { id: 'learning', name: 'Learning', icon: 'g_learning', space: 'learn', items: [['acad', 'My Learning'], ['kb', 'Knowledge Base'], ['quiz', 'Quizzes'], ['news', 'Newsletter']] },   // the Knowledge Base is back in Learning (Gabriela, 3 November)
   // Tools in the Learning panel: five tools to come (Gabriela's yes, 29 October)
   { id: 'tools', name: 'Tools', icon: 'g_tools', space: 'learn', items: [['cs_redact', 'Redaction'], ['cs_transl', 'Translator'], ['cs_sample', 'Sample calculator'], ['cs_scoresim', 'Score simulator'], ['cs_script', 'Script builder']] },
-  { id: 'aisim', name: 'Call Simulator', icon: 'g_aisim', space: 'ai', items: [['simres', 'Dashboard'], ['sim', 'New simulation'], ['simsc', 'Scenarios']] },
+  { id: 'aisim', name: 'Q Trainer', icon: 'g_aisim', space: 'ai', items: [['simres', 'Dashboard'], ['sim', 'New simulation'], ['simsc', 'Scenarios']] },
   { id: 'qintel', name: 'Q-Intelligence', icon: 'g_qi', space: 'qi', items: [['qask', 'Ask Quinn'], ['qins', 'AI insights'], ['cs_spot', 'Spotlight'], ['qknow', 'Knowledge']] },
   // two more apps (Gabriela, 29 October): AI agents (the AI roles that do a job in the app; more comes later) and Transcripts (was Learning > Tools)
   { id: 'aiagents', name: 'AI agents', icon: 'g_robot', space: 'aiag', items: [['qagents', 'AI agents']] },

@@ -1,31 +1,40 @@
-// The Call Simulator (3 November), like the one of converst-qa.web.app: scenarios grouped by segment and level, a written customer
-// (or the AI customer when an admin switched it on), indicators that are ticked while the agent speaks, and at the end the agent
-// chooses how the call ended. Everything here is plain rules, no AI: the same call always gets the same score.
+// Q Trainer (until 4 November: the Call Simulator): practice calls for any company, not one industry. Scenarios grouped by
+// segment (Customer service, Sales, Retention) and level, a written customer (or the AI customer when an admin switched it on),
+// indicators that are ticked while the agent speaks, and at the end the agent chooses how the call ended. Each indicator trains
+// one scorecard category, so an agent who is weak in a category is suggested the scenarios that train it.
+// Everything here is plain rules, no AI: the same call always gets the same score.
 const str = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
 
 // the languages the AI customer can speak (the written customer speaks the language its lines are written in)
 const LANGS = { en: 'English', fr: 'French', de: 'German', es: 'Spanish', it: 'Italian', pt: 'Portuguese', el: 'Greek', bg: 'Bulgarian' };
 const OUT_CS = ['Solved', 'Escalated to a colleague', 'The customer will call back', 'Not solved'];
-const OUT_RE = ['Winner: the player accepted the offer', 'Callback: call again later', 'Not interested', 'Do not call again'];
-// the checklists the built-in scenarios share: an indicator is met when the agent says one of its words
+const OUT_SA = ['Sale: the customer said yes', 'Follow-up: send the offer and call back', 'Not interested', 'Do not call again'];
+const OUT_RE = ['Won back: the customer accepted the offer', 'Callback: call again later', 'Not interested', 'Do not call again'];
+// the scorecard categories an indicator trains, found in any company's category names (English names of the 7 usual ones, or similar)
+const CAT = { greet: /greet|intro|open/i, empathy: /empath|listen|understand/i, persuade: /persua|objection|sell|offer|negotiat/i, process: /process|complian|procedure|adherence|policy/i,
+  close: /clos|outcome|result|next step/i, vocab: /vocab|professional|language|writ|clarity/i };
+// the checklists the built-in scenarios share: an indicator is met when the agent says one of its words; c = the category it trains
 const I = {
-  greet: ['Greets and says their name', ['hello', 'good morning', 'good afternoon', 'my name is', 'this is', "i'm calling", 'i am calling']],
-  rec: ['Says the call is recorded', ['recorded', 'recording']],
-  empathy: ['Shows understanding', ['understand', 'sorry', 'i see', 'i hear you', 'apologi', 'frustrat']],
-  ask: ['Asks a question', ['?', 'could you tell', 'can you tell', 'may i ask']],
-  offer: ['Explains the offer clearly', ['bonus', 'free spin', 'cashback', 'cash back', '%', 'deposit']],
-  terms: ['Gives the conditions (deposit, wager)', ['wager', 'minimum deposit', 'min deposit', 'terms', 'conditions']],
-  value: ['Shows the value', ['include', 'value', 'benefit', 'save', 'worth']],
-  option: ['Offers an option or a solution', ['option', 'instead', 'offer you', 'i can', 'we can', 'discount', 'pause', 'refund']],
-  next: ['Agrees the next step', ['send', 'e-mail', 'email', 'sms', 'text you', 'call you back', 'tomorrow', 'next step']],
-  close: ['Closes politely', ['thank you', 'thanks for', 'have a nice', 'have a great', 'goodbye', 'bye']],
-  verify: ['Checks the identity', ['date of birth', 'security', 'verify', 'confirm your', 'postcode']],
-  steps: ['Gives simple steps', ['first', 'then', 'step', 'tap', 'click', 'open the']]
+  greet: ['Greets and says their name', ['hello', 'good morning', 'good afternoon', 'my name is', 'this is', "i'm calling", 'i am calling'], 'greet'],
+  rec: ['Says the call is recorded', ['recorded', 'recording'], 'process'],
+  empathy: ['Shows understanding', ['understand', 'sorry', 'i see', 'i hear you', 'apologi', 'frustrat'], 'empathy'],
+  ask: ['Asks a question', ['?', 'could you tell', 'can you tell', 'may i ask'], 'empathy'],
+  offer: ['Explains the offer clearly', ['offer', 'discount', '%', 'free', 'plan', 'package', 'special price'], 'persuade'],
+  terms: ['Gives the conditions', ['terms', 'conditions', 'contract', 'per month', 'valid until', 'minimum', 'no commitment', 'cancel anytime'], 'process'],
+  value: ['Shows the value', ['include', 'value', 'benefit', 'save', 'worth'], 'persuade'],
+  option: ['Offers an option or a solution', ['option', 'instead', 'offer you', 'i can', 'we can', 'discount', 'pause', 'refund'], 'persuade'],
+  next: ['Agrees the next step', ['send', 'e-mail', 'email', 'sms', 'text you', 'call you back', 'tomorrow', 'next step', 'meeting'], 'close'],
+  close: ['Closes politely', ['thank you', 'thanks for', 'have a nice', 'have a great', 'goodbye', 'bye'], 'close'],
+  verify: ['Checks the identity', ['date of birth', 'security', 'verify', 'confirm your', 'postcode'], 'process'],
+  steps: ['Gives simple steps', ['first', 'then', 'step', 'tap', 'click', 'open the'], 'vocab']
 };
-const ind = (...k) => k.map(x => ({ t: I[x][0], kw: I[x][1] }));
+const ind = (...k) => k.map(x => ({ t: I[x][0], kw: I[x][1], c: I[x][2] }));
 const CS = (level, inds, lines, correct) => ({ seg: 'Customer service', level, inds: ind(...inds), lines, outcomes: OUT_CS, correct });
-const RE = (id, seg, name, who, level, brief, open, lines) => ({ id, seg, name, who, persona: who.toLowerCase(), level, brief, open, lines,
-  inds: ind('greet', 'rec', 'ask', 'offer', 'terms', 'next', 'close'), outcomes: OUT_RE, correct: OUT_RE[0] });
+// a built-in scenario of sales or retention: seg, its outcomes and the right one, and the indicators it checks
+const MK = (seg, out, right, keys) => (id, name, who, level, brief, open, lines) => ({ id, seg, name, who, persona: who.toLowerCase(), level, brief, open, lines, inds: ind(...keys), outcomes: out, correct: right });
+const SA = MK('Sales', OUT_SA, OUT_SA[0], ['greet', 'ask', 'value', 'offer', 'terms', 'next', 'close']);
+const FU = MK('Sales', OUT_SA, OUT_SA[1], ['greet', 'rec', 'ask', 'value', 'next', 'close']);
+const RT = MK('Retention', OUT_RE, OUT_RE[0], ['greet', 'rec', 'ask', 'offer', 'terms', 'next', 'close']);
 // what the built-in scenarios of routes-ai.js get on top of their name, customer and first sentence
 const EXTRA = {
   price: CS(2, ['greet', 'empathy', 'ask', 'value', 'option', 'close'],
@@ -39,35 +48,36 @@ const EXTRA = {
   ident: CS(1, ['greet', 'empathy', 'verify', 'next', 'close'],
     ['Why do you need all that? I just want the address changed.', 'Fine. My date of birth is the 3rd of May 1985.', 'Good. Thanks, that was quick in the end.'], 'Solved')
 };
-// the reactivation calls of the outbound teams (like the player segments of Converst): Regular players by days away, and VIP
-const REACT = [
-  RE('rnd', 'Regular', 'RND: never deposited', 'Registered player who never deposited', 1, 'You opened an account a month ago but never deposited because you were not sure the site is safe. You deposit if the agent explains the welcome offer and its conditions clearly.', 'Hello? Who is this?',
-    ['Oh, right, I remember signing up. I never put money in, I was not sure about it.', 'And what do I have to do to get that? Is there a catch?', 'OK, send it to me by e-mail and I will have a look tonight.']),
-  RE('r8', 'Regular', 'Regular (8-30 days)', 'Recently inactive player', 1, 'You played every week until two weeks ago and simply forgot. You come back easily if the offer is good.', 'Hello?',
-    ['Yes, I have been busy lately. What is it about?', 'That sounds nice. Is there a minimum deposit?', 'Fine, send me the offer, I will play this weekend.']),
-  RE('r31', 'Regular', 'Regular (31-60 days)', 'Cooling player', 2, 'You stopped a month ago after a bad losing streak. You come back only if the agent asks why you stopped and offers something fair.', 'Yes, hello?',
-    ['To be honest I lost quite a bit last time, so I took a break.', 'Free spins… and what are the conditions?', 'OK, maybe. Send it by SMS and I will see.']),
-  RE('r61', 'Regular', 'Regular (61-90 days)', 'Player at risk of leaving', 3, 'You moved to another casino two months ago because their bonuses were better. You need a concrete reason to come back.', 'Hello, who am I speaking to?',
-    ['I play somewhere else now, they give me better bonuses.', 'Hm, and the wager on that?', 'Alright, send it over, I will compare.']),
-  RE('r91', 'Regular', 'Regular (91-120 days)', 'Almost lost player', 4, 'You have not played for three months and are not really interested. Only a strong, clear offer keeps you on the phone.', 'Yeah?',
-    ["I'm not really playing any more.", "I don't know… what exactly would I get?", 'Fine, send it, but no promises.']),
-  RE('r120', 'Regular', 'Regular (120 days+)', 'Long-inactive player', 5, 'You have not played for half a year and you are annoyed to be called. You stay polite only if the agent is respectful and quick.', 'Who gave you my number?',
-    ['I really have not played in ages.', 'Okay, okay. What is the offer then?', 'Just send it to my e-mail, I have to go.']),
-  RE('v31', 'VIP', 'VIP (31-60 days)', 'VIP player', 3, 'You are a VIP who stopped playing a month ago because your account manager changed and nobody called you. You expect personal attention.', 'Hello, yes?',
-    ['Nobody has called me for weeks. My old manager always did.', 'And what is in it for me as a VIP?', 'Good. Send me the details and call me next week.']),
-  RE('v120', 'VIP', 'VIP (120 days+)', 'Former VIP player', 5, 'You were a VIP but stopped four months ago after a slow withdrawal. You are suspicious and want to hear that it will not happen again.', 'Yes?',
-    ['My last withdrawal took two weeks. Why would I come back?', 'And the offer, what are the conditions exactly?', 'OK. Send it in writing, I will think about it.'])
+// sales and retention calls that fit any product: a subscription, a service, a shop, software, insurance …
+const MORE = [
+  SA('inbound', 'Inbound enquiry', 'Interested customer', 1, 'You saw the product online and want to know what it costs and what is included. You buy if the agent asks what you need and explains a fitting plan clearly.', 'Hi, I saw your website and I would like to know more.',
+    ['Mostly for my small team, about five people.', 'And how much is that per month? Is there a contract?', 'OK, that works for me. Let us do it.']),
+  SA('upsell', 'Upgrade an existing customer', 'Happy customer on a basic plan', 2, 'You have used the basic plan for a year and you like it. You upgrade if the agent shows what the bigger plan adds for you and what it costs.', 'Hello, yes, I am a customer. What is this about?',
+    ['It works fine, but we are growing a bit.', 'What would I get more, and what would it cost?', 'Sounds good. Send me the details and we upgrade.']),
+  FU('cold', 'Cold call to a business', 'Busy office manager', 4, 'You did not expect the call and you have five minutes. You agree to a follow-up only if the agent is quick, asks about your needs and gives a real reason.', 'Yes? Who is calling?',
+    ['We already have a supplier for that.', 'Hm. What would be different with you?', 'Fine, send me something by e-mail and call me next week.']),
+  RT('wb30', 'Recently inactive customer (8-30 days)', 'Customer who stopped recently', 1, 'You stopped using the service two weeks ago because you were busy. You come back easily if the offer is good and clear.', 'Hello?',
+    ['Yes, I have been busy lately. What is it about?', 'That sounds nice. What are the conditions?', 'Fine, send me the offer, I will start again this week.']),
+  RT('wb90', 'Inactive customer (31-90 days)', 'Customer who is drifting away', 3, 'You stopped two months ago because a competitor was cheaper. You need a concrete reason and a fair offer to come back.', 'Hello, who am I speaking to?',
+    ['I use another company now, they were cheaper.', 'Hm, and is there a contract with that?', 'Alright, send it over, I will compare.']),
+  RT('wb120', 'Long-inactive customer (90 days+)', 'Long-gone customer', 5, 'You left half a year ago and you are annoyed to be called. You stay polite only if the agent is respectful, quick and clear.', 'Who gave you my number?',
+    ['I really have not used it in ages.', 'Okay, okay. What is the offer then?', 'Just send it to my e-mail, I have to go.']),
+  RT('vip', 'Key account that went quiet', 'Important customer', 4, 'You are one of the biggest customers but nobody called you since your account manager changed. You expect personal attention and a clear plan.', 'Hello, yes?',
+    ['Nobody has called me for weeks. My old manager always did.', 'And what is in it for us now?', 'Good. Send me the details and call me next week.'])
 ];
 // a scenario as the simulator uses it: the extra parts are added to a built-in one, or taken from one a trainer wrote
 const full = s => ({ seg: 'Customer service', level: 2, inds: [], lines: [], outcomes: OUT_CS, correct: '', ...s, ...(EXTRA[s.id] || {}) });
+// does a scenario train this scorecard category? (through the category of its indicators; one a trainer wrote names its categories)
+const trains = (sc, cat) => (sc.cats || []).some(c => String(c).toLowerCase() === String(cat).toLowerCase()) || (sc.inds || []).some(x => x.c && CAT[x.c] && CAT[x.c].test(cat));
 
-// what a trainer writes in AI Simulator › Scenarios, cleaned: indicators are "label: word, word", one per line
+// what a trainer writes in Q Trainer › Scenarios, cleaned: indicators are "label: word, word", one per line
 const extraBody = b => {
   const lines = (Array.isArray(b.lines) ? b.lines : String(b.lines || '').split('\n')).map(x => str(x, 400)).filter(Boolean).slice(0, 12);
   const inds = (Array.isArray(b.inds) ? b.inds : []).slice(0, 12).map(x => ({ t: str(x && x.t, 80), kw: (Array.isArray(x && x.kw) ? x.kw : String((x && x.kw) || '').split(',')).map(k => str(k, 40).toLowerCase()).filter(Boolean).slice(0, 12) })).filter(x => x.t && x.kw.length);
   const outcomes = (Array.isArray(b.outcomes) ? b.outcomes : String(b.outcomes || '').split('\n')).map(x => str(x, 80)).filter(Boolean).slice(0, 8);
   const level = Math.max(1, Math.min(5, Math.round(Number(b.level) || 2)));
-  return { seg: str(b.seg, 40) || 'Customer service', level, lines, inds, outcomes, correct: outcomes.includes(str(b.correct, 80)) ? str(b.correct, 80) : '' };
+  const cats = (Array.isArray(b.cats) ? b.cats : String(b.cats || '').split(',')).map(x => str(x, 80)).filter(Boolean).slice(0, 10);   // the scorecard categories it trains
+  return { seg: str(b.seg, 40) || 'Customer service', level, lines, inds, outcomes, correct: outcomes.includes(str(b.correct, 80)) ? str(b.correct, 80) : '', cats };
 };
 
 // the indicators met by the agent's replies, with the reply that met each one first
@@ -81,4 +91,4 @@ function grade(sc, msgs, outcome) {
   const fb = mine.map((t, i) => { const hit = inds.filter(x => x.turn === i + 1).map(x => x.t); return { turn: i + 1, hit }; });
   return { inds, score, right, fb, good: inds.filter(x => x.ok).map(x => x.t).slice(0, 6), tips: inds.filter(x => !x.ok).map(x => 'Next time: ' + x.t.charAt(0).toLowerCase() + x.t.slice(1)).slice(0, 6) };
 }
-module.exports = { LANGS, REACT, full, extraBody, grade };
+module.exports = { LANGS, MORE, full, extraBody, grade, trains };

@@ -37,14 +37,14 @@ for (const [role, who] of Object.entries(PEOPLE)) {
 
 // the menu Gabriela approved on 28 October: the order, the two coloured panels, the settings wheel (Admin / Settings) with
 // My account on top, System settings under Quality set-up for admins only, and the name written as G.Georgieva
-test('the menu: order, coloured Call Simulator and Q-Intelligence, the settings wheel with My account, System settings for admins only', async ({ browser }) => {
+test('the menu: order, coloured Q Trainer and Q-Intelligence, the settings wheel with My account, System settings for admins only', async ({ browser }) => {
   const a = await personPage(browser, 'f.admin', { viewport: { width: 1366, height: 800 } });
   // after signing in OPERATIONS, MANAGE and APPS are three rows of icons (29 October); a click on each heading opens it
-  expect(await a.page.locator('.appsr').evaluateAll(l => l.map(r => r.children.length))).toEqual([5, 5, 5]);   // APPS: Q-Intelligence, Call Simulator, Learning, AI agents, Transcripts
+  expect(await a.page.locator('.appsr').evaluateAll(l => l.map(r => r.children.length))).toEqual([5, 5, 5]);   // APPS: Q-Intelligence, Q Trainer, Learning, AI agents, Transcripts
   await expect(a.page.locator('.appsr .appi.g-aihub')).toHaveCSS('color', 'rgb(255, 107, 0)');
   for (const h of ['.sech.sec-ops', '.sech.sec-manage', '.apph:not(.sech)']) await a.page.locator(h).click();
   await expect(a.page.locator('.appsr')).toHaveCount(0);
-  expect(await a.page.locator('#n .gh span').allInnerTexts()).toEqual(['Home', 'Quality', 'Analytics', 'Performance', 'Coaching', 'AI Hub', 'Help Center', 'Planning', 'Reports', 'Activity Log', 'Q-Intelligence', 'Call Simulator', 'Learning', 'AI agents', 'Transcripts']);
+  expect(await a.page.locator('#n .gh span').allInnerTexts()).toEqual(['Home', 'Quality', 'Analytics', 'Performance', 'Coaching', 'AI Hub', 'Help Center', 'Planning', 'Reports', 'Activity Log', 'Q-Intelligence', 'Q Trainer', 'Learning', 'AI agents', 'Transcripts']);
   await expect(a.page.locator('.grp.sp-ai .gh i')).toHaveCSS('color', 'rgb(255, 212, 71)');
   await expect(a.page.locator('.grp.sp-qi .gh i')).toHaveCSS('color', 'rgb(255, 111, 145)');
   // after signing in every group is folded; a click anywhere on a row (name or icon) unfolds it and opens its first page, a second click folds it (29 October)
@@ -74,7 +74,7 @@ test('the menu: order, coloured Call Simulator and Q-Intelligence, the settings 
   // APPS: the panels end with ↗; the heading folds them into one row of icons (remembered); the icons-only menu keeps the line
   expect(await a.page.locator('.spc .gh em').first().innerText()).toBe('↗');
   await a.page.locator('.apph:not(.sech)').click();
-  expect(await a.page.locator('.appsr .appi').evaluateAll(l => l.map(b => b.title))).toEqual(['Q-Intelligence', 'Call Simulator', 'Learning', 'AI agents', 'Transcripts']);
+  expect(await a.page.locator('.appsr .appi').evaluateAll(l => l.map(b => b.title))).toEqual(['Q-Intelligence', 'Q Trainer', 'Learning', 'AI agents', 'Transcripts']);
   expect(await a.page.locator('.spc').count()).toBe(0);
   await a.page.reload(); await a.page.waitForFunction(() => typeof ME !== 'undefined' && ME); await closeWelcome(a.page);
   await expect(a.page.locator('.appsr .appi'), 'folded is remembered').toHaveCount(5);
