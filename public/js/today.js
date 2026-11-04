@@ -31,11 +31,11 @@ PG.today = function () {
   const one = T.team, R = T.rows, tm = r => !one && TEAMS.filter(t => !t.system).length > 1 ? ' · ' + esc(tn(r.team)) : '';
   const grp = (title, list, k, f) => list.length ? `<div class=tdg><b class="${k || ''}">${tr(title)} <span class=bg>${list.length}</span></b>${list.map(r => `<div class=tdp><span>${esc(r.name)}</span><small class=mu>${f(r)}${tm(r)}</small></div>`).join('')}</div>` : '';
   const people = grp('Not checked in', R.filter(r => r.st === 'missing'), 'bad', r => tr(`shift from ${r.start}`))
-    + grp('Late', R.filter(r => r.late), 'wn', r => tr(`${r.late} min late`) + ' · ' + atHm(r.in))
+    + grp('Late', R.filter(r => r.late), 'wn', r => tr(`${r.late} min late`) + ' · ' + atHm(r.in, r.tz))
     + grp('On a break', R.filter(r => r.st === 'working' && r.brk), '', r => tr('since') + ' ' + atHm(((r.brks || []).find(b => !b.e) || {}).s))
-    + grp('Working now', R.filter(r => r.st === 'working' && !r.brk && !r.late), 'ok', r => tr('since') + ' ' + atHm(r.in))
+    + grp('Working now', R.filter(r => r.st === 'working' && !r.brk && !r.late), 'ok', r => tr('since') + ' ' + atHm(r.in, r.tz))
     + grp('Later today', R.filter(r => r.st === 'upcoming'), '', r => tr(`shift from ${r.start}`))
-    + grp('Checked out', R.filter(r => (r.st === 'done' || r.st === 'extra') && !r.late), '', r => atHm(r.in) + '–' + atHm(r.out))
+    + grp('Checked out', R.filter(r => (r.st === 'done' || r.st === 'extra') && !r.late), '', r => atHm(r.in, r.tz) + '–' + atHm(r.out, r.tz))
     + grp('On leave', R.filter(r => r.st === 'leave'), 'ac', r => esc(ltName(r.lt)))
     + grp('Absent', R.filter(r => r.st === 'absent'), 'bad', r => tr(`shift from ${r.start}`))
     + grp('Day off', R.filter(r => r.st === 'off' || r.st === 'hol'), '', r => r.st === 'hol' ? tr('Holiday') : tr('Day off'));

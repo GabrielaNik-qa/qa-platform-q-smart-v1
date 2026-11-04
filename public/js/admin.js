@@ -114,6 +114,8 @@ PG.teams = function () {
 const ROLEHELP = { admin: 'Sees and changes everything, including users, settings and data protection.', qa: 'Reviews calls, resolves disputes, runs calibrations; sees the teams of their workspaces.', lead: 'Leads a team: sees its reviews, writes one-to-ones, gives tasks, approves time off.', trainer: 'Coaches and trains: sees the teams of their workspaces, writes coaching sessions, quizzes and articles.', agent: 'Sees only their own reviews, tasks, learning and time off.' };
 const lastIn = u => u.lastIn ? `<span title="${esc(fdt(u.lastIn))}">${tkD(u.lastIn)}</span>` : '<small class=mu>' + tr('never') + '</small>';
 let UF = { q: '', team: '', role: '', st: 'active', sk: '', lg: '' };
+// the time zones to choose from (4 November): the company's (empty) first, then every zone the browser knows
+const tzOpts = () => { const co = (SET.org || {}).tz || Intl.DateTimeFormat().resolvedOptions().timeZone; let l = []; try { l = Intl.supportedValuesOf('timeZone'); } catch (e) { l = [co]; } return [['', tr('Company time zone') + ' (' + co + ')'], ...l.map(z => [z, z.replace(/_/g, ' ')])]; };
 const fmName = () => { const d = FM.d, v = ((d.firstName || '') + ' ' + (d.lastName || '')).trim(); if (FM.isNew) { if (!d._u) { d.username = uname(v); const u = $('#fu'); if (u) u.value = d.username; } if (!d._e) { d.email = emailOf(v); const e = $('#fe'); if (e) e.value = d.email; } } };
 const USER_FIELDS = isNew => [
   { k: 'firstName', l: 'First name', req: 1, on: isNew ? 'fmName' : '' }, { k: 'lastName', l: 'Last name', req: 1, on: isNew ? 'fmName' : '' },
@@ -123,6 +125,7 @@ const USER_FIELDS = isNew => [
   { k: 'team', l: 'Team', req: 1, t: 'select', show: d => d.role === 'agent', o: () => teamOpts('Choose a team…'), hint: 'Every agent belongs to a team. Moving someone keeps their old reviews and updates both teams.' },
   { k: 'workspaces', l: 'Workspaces', t: 'multi', show: d => !['agent', 'admin'].includes(d.role), o: () => WSP.map(w => [w.id, w.name]), hint: 'Which workspaces this person works in. Admins see all of them.' },
   { k: 'title', l: 'Job title' }, { k: 'phone', l: 'Phone' }, { k: 'start', l: 'Start date', t: 'date' },
+  { k: 'tz', l: 'Time zone', t: 'select', o: tzOpts, hint: 'Shifts, check-ins and lateness use this time zone. Empty: the company time zone.' },
   { k: 'languages', l: 'Languages', t: 'picker', kind: 'languages' }, { k: 'skills', l: 'Skills', t: 'picker', kind: 'skills' }, { k: 'desc', l: 'Description', t: 'textarea', rows: 2 },
   ...(isNew ? [] : [{ k: 'active', l: 'Active account', t: 'checkbox', hint: 'Inactive people cannot log in and disappear from the pick lists; their history stays.' }]),
   ...EMP_FIELDS()

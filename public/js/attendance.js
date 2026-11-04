@@ -6,7 +6,7 @@
 let ATTD = null, ATTF = 0, ATAB = LS.get('qa_atab', 'me'), ATT_T = LS.get('qa_atteam', ''), ATD = '', ATDAY = null, ATM = '', ATMON = null;
 let LVD = null, LTAB = LS.get('qa_ltab', 'me'), LTM = LS.get('qa_lteam', ''), LCM = '', LCAL = null, LBAL = null, LRQ = null, LPT = 0;
 const atRaw = s => { const x = new Date(s); return String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); };   // HH:MM of a moment
-const atHm = s => s ? new Date(s).toLocaleTimeString(I18N.locale(), { hour: '2-digit', minute: '2-digit' }) : '—';
+const atHm = (s, tz) => { if (!s) return '—'; try { return new Date(s).toLocaleTimeString(I18N.locale(), { hour: '2-digit', minute: '2-digit', ...(tz ? { timeZone: tz } : {}) }); } catch (e) { return new Date(s).toLocaleTimeString(I18N.locale(), { hour: '2-digit', minute: '2-digit' }); } };   // tz: the person's own time zone
 const atDur = m => { m = Math.max(0, Math.round(m || 0)); const h = Math.floor(m / 60), r = m % 60; return h ? (r ? tr(`${h} h ${r} min`) : tr(`${h} h`)) : tr(`${r} min`); };
 // the minutes worked so far; while somebody works the page counts them itself from the check-in and the breaks
 const atWorked = s => { if (s.worked != null) return s.worked; if (!s.in) return 0; const now = Date.now();
@@ -38,7 +38,7 @@ function atToday(small) {
   const A = ATTD; if (!A) return '<p class=mu style="margin:0">…</p>';
   const s = A.today, sh = wfShift(s.plan), plan = sh ? `${esc(sh.name)} · ${wfTime(sh)}${s.half ? ' · ½' : ''}` : s.plan === 'off' ? tr('Day off') : s.plan === 'hol' ? tr('Holiday') : tr('Not planned');
   return `<div class=atday><div class=atwhen><b>${wfDay(s.d, { weekday: 'long', day: 'numeric', month: 'long' })}</b><small class=mu>${plan}</small></div>
-<div class=attimes><span><small class=mu>${tr('In')}</small><b class=mono>${atHm(s.in)}</b></span><span><small class=mu>${tr('Out')}</small><b class=mono>${atHm(s.out)}</b></span><span><small class=mu>${tr('Worked')}</small><b class=mono id=attw>${s.in ? atDur(atWorked(s)) : '—'}</b></span></div>
+<div class=attimes><span><small class=mu>${tr('In')}</small><b class=mono>${atHm(s.in, s.tz)}</b></span><span><small class=mu>${tr('Out')}</small><b class=mono>${atHm(s.out, s.tz)}</b></span><span><small class=mu>${tr('Worked')}</small><b class=mono id=attw>${s.in ? atDur(atWorked(s)) : '—'}</b></span></div>
 <div class=atst>${atPill(s)}</div><div class=atbtn>${atBtns(s)}</div></div>`
     + (small ? '' : `<div class=row style="margin-top:10px;flex-wrap:wrap;gap:8px"><small class=mu>${A.since ? tr(`Late arrivals this ${A.latePeriod}: ${A.lates} of ${A.lateLimit} allowed`) : tr('Attendance is not tracked yet: until an admin sets the start date in Workforce set-up › Attendance rules, nobody is marked absent. Checking in already works.')}</small>${A.fixDays ? `<a href="javascript:void(0)" class=agl onclick="atFix('${s.d}')">${tr('Forgot to check in or out? Ask for a correction')}</a>` : ''}</div>`);
 }
@@ -75,7 +75,7 @@ PG.att = function () {
 function atMePage() {
   const A = ATTD; if (!A) return card('', '<p class=mu style="margin:0">…</p>');
   return card('Today', atToday()) + atWaiting(A)
-    + card('The last 14 days', tbl(['Day', 'Plan', 'In', 'Out', 'Worked', 'Status', ''], A.days.map(s => [wfDay(s.d), atPlan(s), atHm(s.in), s.auto ? `<span class=mu>${atHm(s.out)}</span>` : atHm(s.out), s.in ? atDur(atWorked(s)) : '—', atPill(s), atFixBtn(A, s)])))
+    + card('The last 14 days', tbl(['Day', 'Plan', 'In', 'Out', 'Worked', 'Status', ''], A.days.map(s => [wfDay(s.d), atPlan(s), atHm(s.in, s.tz), s.auto ? `<span class=mu>${atHm(s.out, s.tz)}</span>` : atHm(s.out, s.tz), s.in ? atDur(atWorked(s)) : '—', atPill(s), atFixBtn(A, s)])))
     + (A.fixes.length ? card('My corrections', tbl(['Day', 'Check-in', 'Check-out', 'Reason', 'Asked', 'Status'], A.fixes.map(f => [wfDay(f.d), f.in || '—', f.out || '—', esc(tr(f.reason)) + (f.note ? `<br><small class=mu>${esc(f.note)}</small>` : ''), fdt(f.at), pill(tr(FIXST[f.status][0]), FIXST[f.status][1]) + (f.why ? `<br><small class=mu>${esc(f.why)}</small>` : '')]))) : '');
 }
 const atTeam = v => { ATT_T = v; LS.set('qa_atteam', v); load().then(render); };
@@ -93,7 +93,7 @@ function atTeamPage() {
     + (T.since ? '' : `<p class=mu style="margin:0 0 10px">${tr('Attendance is not tracked yet: until an admin sets the start date in Workforce set-up › Attendance rules, nobody is marked absent. Checking in already works.')}</p>`)
     + atWaiting(ATTD)
     + card('', `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 10px">${chips.map(([l, n, k]) => k ? pill(tr(l) + ' · ' + n, k) : `<span class=tg>${tr(l)} · ${n}</span>`).join(' ')}</div>`
-      + (T.rows.length ? tbl(['Person', 'Plan', 'In', 'Out', 'Worked', 'Status', ''], T.rows.map(r => [`<b>${esc(r.name)}</b>`, atPlan(r), atHm(r.in), r.auto ? `<span class=mu>${atHm(r.out)}</span>` : atHm(r.out), r.in ? atDur(atWorked(r)) : '—', atPill(r),
+      + (T.rows.length ? tbl(['Person', 'Plan', 'In', 'Out', 'Worked', 'Status', ''], T.rows.map(r => [`<b>${esc(r.name)}</b>`, atPlan(r), atHm(r.in, r.tz), r.auto ? `<span class=mu>${atHm(r.out, r.tz)}</span>` : atHm(r.out, r.tz), r.in ? atDur(atWorked(r)) : '—', atPill(r),
         r.edit && T.d <= today ? `<button class=ic onclick="atEdit(${jsq(r.u)},'${T.d}')" title="${esc(tr('Correct the attendance'))}" aria-label="${esc(tr('Correct the attendance'))}">${IC.pen}</button>` : ''])) : '<p class=mu style="margin:0">This team has no members yet.</p>'));
 }
 const LOGW = { in: 'Checked in', 'in again': 'Checked in again', out: 'Checked out', break: 'Break started', back: 'Break ended' };   // the history of a day in words

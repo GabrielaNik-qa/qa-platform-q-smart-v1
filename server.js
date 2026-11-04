@@ -314,7 +314,7 @@ const userBody = (b, db, cur) => {
   if (role !== 'agent') team = ADMIN_TEAM;                                   // admins, QA, team leads and trainers always sit in the Administration team
   else if (!db.teams.some(t => t.id === team && t.id !== ADMIN_TEAM)) throw new Error('Choose a team. Every agent must belong to a team.');
   const start = /^\d{4}-\d{2}-\d{2}$/.test(b.start || '') ? b.start : '';
-  return { ...np, email, role, team, title: str(b.title, 80), desc: str(b.desc, 600), languages: pick(b.languages, db.languages), skills: pick(b.skills, db.skills), phone: str(b.phone, 40), start, active: b.active === undefined ? (cur ? cur.active !== false : true) : !!b.active, ...empBody(b, db, cur, np.name) };
+  return { ...np, email, role, team, title: str(b.title, 80), desc: str(b.desc, 600), languages: pick(b.languages, db.languages), skills: pick(b.skills, db.skills), phone: str(b.phone, 40), tz: b.tz === undefined ? ((cur || {}).tz || '') : (wfm.okTz(b.tz) ? b.tz : ''), start, active: b.active === undefined ? (cur ? cur.active !== false : true) : !!b.active, ...empBody(b, db, cur, np.name) };
 };
 // employment (Workforce): employee ID, type and hours, reporting manager, work calendar, usual shift or repeating pattern,
 // status and leaving date, and the private details (birthday, emergency contact) only admins and the person see

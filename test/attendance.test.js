@@ -11,6 +11,16 @@ const S = wf.settingsOf({ rules: { since: '2026-01-01', shortGrace: 15 } }, '202
 const at = (d, hm) => new Date(wf.atLocal(d, hm)).toISOString(), T27 = '2026-10-27', day = { v: 's-day' };   // Tuesday; the default shift is 09:00–18:00, grace 5 minutes
 const st = (rec, now, lv, d = T27, plan = day) => wf.dayStatus(S, S.rules, d, plan, rec, lv || null, now || wf.atLocal('2026-10-28', '12:00'));
 
+// decision 7 (Gabriela, 4 November): each person their own time zone; a shift is in the person's local time
+test('time zones: a 09:00 shift is 09:00 where the person lives; the company zone applies when the person has none', () => {
+  const NY = 'America/New_York', SOF = 'Europe/Sofia', utc = (h, m) => new Date(Date.UTC(2026, 9, 27, h, m)).toISOString(), late = (tz, rec) => wf.dayStatus(S, S.rules, T27, day, rec, null, Date.UTC(2026, 9, 28, 12), tz);
+  assert.equal(late(NY, { in: utc(13, 3), out: utc(22, 0) }).late, 0, '13:03 UTC is 09:03 in New York (within the grace minutes)');
+  assert.equal(late(SOF, { in: utc(7, 20), out: utc(15, 0) }).late, 20, '07:20 UTC is 09:20 in Sofia: 20 minutes late');
+  assert.equal(new Date(wf.atLocal('2026-03-29', '09:00', SOF)).toISOString(), '2026-03-29T06:00:00.000Z', 'right after the clocks change');
+  assert.equal(wf.tzOf({ tz: SOF }, { tz: NY }), NY, 'the person first'); assert.equal(wf.tzOf({ tz: SOF }, { tz: '' }), SOF, 'then the company');
+  assert.equal(wf.tzOf({ tz: 'Nowhere/Land' }, { tz: 'Mars/Base' }), '', 'an unknown zone is ignored: the server time zone');
+  assert.equal(wf.dayOfTime(Date.UTC(2026, 10, 4, 23, 30), SOF), '2026-11-05', 'past midnight in Sofia');
+});
 test('the status of a day: late and early only beyond the grace minutes, short days, absences, and the automatic check-out', () => {
   assert.deepEqual([st({ in: at(T27, '09:04'), out: at(T27, '17:57') }).late, st({ in: at(T27, '09:04'), out: at(T27, '17:57') }).early], [0, 0], 'within the 5 grace minutes');
   const s = st({ in: at(T27, '09:20'), out: at(T27, '17:30'), brk: [{ s: at(T27, '12:00'), e: at(T27, '12:30') }] });

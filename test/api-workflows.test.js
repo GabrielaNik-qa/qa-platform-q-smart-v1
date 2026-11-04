@@ -88,6 +88,15 @@ test('decision 14: a review with an unanswered question is refused; one where ev
   assert.strictEqual((await qa.call('DELETE', '/api/evaluations/' + r.json.rid)).status, 200);
 });
 
+test('decision 7: a person has their own time zone; an unknown one is not saved', async () => {
+  const ad = client(); await ad.login('t.admin');
+  const u = (await ad.get('/api/users')).json.find(x => x.username === AGENT);
+  assert.strictEqual((await ad.put('/api/users/' + AGENT, { ...u, tz: 'America/New_York' })).status, 200);
+  assert.strictEqual(readDb().users.find(x => x.username === AGENT).tz, 'America/New_York');
+  await ad.put('/api/users/' + AGENT, { ...u, tz: 'Mars/Base' });
+  assert.strictEqual(readDb().users.find(x => x.username === AGENT).tz, '', 'unknown zone: the company time zone applies');
+});
+
 test('a task that needs review waits in In review; the one who checks it sends it back with a comment or approves it', async () => {
   const qa = await asU('t.qa'), ag = await asU(AGENT);
   const [t] = (await qa.post('/api/tasks', { title: 'Call summary', rev: true, assignees: [AGENT], due: '2026-12-01' })).json;

@@ -10,7 +10,12 @@ const addDays = (s, n) => { const d = parse(s); d.setUTCDate(d.getUTCDate() + n)
 const dow = s => parse(s).getUTCDay();                                   // 0 = Sunday … 6 = Saturday
 const diffDays = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
 const monday = s => addDays(s, -((dow(s) + 6) % 7));
-const localDay = () => { const n = new Date(); return n.getFullYear() + '-' + pad(n.getMonth() + 1) + '-' + pad(n.getDate()); };
+// time zones (Gabriela, 4 November: each person their own). A person's zone, else the company's (Admin › Organization), else the server's ('')
+const okTz = z => { if (!z || typeof z !== 'string' || z.length > 60) return false; try { new Intl.DateTimeFormat('en-US', { timeZone: z }); return true; } catch (e) { return false; } };
+const tzOf = (W, u) => (u && okTz(u.tz) ? u.tz : '') || (W && okTz(W.tz) ? W.tz : '');
+const tzParts = (t, tz) => Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(t)).map(x => [x.type, x.value]));
+const tzOff = (t, tz) => { const p = tzParts(t, tz); return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute, +p.second) - Math.floor(t / 1000) * 1000; };   // how far the zone is ahead of UTC at that moment
+const localDay = tz => { if (tz) { const p = tzParts(Date.now(), tz); return p.year + '-' + p.month + '-' + p.day; } const n = new Date(); return n.getFullYear() + '-' + pad(n.getMonth() + 1) + '-' + pad(n.getDate()); };
 const mins = t => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
 
 // Orthodox Easter: the Julian computus, moved to the Gregorian calendar (+13 days, right for 1900–2099)
@@ -151,25 +156,26 @@ function cleanRules(x) {
     minOnPct: int(r.minOnPct, 0, 100, 70), briefOn: r.briefOn === true, briefAfter: int(r.briefAfter, 0, 240, 30), bradford: bfLevels(r.bradford) };              // attendance is tracked from this day: before it (or when empty) nobody is marked absent
 }
 
-// ---- times: shift times are wall-clock times of the server's own time zone; check-ins are kept as exact moments (ISO)
+// ---- times: shift times are wall-clock times in the person's time zone (or the company's, or the server's); check-ins are kept as exact moments (ISO)
 const MIN = 6e4, AFTER = 4 * 36e5;                                              // a day is closed 4 hours after the end of its shift
-const atLocal = (date, hm) => { const [y, mo, d] = date.split('-').map(Number), [h, mi] = hm.split(':').map(Number); return new Date(y, mo - 1, d, h, mi, 0, 0).getTime(); };
-const dayOfTime = t => { const n = new Date(t); return n.getFullYear() + '-' + pad(n.getMonth() + 1) + '-' + pad(n.getDate()); };
+const atLocal = (date, hm, tz) => { const [y, mo, d] = date.split('-').map(Number), [h, mi] = hm.split(':').map(Number); if (!tz) return new Date(y, mo - 1, d, h, mi, 0, 0).getTime();
+  const g = Date.UTC(y, mo - 1, d, h, mi); let t = g - tzOff(g, tz); t = g - tzOff(t, tz); return t; };   // twice: right also on the day the clocks change
+const dayOfTime = (t, tz) => { if (tz) { const p = tzParts(t, tz); return p.year + '-' + p.month + '-' + p.day; } const n = new Date(t); return n.getFullYear() + '-' + pad(n.getMonth() + 1) + '-' + pad(n.getDate()); };
 // the planned shift of a day as moments: start, end (the next day for a night shift), and the paid time; a half day is the first half
-function shiftWindow(W, date, plan) {
+function shiftWindow(W, date, plan, tz) {
   const s = W.shifts.find(x => x.id === plan.v); if (!s) return null;
-  const start = atLocal(date, s.start); let end = atLocal(date, s.end); if (end <= start) end += 864e5;
+  const start = atLocal(date, s.start, tz); let end = atLocal(date, s.end, tz); if (end <= start) end += 864e5;
   const len = end - start, paid = Math.max(0, len - (s.brk || 0) * MIN);
   return plan.half ? { s, start, end: start + len / 2, paid: paid / 2 } : { s, start, end, paid };
 }
 // worked time of a day: from check-in to check-out, minus the breaks. When nobody checked out, the shift's automatic
 // check-out applies once the day is closed ("none" leaves it open and marks the missing check-out)
-function worktime(r, win, now, date) {
+function worktime(r, win, now, date, tz) {
   const tin = Date.parse(r.in), dayEnd = win ? win.end : tin + 12 * 36e5; let tout = r.out ? Date.parse(r.out) : 0, auto = '';
   if (!tout && now > dayEnd + AFTER) {
     const s = win && win.s;
     if (s && s.autoOut === 'end') { tout = Math.max(dayEnd, tin); auto = 'end'; }
-    else if (s && s.autoOut === 'fixed' && TIME.test(s.autoAt || '')) { let x = atLocal(date, s.autoAt); if (x < tin) x += 864e5; tout = x; auto = 'fixed'; }
+    else if (s && s.autoOut === 'fixed' && TIME.test(s.autoAt || '')) { let x = atLocal(date, s.autoAt, tz); if (x < tin) x += 864e5; tout = x; auto = 'fixed'; }
     else auto = 'none';
   }
   const open = !tout && auto !== 'none', until = tout || (auto === 'none' ? Math.max(dayEnd, tin) : now);
@@ -184,13 +190,13 @@ function worktime(r, win, now, date) {
 // the status of one person on one day, worked out from the plan, the check-ins and approved leave:
 // none · off · hol · leave · upcoming · missing (the shift started, nobody checked in) · absent · working · done · extra (worked on a day off)
 // with late / early / short minutes (only beyond the grace minutes of the shift; leave in the morning or evening excuses them)
-function dayStatus(W, R, date, plan, rec, lv, now) {
+function dayStatus(W, R, date, plan, rec, lv, now, tz) {
   const r = rec && rec.in ? rec : null, part = lv ? lv.part : '';
   if (part === 'full') return { st: 'leave', lt: lv.lt };
-  const win = shiftWindow(W, date, plan);
+  const win = shiftWindow(W, date, plan, tz);
   if (!win) {
     if (!r) return { st: plan.v === 'hol' ? 'hol' : plan.v === 'off' ? 'off' : 'none' };
-    const w = worktime(r, null, now, date);
+    const w = worktime(r, null, now, date, tz);
     return { st: w.open ? 'working' : 'extra', brk: w.onBreak, in: r.in, out: w.tout ? new Date(w.tout).toISOString() : '', auto: w.auto, noOut: w.auto === 'none', late: 0, early: 0, short: 0, worked: Math.round(w.worked / MIN), expect: 0, extra: true };
   }
   if (!r) {
@@ -200,7 +206,7 @@ function dayStatus(W, R, date, plan, rec, lv, now) {
     if (now < win.end) return { st: 'missing', mins: Math.round((now - win.start) / MIN) };   // not a late arrival (yet): it never counts as one
     return { st: 'absent' };
   }
-  const w = worktime(r, win, now, date);
+  const w = worktime(r, win, now, date, tz);
   const late = part !== 'am' && part !== 'hours' && w.tin - win.start > win.s.graceIn * MIN ? Math.round((w.tin - win.start) / MIN) : 0;
   const early = part !== 'pm' && part !== 'hours' && w.tout && !w.auto && win.end - w.tout > win.s.graceOut * MIN ? Math.round((win.end - w.tout) / MIN) : 0;
   let expect = win.paid; if (part === 'am' || part === 'pm') expect /= 2; if (part === 'hours') expect = Math.max(0, expect - (Number(lv.hours) || 0) * 36e5);
@@ -214,8 +220,9 @@ const periodStart = (date, p) => p === 'week' ? monday(date) : date.slice(0, 8) 
 function missingCheckIns(W, R, users, date, rota, att, leaveOf, now) {
   if (!R.missingAfter || !R.since || date < R.since) return [];
   return users.filter(u => u.role === 'agent' || u.shift || u.pattern).map(u => {
-    const plan = planOf(W, u, date, rota), win = shiftWindow(W, date, plan);
-    if (!win || leaveOf(u, date) || ((att[date] || {})[u.username] || {}).in) return null;
+    const tz = tzOf(W, u), day = tz ? dayOfTime(now, tz) : date;   // the person's own today
+    const plan = planOf(W, u, day, rota), win = shiftWindow(W, day, plan, tz);
+    if (!win || leaveOf(u, day) || ((att[day] || {})[u.username] || {}).in) return null;
     return now >= win.start + R.missingAfter * MIN && now < win.end ? { u: u.username, start: win.s.start } : null;
   }).filter(Boolean);
 }
@@ -284,5 +291,5 @@ function weekdayPattern(dates) {
 }
 
 module.exports = { DAY, TIME, addDays, dow, diffDays, monday, localDay, orthodoxEaster, bgHolidays, defaults, settingsOf, shiftHours, cleanShifts, cleanCalendars, cleanPatterns, planOf, cellHours,
-  LT0, RULES0, cleanLeaveTypes, cleanRules, shiftWindow, dayStatus, periodStart, missingCheckIns, leaveSpan, balance, access, dayOfTime, atLocal, leavesBy, lvOn,
+  okTz, tzOf, LT0, RULES0, cleanLeaveTypes, cleanRules, shiftWindow, dayStatus, periodStart, missingCheckIns, leaveSpan, balance, access, dayOfTime, atLocal, leavesBy, lvOn,
   countsBf, bfLevels, bradford, bfLevel, weekdayPattern };

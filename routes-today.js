@@ -52,7 +52,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, l
   app.get('/api/wf/today', need('admin', 'qa', 'lead', 'trainer'), (req, res) => {
     const db = load(), me = req.session.user, S = W(db), q = req.query || {}, want = typeof q.team === 'string' ? q.team : '';
     const ts = teamsOf(db, me, want), d = wf.localDay(), now = Date.now(), LV = wf.leavesBy(db.leaves), people = ts.flatMap(t => members(db, t));
-    const rows = people.map(u => { const s = statusOf(db, S, u, d, LV, now), win = wf.shiftWindow(S, d, { v: s.plan, half: s.half });
+    const rows = people.map(u => { const s = statusOf(db, S, u, d, LV, now), win = wf.shiftWindow(S, d, { v: s.plan, half: s.half }, s.tz);
       return { u: u.username, name: u.name, team: u.team, start: win ? win.s.start : '', end: win ? win.s.end : '', ...calm(db, s, u.username) }; });
     const c = f => rows.filter(f).length, mine = x => canDecide(db, me, userBy(db, x.u));
     const counts = { size: rows.length, planned: c(r => r.start && r.st !== 'leave'), working: c(r => r.st === 'working' && !r.brk), brk: c(r => r.st === 'working' && r.brk), late: c(r => r.late),
@@ -66,7 +66,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, l
   // the facts of a team's morning: the AI writes the brief from these only; without the AI the page writes them out
   function factsOf(db, S, team, lead) {
     const d = wf.localDay(), now = Date.now(), LV = wf.leavesBy(db.leaves), people = members(db, team), ltn = id => (typeOf(S, id) || {}).name || 'Leave', t = new Date(now);
-    const rows = people.map(u => { const s = statusOf(db, S, u, d, LV, now), w = wf.shiftWindow(S, d, { v: s.plan, half: s.half }); return { u, s, start: w ? w.s.start : '' }; });
+    const rows = people.map(u => { const s = statusOf(db, S, u, d, LV, now), w = wf.shiftWindow(S, d, { v: s.plan, half: s.half }, s.tz); return { u, s, start: w ? w.s.start : '' }; });
     const mine = x => !!lead && canDecide(db, lead, userBy(db, x.u));
     return { team: team.name, date: d, weekday: DOWN[wf.dow(d)], time: String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0'),
       size: people.length, planned: rows.filter(x => x.start && x.s.st !== 'leave').length, checkedIn: rows.filter(x => x.s.in).length,
@@ -110,7 +110,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, l
       if (!R.briefOn || !R.since || d < R.since) return;
       for (const t of db.teams.filter(x => !x.system)) {
         if ((load().attBriefs || []).some(b => b.team === t.id && b.d === d)) continue;
-        const starts = members(db, t).map(u => wf.shiftWindow(S, d, wf.planOf(S, u, d, db.rota || {}))).filter(Boolean).map(w => w.start);
+        const starts = members(db, t).map(u => wf.shiftWindow(S, d, wf.planOf(S, u, d, db.rota || {}), wf.tzOf(S, u))).filter(Boolean).map(w => w.start);
         if (starts.length && now >= Math.min(...starts) + R.briefAfter * 6e4) await writeBrief(t, 'Morning brief', true);
       }
     } catch (e) { /* tried again in 5 minutes */ } finally { bbusy = false; }

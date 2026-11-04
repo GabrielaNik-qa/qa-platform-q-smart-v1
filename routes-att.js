@@ -7,7 +7,7 @@
 const wf = require('./wf');
 
 module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, scopeOf, seesUser, ADMIN_TEAM }) => {
-  const W = db => wf.settingsOf(db.settings && db.settings.wf, wf.localDay());
+  const W = db => ({ ...wf.settingsOf(db.settings && db.settings.wf, wf.localDay()), tz: ((db.settings || {}).org || {}).tz || '' });   // tz: the company's time zone
   const { teamsFor, canPlan } = wf.access({ scopeOf, seesUser, userBy, ADMIN_TEAM });
   const recOf = (db, d, un) => ((db.att || {})[d] || {})[un];
   const nameOf = (db, un) => (userBy(db, un) || {}).name || un;
@@ -29,13 +29,13 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, s
   // ---------------------------------------------------------------- attendance
   // the day a check-in belongs to: today, or yesterday while last night's shift is still open or still running
   function activeDay(db, S, u, now) {
-    const d = wf.localDay(), y = wf.addDays(d, -1), ry = recOf(db, y, u.username);
+    const tz = wf.tzOf(S, u), d = wf.localDay(tz), y = wf.addDays(d, -1), ry = recOf(db, y, u.username);
     if (ry && ry.in && !ry.out && now - Date.parse(ry.in) < 16 * 36e5) return y;
-    const wy = wf.shiftWindow(S, y, wf.planOf(S, u, y, db.rota || {}));
+    const wy = wf.shiftWindow(S, y, wf.planOf(S, u, y, db.rota || {}), tz);
     return wy && wy.end > now && !(ry && ry.in) && !(recOf(db, d, u.username) || {}).in ? y : d;
   }
-  const statusOf = (db, S, u, d, LV, now) => { const plan = wf.planOf(S, u, d, db.rota || {});
-    return { d, plan: plan.v, half: !!plan.half, ph: wf.cellHours(S, plan), ...wf.dayStatus(S, S.rules, d, plan, recOf(db, d, u.username), wf.lvOn(LV[u.username], d), now) }; };
+  const statusOf = (db, S, u, d, LV, now) => { const plan = wf.planOf(S, u, d, db.rota || {}), tz = wf.tzOf(S, u);   // tz: the times are shown in the person's own time zone
+    return { d, plan: plan.v, half: !!plan.half, ph: wf.cellHours(S, plan), tz, ...wf.dayStatus(S, S.rules, d, plan, recOf(db, d, u.username), wf.lvOn(LV[u.username], d), now, tz) }; };
   // what the page shows live: while somebody works, the page counts the minutes itself from the check-in and the breaks,
   // so the data only changes when something happens (the page is not redrawn every minute)
   const calm = (db, s, un) => s.st === 'working' ? { ...s, worked: null, brks: ((recOf(db, s.d, un) || {}).brk || []) } : s.st === 'missing' ? { ...s, mins: null } : s;
@@ -111,8 +111,8 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, userBy, notify, s
     const ok = v => v === undefined || v === '' || (typeof v === 'string' && wf.TIME.test(v));
     if (!ok(tin) || !ok(tout)) return 'Enter the times as HH:MM';
     db.att = db.att || {}; db.att[d] = db.att[d] || {}; const cur = db.att[d][u.username] || { in: '', out: '', brk: [] };
-    const i = tin === undefined ? cur.in : tin ? new Date(wf.atLocal(d, tin)).toISOString() : '';
-    let o = tout === undefined ? cur.out : tout ? new Date(wf.atLocal(d, tout)).toISOString() : '';
+    const tz = wf.tzOf(W(db), u), i = tin === undefined ? cur.in : tin ? new Date(wf.atLocal(d, tin, tz)).toISOString() : '';   // the times typed are the person's local times
+    let o = tout === undefined ? cur.out : tout ? new Date(wf.atLocal(d, tout, tz)).toISOString() : '';
     if (!i && o) return 'Enter the check-in time too';
     if (i && o && Date.parse(o) <= Date.parse(i)) o = new Date(Date.parse(o) + 864e5).toISOString();
     db.att[d][u.username] = { ...cur, in: i, out: o, brk: cur.brk || [], src: 'fix', log: [...(cur.log || []).slice(-40), { at: iso(), by, what }] };
