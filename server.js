@@ -461,15 +461,15 @@ function newEval(db, user, b) {
   if (!id || id.length > 60) return { err: 'Enter the lead ID (up to 60 characters)' };
   if (!DAY.test(b.dt || '')) return { err: 'Choose the date' };
   const ch = chOf(b.ch);
-  let r; try { r = build(sc, b.a); } catch (err) { return { err: 'The answers do not match the scorecard' }; }
+  let r; try { r = build(sc, b.a, { all: true }); } catch (err) { return { err: err.code === 'ANSWER' ? err.message : 'The answers do not match the scorecard' }; }
   const ev = {
-    rid: 'r' + hex(6), id, agent: au.username, agn: au.name, tid: au.team, d: evDate(b.dt), sc: r.sc, cs: r.cs, scid: sc.id, scn: sc.name, st: 'ok',
+    rid: 'r' + hex(6), id, agent: au.username, agn: au.name, tid: au.team, d: evDate(b.dt), sc: r.sc, ...(r.ns ? { ns: true } : {}), cs: r.cs, scid: sc.id, scn: sc.name, st: 'ok',
     fl: FLAGS.includes(b.fl) ? b.fl : '', cp: str(b.cp, 80), cm: str(b.cm, 1000),
     lk: link(b.lk), rl: ch === 'call' ? link(b.rl) : '', ch, ...chFields(b, ch), rv: user.name, by: user.username, seen: null,
     at: iso(), ...(Number(b.rt) > 0 ? { rt: Math.min(4 * 3600, Math.round(Number(b.rt))) } : {})   // when it was reviewed, and how long QA Entry took (seconds, at most 4 hours)
   };
   db.evaluations.unshift(ev);
-  notify(db, au.username, 'review', `You received a new ${CHN[ch]} review for Lead #${id} (score ${r.sc}%)`, { rid: ev.rid, lead: id });
+  notify(db, au.username, 'review', r.ns ? `You received a new review for Lead #${id} (not scored)` : `You received a new ${CHN[ch]} review for Lead #${id} (score ${r.sc}%)`, { rid: ev.rid, lead: id });
   return { ev };
 }
 

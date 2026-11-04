@@ -26,7 +26,8 @@ const ds = n => { const d = new Date(); d.setDate(d.getDate() + n); return iso(d
 const ini = n => String(n || '?').split(' ').map(x => x[0]).join('').slice(0, 2).toUpperCase();
 
 // ---------------------------------------------------------------- state
-const EV = [];                                   // call reviews (agents only receive their own)
+const EV = [];                                   // call reviews (agents only receive their own) - only the scored ones, so every average is right
+const EVA = [];                                  // every review, also the ones "not scored" (all N/A, decision 14): the Reviews list and the review window
 let ME = null, SCS = [], USR = [], REG = [], NF = [], SET = { pass: 85, teams: {} };
 let MSG = '', AUTH = new URLSearchParams(location.search).has('reset') ? 'reset' : '';
 let route = location.hash.slice(1) || 'dash';
@@ -314,7 +315,8 @@ async function load() {
   const sig = got.join('|'), changed = sig !== LASTSIG; LASTSIG = sig; if (changed) DUPD = new Date();
   if (R.ro) ROSTER = JSON.parse(R.ro);
   if (R.tm) TEAMS = JSON.parse(R.tm);
-  if (R.ev) EV.splice(0, EV.length, ...JSON.parse(R.ev).map(x => ({ ...x, d: new Date(x.d), ra: x.at ? new Date(x.at) : null, tm: teamOf(x.agent) || x.tid || '', tmh: x.tid || '' })));   // tm = the agent's CURRENT team, tmh = the team at review time
+  if (R.ev) EVA.splice(0, EVA.length, ...JSON.parse(R.ev).map(x => ({ ...x, d: new Date(x.d), ra: x.at ? new Date(x.at) : null, tm: teamOf(x.agent) || x.tid || '', tmh: x.tid || '' })));   // tm = the agent's CURRENT team, tmh = the team at review time
+  if (R.ev) EV.splice(0, EV.length, ...EVA.filter(e => !e.ns));
   if (R.sc) SCS = JSON.parse(R.sc);
   if (R.nf) NF = JSON.parse(R.nf).filter(n => !NDEL.has(n.id));   // a notification waiting for its Undo stays hidden
   if (R.set) SET = JSON.parse(R.set);

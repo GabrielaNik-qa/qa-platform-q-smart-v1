@@ -72,7 +72,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, setOut, lim
   app.locals.vocab = (db, t) => (((db.settings || {}).words || {}).vocab || []).reduce((s, v) => v.wrong.reduce((x, w) => x.replace(new RegExp('(^|[^\\p{L}\\p{N}])' + reEsc(w) + '(?![\\p{L}\\p{N}])', 'giu'), (m, a) => a + v.term), s), String(t || ''));
 
   // ---------------------------------------------------------------- Q-Intelligence: AI agents on one review or one agent
-  const reviewText = e => [`Review of lead ${e.id} · agent ${e.agent} · ${e.ch || 'call'} · ${String(e.d || '').slice(0, 10)} · score ${e.sc}% · scorecard ${e.scn || ''}`, ...(e.cs || []).map(c => `${c.n}: ${c.e}/${c.m}` + (c.it || []).filter(i => i.a === 'n' || i.cm).map(i => `\n  - ${i.t}: ${i.a === 'n' ? 'missed' : i.a}${i.rc ? ' (root cause: ' + i.rc + ')' : ''}${i.cm ? ' — ' + i.cm : ''}`).join('')), e.cm ? 'Reviewer comment: ' + e.cm : '', e.tx ? 'Transcript:\n' + String(e.tx).slice(0, 12000) : ''].filter(Boolean).join('\n');
+  const reviewText = e => [`Review of lead ${e.id} · agent ${e.agent} · ${e.ch || 'call'} · ${String(e.d || '').slice(0, 10)} · ${e.ns ? 'not scored' : 'score ' + e.sc + '%'} · scorecard ${e.scn || ''}`, ...(e.cs || []).map(c => `${c.n}: ${c.e}/${c.m}` + (c.it || []).filter(i => i.a === 'n' || i.cm).map(i => `\n  - ${i.t}: ${i.a === 'n' ? 'missed' : i.a}${i.rc ? ' (root cause: ' + i.rc + ')' : ''}${i.cm ? ' — ' + i.cm : ''}`).join('')), e.cm ? 'Reviewer comment: ' + e.cm : '', e.tx ? 'Transcript:\n' + String(e.tx).slice(0, 12000) : ''].filter(Boolean).join('\n');
   const AGENTS = {
     summary: ['call summary', 'Write a short call summary for a team lead: what happened, what went well, what went wrong, in 5-8 bullet points. Plain language, no jargon.'],
     next: ['next steps', 'List the concrete next steps after this call: for the agent, for the team lead, and anything owed to the customer, each with who and when. Short bullet points.'],
@@ -87,7 +87,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, list, setOut, lim
     let text;
     if (b.kind === 'o2o') {
       const u = db.users.find(x => x.username === b.agent && x.role === 'agent'); if (!u || !seesUser(db, me, u.username)) return bad(res, 'Choose the agent');
-      const l = db.evaluations.filter(e => e.agent === u.username && Date.now() - new Date(e.d || e.at) < 31 * 864e5).slice(0, 25);
+      const l = db.evaluations.filter(e => !e.ns && e.agent === u.username && Date.now() - new Date(e.d || e.at) < 31 * 864e5).slice(0, 25);
       if (!l.length) return bad(res, 'This agent has no reviews in the last 30 days');
       text = `Agent: ${u.name}\nReviews in the last 30 days: ${l.length}, average ${Math.round(l.reduce((s, e) => s + e.sc, 0) / l.length * 10) / 10}%\n\n` + l.map(reviewText).join('\n\n').slice(0, 30000);
     } else {

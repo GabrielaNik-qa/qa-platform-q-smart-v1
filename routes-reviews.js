@@ -11,9 +11,9 @@ module.exports = ({ BASE, DAY, EXT, EXTS, ExcelJS, FLAGS, REC, STAFF, agentInSco
     if (b.a !== undefined) {
       if (!ev.cs.some(c => c.it.length)) return bad(res, 'This older record has no item answers, so its scores cannot be edited');
       try {
-        const r = build({ cats: ev.cs.map(c => ({ n: c.n, k: c.k, it: c.it.map(i => ({ t: i.t, p: i.p, k: i.k, cp: i.cp })) })) }, b.a);
-        ev.cs = r.cs; ev.sc = r.sc;
-      } catch (err) { return bad(res, 'The answers do not match the scorecard'); }
+        const r = build({ cats: ev.cs.map(c => ({ n: c.n, k: c.k, it: c.it.map(i => ({ t: i.t, p: i.p, k: i.k, cp: i.cp })) })) }, b.a, { all: true });
+        ev.cs = r.cs; ev.sc = r.sc; if (r.ns) ev.ns = true; else delete ev.ns;
+      } catch (err) { return bad(res, err.code === 'ANSWER' ? err.message : 'The answers do not match the scorecard'); }
     }
     if (b.id !== undefined) { const id = leadId(b.id); if (!id || id.length > 60) return bad(res, 'Enter the lead ID (up to 60 characters)'); ev.id = id; }
     if (b.agent !== undefined && b.agent !== ev.agent) {
@@ -31,7 +31,7 @@ module.exports = ({ BASE, DAY, EXT, EXTS, ExcelJS, FLAGS, REC, STAFF, agentInSco
     if (b.lk !== undefined) ev.lk = link(b.lk);
     if (b.rl !== undefined) ev.rl = link(b.rl);
     if (b.ch !== undefined) { ev.ch = chOf(b.ch); Object.assign(ev, chFields(b, ev.ch)); if (ev.ch !== 'call') ev.rl = ''; }
-    if (ev.sc !== oldSc) notify(db, ev.agent, 'review', `Your review for Lead #${ev.id} was updated (score ${ev.sc}%)`, { rid: ev.rid, lead: ev.id });
+    if (ev.sc !== oldSc) notify(db, ev.agent, 'review', ev.ns ? `Your review for Lead #${ev.id} was updated (not scored)` : `Your review for Lead #${ev.id} was updated (score ${ev.sc}%)`, { rid: ev.rid, lead: ev.id });
     save(db); res.json(ev);
   });
   app.delete('/api/evaluations/:rid', need('admin', 'qa'), (req, res) => {

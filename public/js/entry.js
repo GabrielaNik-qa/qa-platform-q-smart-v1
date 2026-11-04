@@ -25,7 +25,7 @@ const scoreCats = cats => {
   });
   if (zero) cs.forEach(c => { c.e = 0; c.z = true; });
   const E = cs.reduce((a, c) => a + c.e, 0), M = cs.reduce((a, c) => a + c.m, 0);
-  return { cs, zero, pc: zero ? 0 : (M ? E / M * 100 : 0) };
+  return { cs, zero, ns: !zero && !M, pc: zero ? 0 : (M ? E / M * 100 : 0) };   // ns: every question N/A = not scored (decision 14)
 };
 const entS = () => scoreCats(ENT.cats);
 const PV = () => {
@@ -33,7 +33,7 @@ const PV = () => {
   const clr = ok ? 'var(--ok)' : pc >= Math.min(70, thr) ? 'var(--wn)' : 'var(--bad)';
   const fb = (k, l) => `<button class="${ENT.fl === k ? 'on' : ''}" aria-pressed="${ENT.fl === k}" onclick="setFl('${k}')"><span class="${k ? 'f' : ''}" style="display:flex;color:${k === 'red' ? 'var(--bad)' : k === 'green' ? 'var(--ok)' : 'var(--mu)'}">${IC.flag}</span>${l}</button>`;
   return `<div class="card rp-c"><small class=cap>Current score preview</small><div class=ring><svg viewBox="0 0 124 124" width="124" height="124" role="img" aria-label="Score ${pc.toFixed(1)} percent"><circle cx="62" cy="62" r="52" fill="none" style="stroke:var(--sunk)" stroke-width="10"/><circle cx="62" cy="62" r="52" fill="none" style="stroke:${clr}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${(pc * C / 100).toFixed(1)} ${C}" transform="rotate(-90 62 62)"/></svg><div class=rv><div><b class=mono>${pc.toFixed(1)}</b><small>%</small></div></div></div>
-<div>${s.zero ? pill('Critical failure: score set to 0%', 'bad') : ok ? pill(`✓ Passing (≥ ${thr}%)`, 'ok') : pill(`Below target (< ${thr}%)`, pc >= Math.min(70, thr) ? 'wn' : 'bad')}</div><hr><small class=cap style="text-align:left">Flag</small><div class=fgs role=group aria-label="Flag">${fb('', 'Blank')}${fb('green', 'Green')}${fb('red', 'Red')}</div>
+<div>${s.ns ? pill('Not scored: every question is N/A', 'wn') : s.zero ? pill('Critical failure: score set to 0%', 'bad') : ok ? pill(`✓ Passing (≥ ${thr}%)`, 'ok') : pill(`Below target (< ${thr}%)`, pc >= Math.min(70, thr) ? 'wn' : 'bad')}</div><hr><small class=cap style="text-align:left">Flag</small><div class=fgs role=group aria-label="Flag">${fb('', 'Blank')}${fb('green', 'Green')}${fb('red', 'Red')}</div>
 <button class=sbtn2 onclick="subE()" ${BUSY.ent ? 'disabled' : ''}>${BUSY.ent ? 'Saving…' : EDITID ? 'Save changes' : 'Submit QA review'}</button>${EDITID ? `<button class=ib style="width:100%;margin-top:10px" onclick="cancelE()">Cancel</button>` : ''}</div>
 <div class=card><small class=cap>Categories</small>${s.cs.map(c => `<div class=row style="font-size:13.5px;margin-top:10px"><span>${esc(c.n)}</span><b class=mono ${c.z ? 'style="color:var(--bad)"' : ''}>${c.e}/${c.m}</b></div>`).join('')}</div>`;
 };
@@ -70,7 +70,7 @@ PG.entry = function () {
 };
 
 function edE(rid) {
-  const e = EV.find(x => x.rid === rid); if (!e) return false;
+  const e = EVA.find(x => x.rid === rid); if (!e) return false;
   MD = null; EDITID = rid;
   ENT = { ch: chOf(e), cl: e.cl || '', tx: e.tx || '', subj: e.subj || '', chn: e.chn || '', scid: e.scid || '', scn: e.scn || '', team: e.tm || teamOf(e.agent), agent: e.agent, id: String(e.id), dt: iso(e.d), lk: e.lk || '', rl: e.rl || '', cp: e.cp || '', cm: e.cm || '', fl: e.fl || '', rec: e.rec || '', recDel: false,
     cats: e.cs.map(c => ({ n: c.n, k: !!c.k, it: c.it.map(i => ({ t: i.t, p: i.p, k: !!i.k, cp: !!i.cp, a: i.a, cm: i.cm || '', rc: i.rc || '' })) })) };

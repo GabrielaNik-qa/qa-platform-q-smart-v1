@@ -18,7 +18,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, SBX }) => {
   const day = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '';
 
   // ---------------------------------------------------------------- what the API, the webhooks and MCP give out
-  const reviewOut = (db, e) => ({ id: e.rid, lead: e.id, agent: e.agent, agent_name: e.agn, team: tname(db, e.tid), date: String(e.d).slice(0, 10), score: e.sc, passed: e.sc >= pass(db, e.tid),
+  const reviewOut = (db, e) => ({ id: e.rid, lead: e.id, agent: e.agent, agent_name: e.agn, team: tname(db, e.tid), date: String(e.d).slice(0, 10), score: e.ns ? null : e.sc, scored: !e.ns, passed: !e.ns && e.sc >= pass(db, e.tid),
     channel: e.ch || 'call', scorecard: e.scn, reviewer: e.rv, comment: e.cm || '', flag: e.fl || '', imported: !!e.imp, seen: !!e.seen, created: e.at || e.d,
     categories: (e.cs || []).map(c => ({ name: c.n, score: pct(c.e, c.m), critical_failed: !!c.z })),
     dispute: e.dp ? { status: e.dp.status, opened: e.dp.at, messages: (e.dp.msgs || []).map(m => ({ by: m.n, role: m.r, text: m.t, at: m.at })) } : null });
@@ -39,7 +39,7 @@ module.exports = ({ app, load, save, need, bad, hex, iso, str, SBX }) => {
     scorecards: db => ({ data: db.scorecards.map(s => ({ id: s.id, name: s.name, categories: (s.cats || []).map(c => ({ name: c.n, critical: !!c.k, items: (c.it || []).map(i => ({ question: i.t, points: i.p, critical: !!i.k })) })) })) }),
     simulations: (db, q) => page((db.simulations || []).filter(filt(db, q, s => s.date, s => s.agent, s => s.team || teamOfU(db, s.agent))).map(simOut), q),
     flags: (db, q) => page((db.qflags || []).filter(filt(db, q, f => f.at, f => f.agent, f => teamOfU(db, f.agent))).map(flagOut), q),
-    stats: (db, q) => { const l = db.evaluations.filter(filt(db, q, e => e.d, e => e.agent, e => e.tid)), avg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length * 10) / 10 : null;
+    stats: (db, q) => { const l = db.evaluations.filter(e => !e.ns).filter(filt(db, q, e => e.d, e => e.agent, e => e.tid)), avg = a => a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length * 10) / 10 : null;
       const group = (key, name) => { const m = {}; l.forEach(e => { const k = key(e); (m[k] = m[k] || []).push(e); }); return Object.entries(m).map(([k, x]) => ({ ...name(k, x), reviews: x.length, average: avg(x.map(e => e.sc)), pass_rate: Math.round(x.filter(e => e.sc >= pass(db, e.tid)).length / x.length * 1000) / 10 })).sort((a, b) => b.reviews - a.reviews); };
       const cats = {}; l.forEach(e => (e.cs || []).forEach(c => { if (c.m) (cats[c.n] = cats[c.n] || []).push(c.e / c.m * 100); }));
       return { from: day(q.from) || null, to: day(q.to) || null, reviews: l.length, average: avg(l.map(e => e.sc)), pass_rate: l.length ? Math.round(l.filter(e => e.sc >= pass(db, e.tid)).length / l.length * 1000) / 10 : null,

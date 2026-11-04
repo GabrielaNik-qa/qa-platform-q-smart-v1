@@ -4,7 +4,8 @@
 // the page only sees whether it is set and its last 4 characters.
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const ai = require('./ai');
-const SIM = require('./sim');                                   // the Call Simulator: segments, levels, written customers, indicators, outcomes
+const SIM = require('./sim');
+const scoredEv = db => db.evaluations.filter(e => !e.ns);       // decision 14: a review that is "not scored" is in no average                                   // the Call Simulator: segments, levels, written customers, indicators, outcomes
 
 module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited, hex, iso, str, notify }) => {
   const KEYFILE = path.join(path.dirname(path.resolve(FILE)), '.qsmart-key');
@@ -116,7 +117,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   const catAvgs = l => { const m = {}; l.forEach(e => (e.cs || []).forEach(c => { if (c.m > 0) (m[c.n] = m[c.n] || []).push(c.e / c.m * 100); })); return Object.entries(m).map(([n, v]) => ({ n, v: avgOf(v), k: v.length })).sort((a, b) => a.v - b.v); };
   function riskOf(db, see) {
     return db.users.filter(u => u.role === 'agent' && u.active !== false && see(u.team)).map(u => {
-      const mine = db.evaluations.filter(e => e.agent === u.username), w2 = mine.filter(e => evAge(e) < 14), w1 = mine.filter(e => evAge(e) < 7), p1 = mine.filter(e => evAge(e) >= 7 && evAge(e) < 14);
+      const mine = scoredEv(db).filter(e => e.agent === u.username), w2 = mine.filter(e => evAge(e) < 14), w1 = mine.filter(e => evAge(e) < 7), p1 = mine.filter(e => evAge(e) >= 7 && evAge(e) < 14);
       const a2 = avgOf(w2.map(e => e.sc)), t = passOf(db, u.team), why = [];
       if (w2.length >= 2 && a2 < t) why.push('below target for 2 weeks');
       if (w1.length >= 2 && p1.length >= 2 && avgOf(w1.map(e => e.sc)) <= avgOf(p1.map(e => e.sc)) - 5) why.push('score falling');
@@ -127,7 +128,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   }
   const monday = () => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toISOString().slice(0, 10); };
   function weekStats(db, team) {
-    const l = db.evaluations.filter(e => !team || e.tid === team || (db.users.find(u => u.username === e.agent) || {}).team === team), w = l.filter(e => evAge(e) < 7), p = l.filter(e => evAge(e) >= 7 && evAge(e) < 14), t = passOf(db, team);
+    const l = scoredEv(db).filter(e => !team || e.tid === team || (db.users.find(u => u.username === e.agent) || {}).team === team), w = l.filter(e => evAge(e) < 7), p = l.filter(e => evAge(e) >= 7 && evAge(e) < 14), t = passOf(db, team);
     const per = list => ({ reviews: list.length, average: avgOf(list.map(e => e.sc)), passRate: list.length ? Math.round(list.filter(e => e.sc >= t).length / list.length * 100) : null });
     return { team: team ? (db.teams.find(x => x.id === team) || {}).name : 'All teams', target: t, thisWeek: per(w), lastWeek: per(p), weakestCategories: catAvgs(w).slice(0, 3), strongestCategories: catAvgs(w).slice(-2),
       agentsAtRisk: riskOf(db, x => !team || x === team).slice(0, 6).map(x => ({ name: x.name, average: x.avg, why: x.why })), openDisputes: l.filter(e => e.dp && e.dp.status === 'open').length };
@@ -156,7 +157,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
     if (!au || !inTeams(db, req.session.user)(au.team)) return bad(res, 'Choose an agent');
     if (!ai.enabled()) return bad(res, 'Connect the AI (Admin › Integrations) to draft coaching plans.');
     if (limited('ai-plan:' + req.session.user.username, 30, 36e5)) return res.status(429).json({ error: 'Too many AI coaching plans in one hour. Try again later.' });
-    const mine = db.evaluations.filter(e => e.agent === au.username && evAge(e) < 30), risk = riskOf(db, t => t === au.team).find(x => x.agent === au.username);
+    const mine = scoredEv(db).filter(e => e.agent === au.username && evAge(e) < 30), risk = riskOf(db, t => t === au.team).find(x => x.agent === au.username);
     const data = { agent: au.name, target: passOf(db, au.team), reviews: mine.length, average: avgOf(mine.map(e => e.sc)), why: risk ? risk.why : [], categories: catAvgs(mine),
       missedItems: mine.flatMap(e => (e.cs || []).flatMap(c => c.it.filter(i => i.a === 'n').map(i => ({ category: c.n, item: i.t, comment: i.cm || '' })))).slice(0, 25), reviewerComments: mine.map(e => e.cm).filter(Boolean).slice(0, 10) };
     if (!mine.length) return bad(res, 'This agent has no reviews in the last 30 days');
@@ -199,7 +200,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   }
   function packOf(db, see, period, team) {
     const [from, to, pfrom] = spanOf(period), tmOf = e => e.tid || (db.users.find(u => u.username === e.agent) || {}).team;
-    const all = db.evaluations.filter(e => { const t = tmOf(e); return see(t) && (!team || t === team); }), at = e => new Date(e.d);
+    const all = scoredEv(db).filter(e => { const t = tmOf(e); return see(t) && (!team || t === team); }), at = e => new Date(e.d);
     const cur = all.filter(e => at(e) >= from && at(e) < to), prev = all.filter(e => at(e) >= pfrom && at(e) < from), t = passOf(db, team);
     const per = l => ({ reviews: l.length, average: avgOf(l.map(e => Number(e.sc))), passRate: l.length ? Math.round(l.filter(e => Number(e.sc) >= passOf(db, tmOf(e))).length / l.length * 100) : null, criticalFails: l.filter(e => Number(e.sc) === 0).length });
     const groupBy = (l, k) => l.reduce((m, e) => { const v = k(e) || 'unknown'; (m[v] = m[v] || []).push(e); return m; }, {});
@@ -282,7 +283,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   // the practice list for everybody: not the situation the customer knows, nor the right outcome (those would give the answers away)
   // the scenarios that train the categories where a person is below the pass mark in the last 30 days (rules only, no AI)
   const suggestFor = (db, un) => { const u = db.users.find(x => x.username === un); if (!u) return [];
-    const weak = catAvgs(db.evaluations.filter(e => e.agent === un && evAge(e) < 30)).filter(c => c.v < passOf(db, u.team)).sort((a, b) => a.v - b.v), list = scenList(db), out = [];
+    const weak = catAvgs(scoredEv(db).filter(e => e.agent === un && evAge(e) < 30)).filter(c => c.v < passOf(db, u.team)).sort((a, b) => a.v - b.v), list = scenList(db), out = [];
     weak.forEach(c => list.filter(s => SIM.trains(s, c.n) && !out.some(o => o.id === s.id)).sort((a, b) => a.level - b.level).slice(0, 2).forEach(s => out.push({ id: s.id, cat: c.n, avg: c.v })));
     return out.slice(0, 4); };
   app.get('/api/ai/roleplay', need(), (req, res) => { const db = load();
@@ -348,7 +349,7 @@ module.exports = ({ FILE, app, load, save, need, bad, newEval, scopeOf, limited,
   });
   function needsOf(db, see) {
     const m = {};
-    db.users.filter(u => u.role === 'agent' && u.active !== false && see(u.team)).forEach(u => catAvgs(db.evaluations.filter(e => e.agent === u.username && evAge(e) < 30)).forEach(c => {
+    db.users.filter(u => u.role === 'agent' && u.active !== false && see(u.team)).forEach(u => catAvgs(scoredEv(db).filter(e => e.agent === u.username && evAge(e) < 30)).forEach(c => {
       const x = m[c.n] = m[c.n] || { cat: c.n, all: [], below: [] }; x.all.push(c.v); if (c.v < passOf(db, u.team)) x.below.push({ agent: u.username, name: u.name, avg: c.v });
     }));
     const list = scenList(db);

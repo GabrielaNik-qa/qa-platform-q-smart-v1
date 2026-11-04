@@ -33,11 +33,11 @@ Object.assign(GOVR, {
     f: [{ k: 'rid', l: 'Review', t: 'select', req: 1, o: () => [['', '—'], ...EV.filter(e => e.by && e.by !== ME.username).slice(0, 80).map(e => [e.rid, `${e.d} · ${agn(e)} · ${e.rv || e.by} · ${Math.round(e.sc)}%`])] },
       { k: 'fair', l: 'The score is fair', t: 'select', o: YN.slice().reverse() }, { k: 'follows', l: 'It follows the scorecard', t: 'select', o: YN.slice().reverse() },
       { k: 'critical', l: 'The critical items are right', t: 'select', o: YN.slice().reverse() }, { k: 'useful', l: 'The comment helps the agent', t: 'select', o: YN.slice().reverse() }, { k: 'note', l: 'Note for the reviewer', t: 'textarea', rows: 3 }],
-    before: d => ({ ...d, reviewer: (EV.find(e => e.rid === d.rid) || {}).by || '' }) },
+    before: d => ({ ...d, reviewer: (EVA.find(e => e.rid === d.rid) || {}).by || '' }) },
   cs_pins: { c: 'pins', what: 'pin', t: 'Pins', s: 'Moments of conversations saved to talk about in a coaching session', name: 'note',
     f: [{ k: 'rid', l: 'Review', t: 'select', req: 1, o: () => [['', '—'], ...EV.slice(0, 120).map(e => [e.rid, `${e.d} · ${agn(e)} · ${tr('Lead')} ${e.id}`])] }, { k: 'when', l: 'Moment in the conversation (mm:ss)', ph: '02:15' },
       { k: 'note', l: 'What to talk about', t: 'textarea', rows: 3, req: 1 }, { k: 'status', l: 'Status', t: 'select', o: [['todo', 'To talk about'], ['done', 'Talked about']] }],
-    before: d => ({ ...d, agent: (EV.find(e => e.rid === d.rid) || {}).agent || '' }) }
+    before: d => ({ ...d, agent: (EVA.find(e => e.rid === d.rid) || {}).agent || '' }) }
 });
 // the pages a step or a question can point to: every page of the menu (not the coming-soon ones)
 const hpPages = req => [...(req ? [] : [['', '—']]), ...GROUPS.flatMap(g => g.items.filter(([k]) => !Object.hasOwn(SOON, k)).map(([k, n]) => [k, tr(g.name) + ' › ' + tr(n)]))];
@@ -105,18 +105,18 @@ PG.cs_start = function () {
 // ---- Quality › Reviewer QA: checks on the reviews done by others (four yes / no questions); the score of a reviewer = the share of yes
 const rqScore = x => { const q = ['fair', 'follows', 'critical', 'useful'], y = q.filter(k => x[k] === 'yes').length; return Math.round(y / q.length * 100); };
 PG.cs_revqa = function () {
-  const all = CO.revqa || [], by = {}; all.forEach(x => { const e = EV.find(v => v.rid === x.rid) || {}, r = e.by || x.reviewer || '—'; (by[r] = by[r] || []).push(rqScore(x)); });
+  const all = CO.revqa || [], by = {}; all.forEach(x => { const e = EVA.find(v => v.rid === x.rid) || {}, r = e.by || x.reviewer || '—'; (by[r] = by[r] || []).push(rqScore(x)); });
   const can = ['admin', 'qa', 'lead'].includes(ME.role);
   return head('Reviewer QA', 'Review the reviewers: check that reviews are fair and follow the scorecard', `<div style="display:flex;gap:8px">${bellBtn()}${can ? `<button class="btn ibx" onclick="regForm('cs_revqa')">${IC.plus} ${tr('Check a review')}</button>` : ''}</div>`)
     + `<div class="g g2">${card('Reviewers', Object.keys(by).length ? tbl(['Reviewer', 'Checks', 'Score'], Object.entries(by).sort((a, b) => avg(b[1]) - avg(a[1])).map(([r, s]) => [`<b>${esc(an(r) || r)}</b>`, s.length, `<b style="color:${avg(s) >= 80 ? 'var(--ok)' : avg(s) >= 60 ? 'var(--wn)' : 'var(--bad)'}">${Math.round(avg(s))}%</b>`])) : hpNone())}`
-    + card('Latest checks', all.length ? tbl(['Review', 'Score', 'Note', ''], all.slice(0, 50).map(x => { const e = EV.find(v => v.rid === x.rid);
+    + card('Latest checks', all.length ? tbl(['Review', 'Score', 'Note', ''], all.slice(0, 50).map(x => { const e = EVA.find(v => v.rid === x.rid);
       return [e ? `<a href="javascript:void(0)" class=agl onclick="om('view','${e.rid}')">${tr('Lead')} ${esc(e.id)}</a><br><small class=mu>${esc(agn(e))} · ${esc(e.rv || e.by || '')}</small>` : '—', `${rqScore(x)}%`, `<small>${esc(x.note || '')}</small>`, can ? hpEd('cs_revqa', x) : '']; })) : hpNone()) + `</div>`;
 };
 
 // ---- Coaching › Pins: moments of conversations to talk about; agents see their own
 PG.cs_pins = function () {
   const all = CO.pins || [], ed = canWriteHelp();
-  const row = x => { const e = EV.find(v => v.rid === x.rid); return `<div class=li><div class=row><span><b>${e ? esc(agn(e)) : '—'}</b> <small class=mu>${e ? `${tr('Lead')} ${esc(e.id)} · ${esc(e.d)}` : ''}${x.when ? ' · ' + esc(x.when) : ''}</small></span><span style="display:flex;gap:6px">${e ? `<button class=pb onclick="om('view','${e.rid}')">${tr('Open the review')}</button>` : ''}${ed ? `${x.status !== 'done' ? `<button class=ib onclick="coPatch('pins','${x.id}',{status:'done'},'${tr('Saved')}')">${tr('Talked about')}</button>` : ''}${hpEd('cs_pins', x)}` : ''}</span></div><div data-noi18n style="margin-top:4px">${esc(x.note)}</div></div>`; };
+  const row = x => { const e = EVA.find(v => v.rid === x.rid); return `<div class=li><div class=row><span><b>${e ? esc(agn(e)) : '—'}</b> <small class=mu>${e ? `${tr('Lead')} ${esc(e.id)} · ${esc(e.d)}` : ''}${x.when ? ' · ' + esc(x.when) : ''}</small></span><span style="display:flex;gap:6px">${e ? `<button class=pb onclick="om('view','${e.rid}')">${tr('Open the review')}</button>` : ''}${ed ? `${x.status !== 'done' ? `<button class=ib onclick="coPatch('pins','${x.id}',{status:'done'},'${tr('Saved')}')">${tr('Talked about')}</button>` : ''}${hpEd('cs_pins', x)}` : ''}</span></div><div data-noi18n style="margin-top:4px">${esc(x.note)}</div></div>`; };
   const todo = all.filter(x => x.status !== 'done'), done = all.filter(x => x.status === 'done');
   return head('Pins', 'Moments of conversations saved to talk about in a coaching session', `<div style="display:flex;gap:8px">${bellBtn()}${ed ? `<button class="btn ibx" onclick="regForm('cs_pins')">${IC.plus} ${tr('Pin a moment')}</button>` : ''}</div>`)
     + card(`${tr('To talk about')} <span class=bg>${todo.length}</span>`, todo.length ? todo.map(row).join('') : hpNone()) + (done.length ? card(`${tr('Talked about')} <span class=bg>${done.length}</span>`, done.slice(0, 40).map(row).join('')) : '');

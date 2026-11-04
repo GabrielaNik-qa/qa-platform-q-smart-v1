@@ -159,7 +159,7 @@ module.exports = ({ FILE, DIR, app, load, save, need, bad, hex, iso, str, notify
   const reportData = (db, owner) => {
     const teamOf = un => (db.users.find(x => x.username === un) || {}).team || '', s = scopeOf(db, owner);
     const ok = (un, tm) => !s || s.teams.has(teamOf(un) || tm || ''), okOpt = un => !un || ok(un);   // surveys and complaints may have no agent
-    return { ev: db.evaluations.filter(e => ok(e.agent, e.tid)).map(e => ({ ...e, tm: teamOf(e.agent) || e.tid })), qf: (db.qflags || []).filter(f => ok(f.agent, f.tid)), tasks: (db.tasks || []).filter(t => ok(t.assignee)),
+    return { ev: db.evaluations.filter(e => !e.ns && ok(e.agent, e.tid)).map(e => ({ ...e, tm: teamOf(e.agent) || e.tid })), qf: (db.qflags || []).filter(f => ok(f.agent, f.tid)), tasks: (db.tasks || []).filter(t => ok(t.assignee)),
       surveys: (db.surveys || []).filter(x => okOpt(x.agent)), complaints: (db.complaints || []).filter(x => okOpt(x.agent)), users: db.users.filter(u => ok(u.username)), teams: db.teams.filter(t => !s || s.teams.has(t.id)),
       pass: tm => { const v = (db.settings.teams || {})[tm]; return v == null || v === '' ? (+db.settings.pass || 85) : +v; } };
   };

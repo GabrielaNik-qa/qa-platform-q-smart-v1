@@ -11,7 +11,7 @@ const inP = e => FP === 'all' || (FP === 'custom' ? e.d >= new Date(F1 + 'T00:00
 const fscOk = e => !FSC || (FSC.m === 'pass' ? isPass(e) : FSC.m === 'fail' ? !isPass(e) : e.sc >= FSC.a && e.sc < FSC.b);
 const CR = () => {
   const q = Q.toLowerCase(), g = SORT[SK];
-  return EV.filter(e => (!FC || chOf(e) === FC) && (!FT || e.tm === FT) && (!FA || e.agent === FA) && inP(e) && fscOk(e) && rfOk(e) && (!FS || (FS === 'seen' ? e.seen : !e.seen)) &&
+  return EVA.filter(e => (!FC || chOf(e) === FC) && (!FT || e.tm === FT) && (!FA || e.agent === FA) && inP(e) && fscOk(e) && rfOk(e) && (!FS || (FS === 'seen' ? e.seen : !e.seen)) &&
     (!q || String(e.id).toLowerCase().includes(q) || agn(e).toLowerCase().includes(q) || cpn(e).toLowerCase().includes(q) || (e.subj || '').toLowerCase().includes(q) || (e.chn || '').toLowerCase().includes(q)))
     .sort((a, b) => { const x = g(a), y = g(b); return (x > y ? 1 : x < y ? -1 : 0) * SD; });
 };
@@ -24,7 +24,7 @@ const RCOLS = [
   { k: 'tm', t: 'TEAM', td: e => teamLink(e.tm) },
   { k: 'cp', t: 'CAMPAIGN', td: e => esc(cpn(e)) },
   { k: 'rv', t: 'REVIEWER', td: e => esc(e.rv || '—') },
-  { k: 'sc', t: 'SCORE', td: e => `<div class=sv><b class=mono style="color:${scol(e.sc, e.tm)}">${e.sc}%</b>${bar(e.sc, scol(e.sc, e.tm))}</div>` },
+  { k: 'sc', t: 'SCORE', td: e => e.ns ? `<span class=mu title="${esc(tr('Every question is N/A, so there is nothing to score. It is in no average.'))}">${tr('Not scored')}</span>` : `<div class=sv><b class=mono style="color:${scol(e.sc, e.tm)}">${e.sc}%</b>${bar(e.sc, scol(e.sc, e.tm))}</div>` },
   { k: 'res', t: 'RESULT', off: 1, td: e => isPass(e) ? pill('Passed', 'ok') : pill('Failed', 'bad') },
   { k: 'fl', t: 'FLAG', td: e => `<span class="fgv ${e.fl || ''}" title="${e.fl ? e.fl + ' flag' : 'No flag'}">${IC.flag}</span>` },
   { k: 'st', t: 'STATUS', td: e => e.st === 'disputed' ? pill('Disputed', 'wn') : pill('Completed', 'ok') },
@@ -80,14 +80,14 @@ async function om(t, id) {
   if (t === 'view') await load();                       // always show the latest scores and dispute messages
   MD = { t, id }; DRF = ''; render();
   if (t === 'view' && ME.role === 'agent') {                 // the agent opening their review marks it as "seen"
-    const e = EV.find(x => x.rid === id);
+    const e = EVA.find(x => x.rid === id);
     if (e && !e.seen) api(`/api/evaluations/${id}/seen`, {}).then(async r => { if (r.ok) { e.seen = (await r.json()).seen; } });
   }
 }
 function cm() { MD = null; DRF = ''; render(); }
 const rmv = rid => once('rmv', async () => { const r = await api('/api/evaluations/' + rid, null, 'DELETE'); if (!r.ok) return toast(await errOf(r, 'Could not delete the review'), true); MD = null; await load(); render(); toast('Review deleted'); });
 const remind = rid => once('remind', async () => { const r = await api(`/api/evaluations/${rid}/remind`, {}); if (r.ok) toast('Reminder sent to the agent'); else toast(await errOf(r, 'Could not send the reminder'), true); });
-function ply(rid) { const e = EV.find(x => x.rid === rid); if (!e) return; if (recSrc(e)) { PLY = rid; render(); } else if (/^https?:\/\//.test(e.rl || '')) window.open(e.rl, '_blank', 'noopener'); }
+function ply(rid) { const e = EVA.find(x => x.rid === rid); if (!e) return; if (recSrc(e)) { PLY = rid; render(); } else if (/^https?:\/\//.test(e.rl || '')) window.open(e.rl, '_blank', 'noopener'); }
 const xp = (l, name) => once('xp', () => xpRun(l, name));
 async function xpRun(l, name) {
   const cn = CATS(l), hd = ['Lead ID', 'Date', 'Agent', 'Team', 'Campaign', 'Reviewer', ...cn, 'Total Score (%)', 'Flag', 'Quick Flags', 'Status', 'Disputed', 'Comments', 'Link', 'Recording Link', 'Type', 'Chat / email link', 'Subject or channel'],   // exports are always in English (Gabriela, 28 October), whatever the screen language

@@ -37,7 +37,9 @@ const DEFAULT_SC = {
 
 // answers: one array per category, one [ 'y' | 'n' | 'na', 'comment', 'root cause' ] per item.
 // N/A means "not applicable": the item is left out of the possible points, so it never lowers the score.
-function build(sc, ans) {
+// opt.all (decision 14, 4 November): every question must have Yes, No or N/A - nothing is counted as Yes in silence.
+// When every question is N/A there is nothing to score: the review is "not scored" (ns) and stays out of every average.
+function build(sc, ans, opt = {}) {
   if (!Array.isArray(ans) || ans.length !== sc.cats.length) throw new Error('bad answers');
   let zeroAll = false;
   const cs = sc.cats.map((c, ci) => {
@@ -46,6 +48,7 @@ function build(sc, ans) {
     let e = 0, m = 0, critFail = false, anyNo = false;
     const it = c.it.map((i, ii) => {
       const x = Array.isArray(row[ii]) ? row[ii] : [];
+      if (opt.all && !['y', 'n', 'na'].includes(x[0])) { const er = new Error('Answer every question before you save the review'); er.code = 'ANSWER'; throw er; }
       const a = ['y', 'n', 'na'].includes(x[0]) ? x[0] : 'y';
       if (a !== 'na') { m += i.p; if (a === 'y') e += i.p; }
       if (a === 'n') { anyNo = true; if (i.k) critFail = true; }
@@ -57,6 +60,7 @@ function build(sc, ans) {
   });
   if (zeroAll) cs.forEach(c => { c.e = 0; c.z = 1; });
   const E = cs.reduce((a, c) => a + c.e, 0), M = cs.reduce((a, c) => a + c.m, 0);
-  return { cs, sc: zeroAll ? 0 : (M ? Math.round(E / M * 1000) / 10 : 0), zero: zeroAll };
+  if (!zeroAll && !M) return { cs, sc: null, zero: false, ns: true };
+  return { cs, sc: zeroAll ? 0 : Math.round(E / M * 1000) / 10, zero: zeroAll };
 }
 module.exports = { DEFAULT_SC, build };

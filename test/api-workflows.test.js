@@ -72,6 +72,22 @@ test('QA creates a review: the server calculates the score, the agent only sees 
   assert.ok(mine.some(e => e.rid === r.json.rid));
 });
 
+test('decision 14: a review with an unanswered question is refused; one where everything is N/A is saved as "not scored" and is in no average', async () => {
+  const qa = client(); await qa.login('t.qa');
+  const sc = (await qa.get('/api/scorecards')).json[0], a = allYes(sc); a[0][0] = [];
+  const r1 = await qa.post('/api/evaluations', { scid: sc.id, agent: AGENT, id: 'T-1401', dt: '2026-10-02', a });
+  assert.strictEqual(r1.status, 400); assert.match(r1.json.error, /Answer every question/);
+  const before = readDb().evaluations.filter(e => !e.ns && e.agent === AGENT).length;
+  const na = sc.cats.map(c => c.it.map(() => ['na']));
+  const r = await qa.post('/api/evaluations', { scid: sc.id, agent: AGENT, id: 'T-1402', dt: '2026-10-02', a: na });
+  assert.strictEqual(r.status, 200); assert.strictEqual(r.json.sc, null); assert.strictEqual(r.json.ns, true);
+  const saved = readDb(); assert.strictEqual(saved.evaluations.filter(e => !e.ns && e.agent === AGENT).length, before, 'not counted with the scored reviews');
+  assert.ok(saved.notifications.some(n => n.to === AGENT && n.text === 'You received a new review for Lead #T-1402 (not scored)'), 'the agent is told it is not scored');
+  const upd = await qa.put('/api/evaluations/' + r.json.rid, { a: allYes(sc) });
+  assert.strictEqual(upd.status, 200); assert.strictEqual(upd.json.sc, 100); assert.strictEqual(upd.json.ns, undefined, 'answered again: scored');
+  assert.strictEqual((await qa.call('DELETE', '/api/evaluations/' + r.json.rid)).status, 200);
+});
+
 test('a task that needs review waits in In review; the one who checks it sends it back with a comment or approves it', async () => {
   const qa = await asU('t.qa'), ag = await asU(AGENT);
   const [t] = (await qa.post('/api/tasks', { title: 'Call summary', rev: true, assignees: [AGENT], due: '2026-12-01' })).json;

@@ -50,10 +50,15 @@ test('answers that do not match the scorecard are rejected', () => {
   assert.throws(() => build(SC, ans(['y'], ['y', 'y'])));
   assert.throws(() => build(SC, 'nope'));
 });
-// The two rules below are how the app behaves today. They are open questions for the owner (see the audit report) - NOT confirmed business rules.
-test('CURRENT BEHAVIOUR: a missing or unknown answer is counted as Yes', () => {
-  assert.strictEqual(build(SC, [[[], ['maybe']], [[], []]]).sc, 100);
+// decision 14 (Gabriela, 4 November)
+test('saving a review: every question must be answered (nothing counts as Yes in silence)', () => {
+  assert.throws(() => build(SC, [[[], ['maybe']], [['y'], ['y']]], { all: true }), e => e.code === 'ANSWER');
+  assert.throws(() => build(SC, [[['y'], ['y']], [['y'], []]], { all: true }), e => e.code === 'ANSWER');
+  assert.strictEqual(build(SC, ans(['y', 'na'], ['n', 'y']), { all: true }).sc, 0, 'Yes, No and N/A are all answers');
+  assert.strictEqual(build(SC, [[[], ['maybe']], [[], []]]).sc, 100, 'a draft (AI or preview) may still have gaps');
 });
-test('CURRENT BEHAVIOUR: a review where everything is N/A scores 0%', () => {
-  assert.strictEqual(build(SC, ans(['na', 'na'], ['na', 'na'])).sc, 0);
+test('a review where everything is N/A is "not scored", not 0%', () => {
+  const r = build(SC, ans(['na', 'na'], ['na', 'na']));
+  assert.strictEqual(r.sc, null); assert.strictEqual(r.ns, true); assert.strictEqual(r.zero, false);
+  assert.strictEqual(build(SC, ans(['na', 'na'], ['na', 'y'])).ns, undefined, 'one real answer is enough to score it');
 });
